@@ -6,11 +6,19 @@ on:
       - main
       - develop
       - feature/**
+    tags:
+      - 'v*'
   pull_request:
+  release:
+    types:
+      - published
 
 jobs:
   validate-and-build:
     runs-on: ubuntu-latest
+
+    permissions:
+      contents: write
 
     steps:
       - name: Checkout repository
@@ -32,3 +40,9 @@ jobs:
         with:
           name: LoginGuard-package
           path: packages/*.zip
+
+      - name: Attach package to GitHub Release
+        if: github.event_name == 'release'
+        uses: softprops/action-gh-release@v2
+        with:
+          files: packages/*.zip
