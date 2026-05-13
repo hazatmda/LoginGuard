@@ -13,7 +13,6 @@
         <files folder="administrator/components/com_loginguard">
             <filename>loginguard.xml</filename>
             <folder>language</folder>
-            <folder>services</folder>
             <folder>src</folder>
             <folder>tmpl</folder>
         </files>
