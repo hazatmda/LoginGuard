@@ -1,2 +1,68 @@
 # LoginGuard
-Joomla security plugin to detect and monitor login attempts.
+
+Joomla 5 security plugin for login attempt detection, monitoring, and auditing.
+
+## Status
+
+Initial development version: `0.1.0-alpha`.
+
+## Features planned for MVP
+
+- Detect successful Joomla login attempts
+- Detect failed Joomla login attempts
+- Store login attempt audit records
+- Capture username, user ID when available, status, IP address, user agent, client, reason, and timestamp
+- Generate installable Joomla plugin ZIP package from GitHub Actions
+
+## Requirements
+
+- Joomla 5.2+
+- PHP 8.1+
+- MySQL/MariaDB supported by Joomla 5
+
+## Repository Structure
+
+```text
+.github/workflows/build.yml      GitHub Actions validation and package artifact workflow
+plugins/user/loginguard/         Joomla user plugin source
+scripts/build.sh                 Local package build script
+scripts/validate.sh              Local validation script
+packages/                        Generated ZIP output directory, ignored by Git
+VERSION                          Canonical project version
+CHANGELOG.md                     Release notes
+```
+
+## Build Package Locally
+
+```bash
+bash scripts/validate.sh
+bash scripts/build.sh
+```
+
+Generated package:
+
+```text
+packages/plg_user_loginguard_v0.1.0-alpha.zip
+```
+
+## Versioning Policy
+
+Before release, these must match:
+
+- `VERSION`
+- plugin manifest `<version>`
+- package filename
+- release tag
+- release notes
+
+Example:
+
+```text
+version: 0.1.0-alpha
+tag: v0.1.0-alpha
+package: plg_user_loginguard_v0.1.0-alpha.zip
+```
+
+## License
+
+GNU General Public License v3.0.
