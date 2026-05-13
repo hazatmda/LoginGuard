@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<extension type="package" method="upgrade">
+    <name>pkg_loginguard</name>
+    <packagename>loginguard</packagename>
+    <author>Hazim</author>
+    <creationDate>2026-05-13</creationDate>
+    <version>0.1.2-alpha</version>
+    <description>LoginGuard Joomla package containing the user plugin and administrator component.</description>
+
+    <files>
+        <file type="plugin" id="loginguard" group="user">plg_user_loginguard.zip</file>
+        <file type="component" id="com_loginguard">com_loginguard.zip</file>
+    </files>
+</extension>

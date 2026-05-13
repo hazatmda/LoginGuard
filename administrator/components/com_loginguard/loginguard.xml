@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8"?>
+<extension type="component" method="upgrade">
+    <name>com_loginguard</name>
+    <author>Hazim</author>
+    <creationDate>2026-05-13</creationDate>
+    <version>0.1.2-alpha</version>
+    <description>Administrator component for viewing LoginGuard login attempt audit records.</description>
+
+    <namespace path="src">Joomla\Component\LoginGuard</namespace>
+
+    <administration>
+        <menu link="option=com_loginguard">COM_LOGINGUARD_MENU</menu>
+
+        <files folder="admin">
+            <folder>services</folder>
+            <folder>src</folder>
+            <folder>language</folder>
+        </files>
+
+        <languages folder="admin/language">
+            <language tag="en-GB">en-GB/en-GB.com_loginguard.ini</language>
+            <language tag="en-GB">en-GB/en-GB.com_loginguard.sys.ini</language>
+        </languages>
+    </administration>
+</extension>
