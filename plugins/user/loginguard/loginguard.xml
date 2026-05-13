@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="utf-8"?>
+<extension type="plugin" group="user" method="upgrade">
+    <name>plg_user_loginguard</name>
+    <author>Hazim</author>
+    <creationDate>2026-05-13</creationDate>
+    <version>0.1.0-alpha</version>
+    <description>Joomla security plugin for login attempt detection, monitoring, and auditing.</description>
+
+    <namespace path="src">Joomla\Plugin\User\LoginGuard</namespace>
+
+    <files>
+        <folder plugin="loginguard">services</folder>
+        <folder>src</folder>
+        <folder>language</folder>
+        <folder>sql</folder>
+    </files>
+
+    <languages>
+        <language tag="en-GB">language/en-GB/en-GB.plg_user_loginguard.ini</language>
+    </languages>
+
+    <administration>
+        <sql>
+            <file driver="mysql" charset="utf8">sql/install.mysql.utf8.sql</file>
+        </sql>
+    </administration>
+
+    <uninstall>
+        <sql>
+            <file driver="mysql" charset="utf8">sql/uninstall.mysql.utf8.sql</file>
+        </sql>
+    </uninstall>
+</extension>
