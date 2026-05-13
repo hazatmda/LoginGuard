@@ -1,0 +1,31 @@
+<?php
+
+defined('_JEXEC') or die;
+
+use Joomla\CMS\Extension\PluginInterface;
+use Joomla\CMS\Plugin\PluginHelper;
+use Joomla\DI\Container;
+use Joomla\DI\ServiceProviderInterface;
+use Joomla\Event\DispatcherInterface;
+use Joomla\Plugin\User\LoginGuard\Extension\LoginGuard;
+
+return new class implements ServiceProviderInterface {
+    public function register(Container $container)
+    {
+        $container->set(
+            PluginInterface::class,
+            function (Container $container) {
+                $dispatcher = $container->get(DispatcherInterface::class);
+
+                $plugin = new LoginGuard(
+                    $dispatcher,
+                    (array) PluginHelper::getPlugin('user', 'loginguard')
+                );
+
+                $plugin->setApplication($container->get('application'));
+
+                return $plugin;
+            }
+        );
+    }
+};
