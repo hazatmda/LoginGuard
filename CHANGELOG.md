@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.1.4-alpha
+
+- Restored the Joomla 5 administrator component bootstrap and entry file so `com_loginguard` opens from the administrator menu.
+- Explicitly registers the component element, services folder, dispatcher factory, and attempts view menu route.
+
+## 0.1.3-alpha
+
+- Corrected the administrator component bootstrap after the initial package/component release.
+
 ## 0.1.2-alpha
 
 - Migrated LoginGuard packaging to `pkg_loginguard` while preserving the existing user plugin.

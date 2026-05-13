@@ -4,7 +4,7 @@ Joomla 5 package for login attempt detection, monitoring, and auditing.
 
 ## Status
 
-Current development version: `0.1.2-alpha`.
+Current development version: `0.1.4-alpha`.
 
 ## Features planned for MVP
 
@@ -46,7 +46,7 @@ bash scripts/build.sh
 Generated package:
 
 ```text
-packages/pkg_loginguard_v0.1.2-alpha.zip
+packages/pkg_loginguard_v0.1.4-alpha.zip
 ```
 
 ## Versioning Policy
@@ -64,9 +64,9 @@ Before release, these must match:
 Example:
 
 ```text
-version: 0.1.2-alpha
-tag: v0.1.2-alpha
-package: pkg_loginguard_v0.1.2-alpha.zip
+version: 0.1.4-alpha
+tag: v0.1.4-alpha
+package: pkg_loginguard_v0.1.4-alpha.zip
 ```
 
 ## License
