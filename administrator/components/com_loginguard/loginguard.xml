@@ -1,0 +1,35 @@
+<?xml version="1.0" encoding="utf-8"?>
+<extension type="component" method="upgrade">
+    <name>com_loginguard</name>
+    <author>Hazim</author>
+    <creationDate>2026-05-13</creationDate>
+    <version>0.1.2-alpha</version>
+    <description>COM_LOGINGUARD_XML_DESCRIPTION</description>
+
+    <namespace path="src">Joomla\Component\LoginGuard</namespace>
+
+    <files folder="site">
+        <folder>src</folder>
+    </files>
+
+    <administration>
+        <menu img="class:shield-alt">COM_LOGINGUARD</menu>
+        <submenu>
+            <menu link="option=com_loginguard&amp;view=attempts">COM_LOGINGUARD_SUBMENU_ATTEMPTS</menu>
+        </submenu>
+
+        <files folder="admin">
+            <filename>access.xml</filename>
+            <folder>forms</folder>
+            <folder>language</folder>
+            <folder>services</folder>
+            <folder>src</folder>
+            <folder>tmpl</folder>
+        </files>
+
+        <languages folder="admin/language">
+            <language tag="en-GB">en-GB/com_loginguard.ini</language>
+            <language tag="en-GB">en-GB/com_loginguard.sys.ini</language>
+        </languages>
+    </administration>
+</extension>
