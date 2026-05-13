@@ -1,11 +1,34 @@
 #!/usr/bin/env bash
-set -e
+set -euo pipefail
 
 VERSION=$(cat VERSION)
-PACKAGE_NAME="plg_user_loginguard_v${VERSION}.zip"
+PACKAGE_NAME="pkg_loginguard_v${VERSION}.zip"
+BUILD_DIR="build/pkg_loginguard"
+OUTPUT_DIR="packages"
 
-mkdir -p packages
+rm -rf build
+mkdir -p "${BUILD_DIR}" "${OUTPUT_DIR}"
 
-zip -r "packages/${PACKAGE_NAME}" plugins >/dev/null
+(
+    cd plugins/user/loginguard
+    zip -r "../../../${BUILD_DIR}/plg_user_loginguard.zip" . >/dev/null
+)
 
-echo "Generated packages/${PACKAGE_NAME}"
+COMPONENT_BUILD_DIR="build/com_loginguard"
+mkdir -p "${COMPONENT_BUILD_DIR}/administrator/components/com_loginguard"
+cp -R administrator/components/com_loginguard/. "${COMPONENT_BUILD_DIR}/administrator/components/com_loginguard/"
+cp administrator/components/com_loginguard/loginguard.xml "${COMPONENT_BUILD_DIR}/loginguard.xml"
+(
+    cd "${COMPONENT_BUILD_DIR}"
+    zip -r "../pkg_loginguard/com_loginguard.zip" . >/dev/null
+)
+
+cp pkg_loginguard/pkg_loginguard.xml "${BUILD_DIR}/pkg_loginguard.xml"
+(
+    cd "${BUILD_DIR}"
+    zip -r "../../${OUTPUT_DIR}/${PACKAGE_NAME}" . >/dev/null
+)
+
+rm -rf build
+
+echo "Generated ${OUTPUT_DIR}/${PACKAGE_NAME}"

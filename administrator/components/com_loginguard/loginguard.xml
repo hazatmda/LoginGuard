@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8"?>
+<extension type="component" method="upgrade">
+    <name>com_loginguard</name>
+    <author>Hazim</author>
+    <creationDate>2026-05-13</creationDate>
+    <version>0.1.2-alpha</version>
+    <description>COM_LOGINGUARD_XML_DESCRIPTION</description>
+
+    <namespace path="src">LoginGuard\Component\LoginGuard</namespace>
+
+    <administration>
+        <menu img="class:shield-alt">COM_LOGINGUARD</menu>
+        <files folder="administrator/components/com_loginguard">
+            <filename>loginguard.xml</filename>
+            <folder>language</folder>
+            <folder>services</folder>
+            <folder>src</folder>
+            <folder>tmpl</folder>
+        </files>
+        <languages folder="administrator/components/com_loginguard/language">
+            <language tag="en-GB">en-GB/en-GB.com_loginguard.ini</language>
+            <language tag="en-GB">en-GB/en-GB.com_loginguard.sys.ini</language>
+        </languages>
+    </administration>
+</extension>
