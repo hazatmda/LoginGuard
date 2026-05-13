@@ -1,10 +1,10 @@
 # LoginGuard
 
-Joomla 5 security plugin for login attempt detection, monitoring, and auditing.
+Joomla 5 package for login attempt detection, monitoring, and auditing.
 
 ## Status
 
-Initial development version: `0.1.0-alpha`.
+Current development version: `0.1.2-alpha`.
 
 ## Features planned for MVP
 
@@ -12,7 +12,9 @@ Initial development version: `0.1.0-alpha`.
 - Detect failed Joomla login attempts
 - Store login attempt audit records
 - Capture username, user ID when available, status, IP address, user agent, client, reason, and timestamp
-- Generate installable Joomla plugin ZIP package from GitHub Actions
+- Provide an administrator component for viewing login attempt audit records
+- Search, filter, sort, and paginate login attempt audit records
+- Generate an installable Joomla package ZIP from GitHub Actions
 
 ## Requirements
 
@@ -23,13 +25,15 @@ Initial development version: `0.1.0-alpha`.
 ## Repository Structure
 
 ```text
-.github/workflows/build.yml      GitHub Actions validation and package artifact workflow
-plugins/user/loginguard/         Joomla user plugin source
-scripts/build.sh                 Local package build script
-scripts/validate.sh              Local validation script
-packages/                        Generated ZIP output directory, ignored by Git
-VERSION                          Canonical project version
-CHANGELOG.md                     Release notes
+.github/workflows/build.yml               GitHub Actions validation and package artifact workflow
+administrator/components/com_loginguard/  Joomla administrator component source
+pkg_loginguard/                           Joomla package manifest source
+plugins/user/loginguard/                  Joomla user plugin source
+scripts/build.sh                          Local package build script
+scripts/validate.sh                       Local validation script
+packages/                                 Generated ZIP output directory, ignored by Git
+VERSION                                   Canonical project version
+CHANGELOG.md                              Release notes
 ```
 
 ## Build Package Locally
@@ -42,7 +46,7 @@ bash scripts/build.sh
 Generated package:
 
 ```text
-packages/plg_user_loginguard_v0.1.0-alpha.zip
+packages/pkg_loginguard_v0.1.2-alpha.zip
 ```
 
 ## Versioning Policy
@@ -51,6 +55,8 @@ Before release, these must match:
 
 - `VERSION`
 - plugin manifest `<version>`
+- component manifest `<version>`
+- package manifest `<version>`
 - package filename
 - release tag
 - release notes
@@ -58,9 +64,9 @@ Before release, these must match:
 Example:
 
 ```text
-version: 0.1.0-alpha
-tag: v0.1.0-alpha
-package: plg_user_loginguard_v0.1.0-alpha.zip
+version: 0.1.2-alpha
+tag: v0.1.2-alpha
+package: pkg_loginguard_v0.1.2-alpha.zip
 ```
 
 ## License
