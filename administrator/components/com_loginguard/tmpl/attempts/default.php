@@ -4,6 +4,7 @@ defined('_JEXEC') or die;
 
 use Joomla\CMS\HTML\HTMLHelper;
 use Joomla\CMS\Language\Text;
+use Joomla\CMS\Layout\LayoutHelper;
 use Joomla\CMS\Router\Route;
 
 HTMLHelper::_('behavior.core');
@@ -14,7 +15,7 @@ $listDirn  = $this->escape((string) $this->state->get('list.direction'));
 ?>
 <form action="<?php echo Route::_('index.php?option=com_loginguard&view=attempts'); ?>" method="post" name="adminForm" id="adminForm">
     <div id="j-main-container" class="j-main-container">
-        <?php echo HTMLHelper::_('searchtools.default', array('view' => $this)); ?>
+        <?php echo LayoutHelper::render('joomla.searchtools.default', ['view' => $this]); ?>
 
         <table class="table table-striped" id="loginguardAttemptsList">
             <caption class="visually-hidden"><?php echo Text::_('COM_LOGINGUARD_ATTEMPTS_TITLE'); ?></caption>
@@ -29,7 +30,7 @@ $listDirn  = $this->escape((string) $this->state->get('list.direction'));
                     <th scope="col"><?php echo HTMLHelper::_('grid.sort', 'COM_LOGINGUARD_HEADING_COUNTRY', 'country', $listDirn, $listOrder); ?></th>
                     <th scope="col"><?php echo HTMLHelper::_('grid.sort', 'COM_LOGINGUARD_HEADING_BROWSER', 'browser', $listDirn, $listOrder); ?></th>
                     <th scope="col"><?php echo HTMLHelper::_('grid.sort', 'COM_LOGINGUARD_HEADING_OS', 'operating_system', $listDirn, $listOrder); ?></th>
-                    <th scope="col"><?php echo HTMLHelper::_('grid.sort', 'COM_LOGINGUARD_HEADING_WHERE', 'client', $listDirn, $listOrder); ?></th>
+                    <th scope="col"><?php echo HTMLHelper::_('grid.sort', 'COM_LOGINGUARD_HEADING_WHERE', 'where_at', $listDirn, $listOrder); ?></th>
                 </tr>
             </thead>
             <tbody>
@@ -39,6 +40,7 @@ $listDirn  = $this->escape((string) $this->state->get('list.direction'));
                     </tr>
                 <?php else : ?>
                     <?php foreach ($this->items as $item) : ?>
+                        <?php $whereAt = (string) ($item->where_at ?: $item->client); ?>
                         <tr>
                             <td><?php echo (int) $item->id; ?></td>
                             <td><?php echo $this->escape((string) $item->ip_address); ?></td>
@@ -49,7 +51,7 @@ $listDirn  = $this->escape((string) $this->state->get('list.direction'));
                             <td><?php echo $this->escape((string) $item->country); ?></td>
                             <td><?php echo $this->escape((string) $item->browser); ?></td>
                             <td><?php echo $this->escape((string) $item->operating_system); ?></td>
-                            <td><?php echo $this->escape((string) $item->client); ?></td>
+                            <td><?php echo $this->escape($whereAt); ?></td>
                         </tr>
                     <?php endforeach; ?>
                 <?php endif; ?>
@@ -58,6 +60,8 @@ $listDirn  = $this->escape((string) $this->state->get('list.direction'));
 
         <?php echo $this->pagination->getListFooter(); ?>
 
+        <input type="hidden" name="filter_order" value="<?php echo $listOrder; ?>">
+        <input type="hidden" name="filter_order_Dir" value="<?php echo $listDirn; ?>">
         <input type="hidden" name="task" value="">
         <input type="hidden" name="boxchecked" value="0">
         <?php echo HTMLHelper::_('form.token'); ?>

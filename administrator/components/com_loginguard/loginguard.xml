@@ -3,7 +3,7 @@
     <name>com_loginguard</name>
     <author>Hazim</author>
     <creationDate>2026-05-13</creationDate>
-    <version>0.1.7-alpha</version>
+    <version>0.1.8-alpha</version>
     <element>com_loginguard</element>
     <description>COM_LOGINGUARD_XML_DESCRIPTION</description>
 

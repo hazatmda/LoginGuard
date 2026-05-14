@@ -22,6 +22,7 @@ final class AttemptsModel extends ListModel
                 'country',
                 'browser',
                 'operating_system',
+                'where_at',
                 'client',
             ];
         }
@@ -32,15 +33,25 @@ final class AttemptsModel extends ListModel
     protected function populateState($ordering = 'created', $direction = 'desc'): void
     {
         $app = Factory::getApplication();
+        $inputFilters = $app->getInput()->get('filter', [], 'array');
 
-        $search = $app->getUserStateFromRequest($this->context . '.filter.search', 'filter_search', '', 'string');
+        $search = array_key_exists('search', $inputFilters)
+            ? (string) $inputFilters['search']
+            : (string) $app->getUserState($this->context . '.filter.search', '');
+        $app->setUserState($this->context . '.filter.search', $search);
         $this->setState('filter.search', $search);
 
-        $status = $app->getUserStateFromRequest($this->context . '.filter.status', 'filter_status', '', 'cmd');
+        $status = array_key_exists('status', $inputFilters)
+            ? (string) $inputFilters['status']
+            : (string) $app->getUserState($this->context . '.filter.status', '');
+        $app->setUserState($this->context . '.filter.status', $status);
         $this->setState('filter.status', $status);
 
-        $client = $app->getUserStateFromRequest($this->context . '.filter.client', 'filter_client', '', 'cmd');
-        $this->setState('filter.client', $client);
+        $whereAt = array_key_exists('where_at', $inputFilters)
+            ? (string) $inputFilters['where_at']
+            : (string) $app->getUserState($this->context . '.filter.where_at', '');
+        $app->setUserState($this->context . '.filter.where_at', $whereAt);
+        $this->setState('filter.where_at', $whereAt);
 
         parent::populateState($ordering, $direction);
     }
@@ -59,6 +70,7 @@ final class AttemptsModel extends ListModel
                 $db->quoteName('country'),
                 $db->quoteName('browser'),
                 $db->quoteName('operating_system'),
+                $db->quoteName('where_at'),
                 $db->quoteName('client'),
                 $db->quoteName('reason'),
             ])
@@ -76,6 +88,7 @@ final class AttemptsModel extends ListModel
                 . ' OR ' . $db->quoteName('country') . ' LIKE ' . $db->quote($pattern)
                 . ' OR ' . $db->quoteName('browser') . ' LIKE ' . $db->quote($pattern)
                 . ' OR ' . $db->quoteName('operating_system') . ' LIKE ' . $db->quote($pattern)
+                . ' OR ' . $db->quoteName('where_at') . ' LIKE ' . $db->quote($pattern)
                 . ' OR ' . $db->quoteName('client') . ' LIKE ' . $db->quote($pattern)
                 . ')'
             );
@@ -87,10 +100,16 @@ final class AttemptsModel extends ListModel
             $query->where($db->quoteName('status') . ' = ' . $db->quote($status));
         }
 
-        $client = (string) $this->getState('filter.client');
+        $whereAt = (string) $this->getState('filter.where_at');
 
-        if ($client !== '') {
-            $query->where($db->quoteName('client') . ' = ' . $db->quote($client));
+        if ($whereAt !== '') {
+            $query->where(
+                '('
+                . $db->quoteName('where_at') . ' = ' . $db->quote($whereAt)
+                . ' OR (' . $db->quoteName('where_at') . ' = ' . $db->quote('')
+                . ' AND ' . $db->quoteName('client') . ' = ' . $db->quote($whereAt) . ')'
+                . ')'
+            );
         }
 
         $ordering = (string) $this->state->get('list.ordering', 'created');

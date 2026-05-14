@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.8-alpha
+
+- Rebuilt the administrator attempts ListView template around Joomla native SearchTools layout rendering.
+- Aligned the attempts ListModel, filter XML, active filter state, sorting, where filtering, and pagination lifecycle with Joomla administrator MVC conventions.
+- Synchronized release metadata and package naming for `pkg_loginguard_v0.1.8-alpha.zip`.
+
 ## 0.1.7-alpha
 
 - Fixed the Joomla plugin installer SQL lifecycle so fresh package installs create `#__loginguard_attempts` from `install.mysql.utf8.sql`.

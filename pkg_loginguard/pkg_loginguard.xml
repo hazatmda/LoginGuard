@@ -4,7 +4,7 @@
     <packagename>loginguard</packagename>
     <author>Hazim</author>
     <creationDate>2026-05-13</creationDate>
-    <version>0.1.7-alpha</version>
+    <version>0.1.8-alpha</version>
     <description>LoginGuard package with the user plugin and administrator component.</description>
 
     <files>
