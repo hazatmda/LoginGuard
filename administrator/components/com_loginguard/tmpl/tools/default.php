@@ -7,6 +7,7 @@ use Joomla\CMS\Router\Route;
 
 ?>
 <form action="<?php echo Route::_('index.php?option=com_loginguard&view=tools'); ?>" method="post" name="adminForm" id="adminForm">
+    <div class="row">
     <?php if (!empty($this->sidebar)) : ?>
         <div id="j-sidebar-container" class="col-md-2">
             <?php echo $this->sidebar; ?>
@@ -26,4 +27,5 @@ use Joomla\CMS\Router\Route;
                 </div>
             </div>
         </div>
+    </div>
 </form>

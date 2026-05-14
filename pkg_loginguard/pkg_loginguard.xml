@@ -4,11 +4,15 @@
     <packagename>loginguard</packagename>
     <author>Hazim</author>
     <creationDate>2026-05-13</creationDate>
-    <version>0.2.1-alpha</version>
+    <version>0.2.2-alpha</version>
     <description>LoginGuard package with the user plugin and administrator component.</description>
 
     <files>
         <file type="plugin" id="loginguard" group="user">plg_user_loginguard.zip</file>
         <file type="component" id="com_loginguard">com_loginguard.zip</file>
     </files>
+
+    <updateservers>
+        <server type="extension" priority="1" name="LoginGuard Updates">https://raw.githubusercontent.com/hazim/LoginGuard/main/updates/loginguard.xml</server>
+    </updateservers>
 </extension>

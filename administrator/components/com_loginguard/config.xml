@@ -73,6 +73,59 @@
             <option value="1">JYES</option>
         </field>
     </fieldset>
+
+    <fieldset name="alerts" label="COM_LOGINGUARD_CONFIG_FIELDSET_ALERTS">
+        <field
+            name="audit_alerts_enabled"
+            type="radio"
+            layout="joomla.form.field.radio.switcher"
+            label="COM_LOGINGUARD_CONFIG_AUDIT_ALERTS_ENABLED_LABEL"
+            description="COM_LOGINGUARD_CONFIG_AUDIT_ALERTS_ENABLED_DESC"
+            default="0"
+            filter="integer"
+        >
+            <option value="0">JNO</option>
+            <option value="1">JYES</option>
+        </field>
+        <field
+            name="audit_alert_success"
+            type="radio"
+            layout="joomla.form.field.radio.switcher"
+            label="COM_LOGINGUARD_CONFIG_AUDIT_ALERT_SUCCESS_LABEL"
+            description="COM_LOGINGUARD_CONFIG_AUDIT_ALERT_SUCCESS_DESC"
+            default="0"
+            showon="audit_alerts_enabled:1"
+            filter="integer"
+        >
+            <option value="0">JNO</option>
+            <option value="1">JYES</option>
+        </field>
+        <field
+            name="audit_alert_failed"
+            type="radio"
+            layout="joomla.form.field.radio.switcher"
+            label="COM_LOGINGUARD_CONFIG_AUDIT_ALERT_FAILED_LABEL"
+            description="COM_LOGINGUARD_CONFIG_AUDIT_ALERT_FAILED_DESC"
+            default="1"
+            showon="audit_alerts_enabled:1"
+            filter="integer"
+        >
+            <option value="0">JNO</option>
+            <option value="1">JYES</option>
+        </field>
+        <field
+            name="audit_alert_clients"
+            type="checkboxes"
+            label="COM_LOGINGUARD_CONFIG_AUDIT_ALERT_CLIENTS_LABEL"
+            description="COM_LOGINGUARD_CONFIG_AUDIT_ALERT_CLIENTS_DESC"
+            default="administrator"
+            showon="audit_alerts_enabled:1"
+            filter="cmd"
+        >
+            <option value="site">COM_LOGINGUARD_CONFIG_AUDIT_ALERT_CLIENT_SITE</option>
+            <option value="administrator">COM_LOGINGUARD_CONFIG_AUDIT_ALERT_CLIENT_ADMINISTRATOR</option>
+        </field>
+    </fieldset>
     <fieldset name="permissions" label="JCONFIG_PERMISSIONS_LABEL">
         <field
             name="rules"

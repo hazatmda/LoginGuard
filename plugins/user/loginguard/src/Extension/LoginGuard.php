@@ -4,8 +4,10 @@ namespace Joomla\Plugin\User\LoginGuard\Extension;
 
 defined('_JEXEC') or die;
 
+use Joomla\CMS\Component\ComponentHelper;
 use Joomla\CMS\Date\Date;
 use Joomla\CMS\Factory;
+use Joomla\CMS\Language\Text;
 use Joomla\CMS\Plugin\CMSPlugin;
 use Joomla\CMS\User\UserHelper;
 use Joomla\Database\DatabaseDriver;
@@ -136,6 +138,8 @@ final class LoginGuard extends CMSPlugin
 
         $db->setQuery($query);
         $db->execute();
+
+        $this->enqueueAuditAlert($record);
     }
 
     private function ensureSchema(DatabaseDriver $db): void
@@ -171,6 +175,62 @@ final class LoginGuard extends CMSPlugin
                 // Another request may have added it first; keep login non-blocking.
             }
         }
+    }
+
+    /**
+     * Queue an optional Joomla application message for the audited login event.
+     *
+     * @param   array<string, mixed>  $record
+     */
+    private function enqueueAuditAlert(array $record): void
+    {
+        if (PHP_SAPI === 'cli') {
+            return;
+        }
+
+        $params = ComponentHelper::getParams('com_loginguard');
+
+        if (!$params->get('audit_alerts_enabled', 0)) {
+            return;
+        }
+
+        $status = (string) ($record['status'] ?? '');
+
+        if ($status === 'SUCCESS_LOGIN' && !$params->get('audit_alert_success', 0)) {
+            return;
+        }
+
+        if ($status === 'FAILED_LOGIN' && !$params->get('audit_alert_failed', 1)) {
+            return;
+        }
+
+        try {
+            $app = Factory::getApplication();
+        } catch (Throwable $exception) {
+            return;
+        }
+
+        $client = $app->isClient('administrator') ? 'administrator' : 'site';
+        $allowedClients = (array) $params->get('audit_alert_clients', ['administrator']);
+
+        if (!in_array($client, $allowedClients, true)) {
+            return;
+        }
+
+        $messageKey = $status === 'SUCCESS_LOGIN'
+            ? 'PLG_USER_LOGINGUARD_ALERT_SUCCESS_LOGIN'
+            : 'PLG_USER_LOGINGUARD_ALERT_FAILED_LOGIN';
+        $messageType = $status === 'SUCCESS_LOGIN' ? 'success' : 'warning';
+
+        $app->enqueueMessage(
+            Text::sprintf(
+                $messageKey,
+                (string) ($record['username'] ?? 'unknown'),
+                (string) ($record['ip_address'] ?? 'unknown'),
+                Text::_('PLG_USER_LOGINGUARD_WHERE_' . strtoupper((string) ($record['where_at'] ?? 'frontend')))
+            ),
+            $messageType
+        );
     }
 
     /**

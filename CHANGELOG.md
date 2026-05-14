@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.2.2-alpha
+
+- Fixed administrator sidebar layout wrappers so submenu content is placed beside the main panel consistently.
+- Reduced dashboard origin metrics to frontend and backend counts only.
+- Added configurable Joomla-native audit alerts for successful and failed login events.
+- Added Joomla update server metadata and synchronized release package naming for `pkg_loginguard_v0.2.2-alpha.zip`.
+
 ## 0.2.1-alpha
 
 - Added a lightweight Joomla-native dashboard telemetry overview with success and failed login count cards.

@@ -9,8 +9,6 @@ use Joomla\CMS\Router\Route;
 $originLabels = [
     'frontend' => 'COM_LOGINGUARD_WHERE_FRONTEND',
     'backend' => 'COM_LOGINGUARD_WHERE_BACKEND',
-    'api' => 'COM_LOGINGUARD_WHERE_API',
-    'cli' => 'COM_LOGINGUARD_WHERE_CLI',
 ];
 
 $failureReasonLabels = [
@@ -23,6 +21,7 @@ $failureReasonLabels = [
 
 ?>
 <form action="<?php echo Route::_('index.php?option=com_loginguard'); ?>" method="post" name="adminForm" id="adminForm">
+    <div class="row">
     <?php if (!empty($this->sidebar)) : ?>
         <div id="j-sidebar-container" class="col-md-2">
             <?php echo $this->sidebar; ?>
@@ -56,7 +55,7 @@ $failureReasonLabels = [
                             <h2 class="h5 card-title"><?php echo Text::_('COM_LOGINGUARD_DASHBOARD_ORIGIN_METRICS'); ?></h2>
                             <div class="row g-2">
                                 <?php foreach ($originLabels as $origin => $label) : ?>
-                                    <div class="col-6 col-md-3">
+                                    <div class="col-6">
                                         <div class="border rounded p-3 h-100">
                                             <div class="text-muted small"><?php echo Text::_($label); ?></div>
                                             <div class="fs-4 fw-semibold"><?php echo (int) ($this->originCounts[$origin] ?? 0); ?></div>
@@ -165,4 +164,5 @@ $failureReasonLabels = [
                 </div>
             </div>
         </div>
+    </div>
 </form>

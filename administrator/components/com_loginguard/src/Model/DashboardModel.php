@@ -32,8 +32,6 @@ final class DashboardModel extends BaseDatabaseModel
         $origins = [
             'frontend' => 0,
             'backend' => 0,
-            'api' => 0,
-            'cli' => 0,
         ];
 
         $db = $this->getDatabase();
