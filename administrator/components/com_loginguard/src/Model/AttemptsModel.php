@@ -19,11 +19,13 @@ final class AttemptsModel extends ListModel
                 'username',
                 'status',
                 'created',
+                'reason',
                 'country',
                 'browser',
                 'operating_system',
                 'where_at',
                 'client',
+                'user_agent',
             ];
         }
 
@@ -82,12 +84,13 @@ final class AttemptsModel extends ListModel
                 $db->quoteName('username'),
                 $db->quoteName('status'),
                 $db->quoteName('created'),
+                $db->quoteName('reason'),
                 $db->quoteName('country'),
                 $db->quoteName('browser'),
                 $db->quoteName('operating_system'),
                 $db->quoteName('where_at'),
                 $db->quoteName('client'),
-                $db->quoteName('reason'),
+                $db->quoteName('user_agent'),
             ])
             ->from($db->quoteName('#__loginguard_attempts'));
 
@@ -103,6 +106,8 @@ final class AttemptsModel extends ListModel
                 . ' OR ' . $db->quoteName('country') . ' LIKE ' . $db->quote($pattern)
                 . ' OR ' . $db->quoteName('browser') . ' LIKE ' . $db->quote($pattern)
                 . ' OR ' . $db->quoteName('operating_system') . ' LIKE ' . $db->quote($pattern)
+                . ' OR ' . $db->quoteName('reason') . ' LIKE ' . $db->quote($pattern)
+                . ' OR ' . $db->quoteName('user_agent') . ' LIKE ' . $db->quote($pattern)
                 . ' OR ' . $db->quoteName('where_at') . ' LIKE ' . $db->quote($pattern)
                 . ' OR ' . $db->quoteName('client') . ' LIKE ' . $db->quote($pattern)
                 . ')'

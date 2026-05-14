@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.2.0-alpha
+
+- Added Joomla administrator submenu architecture for Dashboard, Login Information, Configuration, Tools, and About.
+- Moved the audit list under Login Guard → Login Information while preserving SearchTools sorting, filtering, and pagination.
+- Added authentication telemetry enums for SUCCESS_LOGIN/FAILED_LOGIN, failure reasons, and frontend/backend/api/cli origin detection without password logging.
+- Added Joomla-native ACL access.xml permissions, sensitive audit view checks, toolbar permission enforcement, delete/export permissions, and component com_config foundation.
+- Synchronized package metadata and release artifacts for `pkg_loginguard_v0.2.0-alpha.zip`.
+
 ## 0.1.9-alpha
 
 - Added a centralized proxy-aware IP resolver for Cloudflare, forwarded proxy headers, real IP headers, and localhost fallback support.

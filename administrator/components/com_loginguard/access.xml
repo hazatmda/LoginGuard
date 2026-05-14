@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<access component="com_loginguard">
+    <section name="component">
+        <action name="core.manage" title="JACTION_MANAGE" description="JACTION_MANAGE_COMPONENT_DESC" />
+        <action name="loginguard.view" title="COM_LOGINGUARD_ACTION_VIEW" description="COM_LOGINGUARD_ACTION_VIEW_DESC" />
+        <action name="core.admin" title="JACTION_ADMIN" description="JACTION_ADMIN_COMPONENT_DESC" />
+        <action name="loginguard.delete" title="COM_LOGINGUARD_ACTION_DELETE" description="COM_LOGINGUARD_ACTION_DELETE_DESC" />
+        <action name="loginguard.export" title="COM_LOGINGUARD_ACTION_EXPORT" description="COM_LOGINGUARD_ACTION_EXPORT_DESC" />
+    </section>
+</access>

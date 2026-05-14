@@ -186,6 +186,76 @@ if not {'fullordering', 'limit'}.issubset(list_fields):
     print('Attempts filter XML missing SearchTools ordering or limit fields', file=sys.stderr)
     sys.exit(1)
 
+
+component_manifest = Path('administrator/components/com_loginguard/loginguard.xml')
+component_root = roots.get(component_manifest)
+component_manifest_text = component_manifest.read_text(encoding='utf-8')
+for required_file in ['access.xml', 'config.xml']:
+    if f'<filename>{required_file}</filename>' not in component_manifest_text or not (component_manifest.parent / required_file).is_file():
+        print(f'Component manifest missing Joomla-native {required_file}', file=sys.stderr)
+        sys.exit(1)
+if 'view="attempts"' in component_manifest_text:
+    print('Component root menu must route to dashboard, not attempts', file=sys.stderr)
+    sys.exit(1)
+
+access_xml = Path('administrator/components/com_loginguard/access.xml')
+access_root = roots.get(access_xml)
+if access_root is None:
+    print('Missing access.xml for ACL validation', file=sys.stderr)
+    sys.exit(1)
+actions = {action.attrib.get('name') for action in access_root.findall("./section[@name='component']/action")}
+required_actions = {'core.manage', 'loginguard.view', 'core.admin', 'loginguard.delete', 'loginguard.export'}
+if not required_actions.issubset(actions):
+    print(f'access.xml missing ACL actions: {sorted(required_actions - actions)}', file=sys.stderr)
+    sys.exit(1)
+
+config_xml = Path('administrator/components/com_loginguard/config.xml')
+config_root = roots.get(config_xml)
+if config_root is None:
+    print('Missing config.xml for com_config integration', file=sys.stderr)
+    sys.exit(1)
+config_fields = {field.attrib.get('name') for field in config_root.findall('.//field')}
+required_config_fields = {'trusted_proxies', 'retention_days', 'logging_level', 'lockout_duration', 'failed_attempt_threshold', 'geoip_enabled', 'export_requires_permission', 'rules'}
+if not required_config_fields.issubset(config_fields):
+    print(f'config.xml missing fields: {sorted(required_config_fields - config_fields)}', file=sys.stderr)
+    sys.exit(1)
+
+for view in ['Dashboard', 'Attempts', 'Tools', 'About']:
+    view_file = Path(f'administrator/components/com_loginguard/src/View/{view}/HtmlView.php')
+    if not view_file.is_file():
+        print(f'Missing submenu view {view}', file=sys.stderr)
+        sys.exit(1)
+
+helper_text = Path('administrator/components/com_loginguard/src/Helper/LoginGuardHelper.php').read_text(encoding='utf-8')
+for submenu in ['SUBMENU_DASHBOARD', 'SUBMENU_LOGIN_INFORMATION', 'SUBMENU_CONFIGURATION', 'SUBMENU_TOOLS', 'SUBMENU_ABOUT']:
+    if submenu not in helper_text:
+        print(f'Submenu helper missing {submenu}', file=sys.stderr)
+        sys.exit(1)
+
+for permission in required_actions:
+    if permission not in helper_text + view_text + login_guard_text + Path('administrator/components/com_loginguard/src/Controller/DisplayController.php').read_text(encoding='utf-8') + Path('administrator/components/com_loginguard/src/Controller/AttemptsController.php').read_text(encoding='utf-8'):
+        print(f'ACL permission not enforced or referenced: {permission}', file=sys.stderr)
+        sys.exit(1)
+
+install_sql = (plugin_manifest.parent / 'sql/install.mysql.utf8.sql').read_text(encoding='utf-8')
+
+for telemetry in ['SUCCESS_LOGIN', 'FAILED_LOGIN', 'USERNAME_NOT_FOUND', 'PASSWORD_INCORRECT', 'INVALID_CREDENTIALS', 'ACCOUNT_BLOCKED', 'ACCOUNT_DISABLED', 'frontend', 'backend', 'api', 'cli']:
+    if telemetry not in login_guard_text and telemetry not in install_sql:
+        print(f'Missing authentication telemetry token: {telemetry}', file=sys.stderr)
+        sys.exit(1)
+if 'password' in login_guard_text.lower() and "'password'" not in login_guard_text.lower() and 'PASSWORD_INCORRECT' not in login_guard_text:
+    print('Unexpected password handling check failed', file=sys.stderr)
+    sys.exit(1)
+if 'raw password' in login_guard_text.lower() or 'plaintext password' in install_sql.lower():
+    print('Potential plaintext password storage detected', file=sys.stderr)
+    sys.exit(1)
+
+attempts_template = component_template.read_text(encoding='utf-8')
+for heading in ['COM_LOGINGUARD_HEADING_FAILURE_REASON', 'COM_LOGINGUARD_HEADING_USER_AGENT', 'COM_LOGINGUARD_HEADING_WHERE', 'COM_LOGINGUARD_HEADING_DATETIME']:
+    if heading not in attempts_template:
+        print(f'Attempts table missing required heading {heading}', file=sys.stderr)
+        sys.exit(1)
+
 package_manifest = Path('pkg_loginguard/pkg_loginguard.xml')
 package_name = f"pkg_loginguard_v{versions['VERSION']}.zip"
 if package_name not in Path('README.md').read_text(encoding='utf-8'):
@@ -197,11 +267,10 @@ if scriptfile != 'script.php' or not (plugin_manifest.parent / scriptfile).is_fi
     print('Plugin installer scriptfile is not registered or missing', file=sys.stderr)
     sys.exit(1)
 
-install_sql = (plugin_manifest.parent / 'sql/install.mysql.utf8.sql').read_text(encoding='utf-8')
 required_columns = [
     'id', 'user_id', 'name', 'username', 'email', 'ip_address', 'status',
     'browser', 'operating_system', 'country', 'where_at', 'user_agent',
-    'attempt_type', 'created',
+    'attempt_type', 'client', 'reason', 'created',
 ]
 missing_columns = [column for column in required_columns if f'`{column}`' not in install_sql]
 if missing_columns:

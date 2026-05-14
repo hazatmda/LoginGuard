@@ -1,0 +1,10 @@
+ALTER TABLE `#__loginguard_attempts` MODIFY `status` varchar(20) NOT NULL DEFAULT 'FAILED_LOGIN';
+ALTER TABLE `#__loginguard_attempts` MODIFY `where_at` varchar(50) NOT NULL DEFAULT 'frontend';
+ALTER TABLE `#__loginguard_attempts` MODIFY `client` varchar(50) NOT NULL DEFAULT 'frontend';
+UPDATE `#__loginguard_attempts` SET `status` = 'SUCCESS_LOGIN' WHERE `status` = 'success';
+UPDATE `#__loginguard_attempts` SET `status` = 'FAILED_LOGIN' WHERE `status` IN ('failed', 'unknown', '');
+UPDATE `#__loginguard_attempts` SET `reason` = '' WHERE `status` = 'SUCCESS_LOGIN';
+UPDATE `#__loginguard_attempts` SET `reason` = 'INVALID_CREDENTIALS' WHERE `status` = 'FAILED_LOGIN' AND (`reason` = '' OR `reason` NOT IN ('USERNAME_NOT_FOUND', 'PASSWORD_INCORRECT', 'INVALID_CREDENTIALS', 'ACCOUNT_BLOCKED', 'ACCOUNT_DISABLED'));
+UPDATE `#__loginguard_attempts` SET `where_at` = 'frontend' WHERE `where_at` IN ('site', '');
+UPDATE `#__loginguard_attempts` SET `where_at` = 'backend' WHERE `where_at` = 'administrator';
+UPDATE `#__loginguard_attempts` SET `client` = `where_at`;

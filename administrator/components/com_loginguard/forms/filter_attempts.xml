@@ -18,8 +18,8 @@
             validate="options"
         >
             <option value="">JOPTION_SELECT_STATUS</option>
-            <option value="success">COM_LOGINGUARD_STATUS_SUCCESS</option>
-            <option value="failed">COM_LOGINGUARD_STATUS_FAILED</option>
+            <option value="SUCCESS_LOGIN">COM_LOGINGUARD_STATUS_SUCCESS_LOGIN</option>
+            <option value="FAILED_LOGIN">COM_LOGINGUARD_STATUS_FAILED_LOGIN</option>
         </field>
         <field
             name="where_at"
@@ -30,8 +30,10 @@
             validate="options"
         >
             <option value="">COM_LOGINGUARD_FILTER_WHERE</option>
-            <option value="site">COM_LOGINGUARD_WHERE_SITE</option>
-            <option value="administrator">COM_LOGINGUARD_WHERE_ADMINISTRATOR</option>
+            <option value="frontend">COM_LOGINGUARD_WHERE_FRONTEND</option>
+            <option value="backend">COM_LOGINGUARD_WHERE_BACKEND</option>
+            <option value="api">COM_LOGINGUARD_WHERE_API</option>
+            <option value="cli">COM_LOGINGUARD_WHERE_CLI</option>
         </field>
     </fields>
     <fields name="list">
@@ -54,16 +56,20 @@
             <option value="username DESC">COM_LOGINGUARD_HEADING_USERNAME_DESC</option>
             <option value="status ASC">COM_LOGINGUARD_HEADING_STATUS_ASC</option>
             <option value="status DESC">COM_LOGINGUARD_HEADING_STATUS_DESC</option>
-            <option value="created ASC">COM_LOGINGUARD_HEADING_DATETIME_ASC</option>
-            <option value="created DESC">COM_LOGINGUARD_HEADING_DATETIME_DESC</option>
+            <option value="reason ASC">COM_LOGINGUARD_HEADING_FAILURE_REASON_ASC</option>
+            <option value="reason DESC">COM_LOGINGUARD_HEADING_FAILURE_REASON_DESC</option>
+            <option value="where_at ASC">COM_LOGINGUARD_HEADING_WHERE_ASC</option>
+            <option value="where_at DESC">COM_LOGINGUARD_HEADING_WHERE_DESC</option>
             <option value="country ASC">COM_LOGINGUARD_HEADING_COUNTRY_ASC</option>
             <option value="country DESC">COM_LOGINGUARD_HEADING_COUNTRY_DESC</option>
             <option value="browser ASC">COM_LOGINGUARD_HEADING_BROWSER_ASC</option>
             <option value="browser DESC">COM_LOGINGUARD_HEADING_BROWSER_DESC</option>
             <option value="operating_system ASC">COM_LOGINGUARD_HEADING_OS_ASC</option>
             <option value="operating_system DESC">COM_LOGINGUARD_HEADING_OS_DESC</option>
-            <option value="where_at ASC">COM_LOGINGUARD_HEADING_WHERE_ASC</option>
-            <option value="where_at DESC">COM_LOGINGUARD_HEADING_WHERE_DESC</option>
+            <option value="user_agent ASC">COM_LOGINGUARD_HEADING_USER_AGENT_ASC</option>
+            <option value="user_agent DESC">COM_LOGINGUARD_HEADING_USER_AGENT_DESC</option>
+            <option value="created ASC">COM_LOGINGUARD_HEADING_DATETIME_ASC</option>
+            <option value="created DESC">COM_LOGINGUARD_HEADING_DATETIME_DESC</option>
         </field>
         <field
             name="limit"
