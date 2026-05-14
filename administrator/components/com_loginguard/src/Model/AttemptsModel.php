@@ -73,6 +73,42 @@ final class AttemptsModel extends ListModel
         }
     }
 
+    /**
+     * Build export rows from the active SearchTools state and optional selected IDs.
+     *
+     * @param   array<int, int>  $ids  Selected audit row IDs. Empty exports the filtered result set.
+     *
+     * @return array<int, array<string, mixed>>
+     */
+    public function getExportRows(array $ids = []): array
+    {
+        $db = $this->getDatabase();
+        $query = clone $this->getListQuery();
+        $query->clear('select')
+            ->select([
+                $db->quoteName('id'),
+                $db->quoteName('ip_address'),
+                $db->quoteName('name'),
+                $db->quoteName('username'),
+                $db->quoteName('status'),
+                $db->quoteName('reason', 'failure_reason'),
+                'COALESCE(NULLIF(' . $db->quoteName('where_at') . ', ' . $db->quote('') . '), ' . $db->quoteName('client') . ') AS ' . $db->quoteName('where_at'),
+                $db->quoteName('country'),
+                $db->quoteName('browser'),
+                $db->quoteName('operating_system'),
+                $db->quoteName('user_agent'),
+                $db->quoteName('created'),
+            ]);
+
+        $ids = array_values(array_unique(array_filter(array_map('intval', $ids))));
+
+        if ($ids !== []) {
+            $query->where($db->quoteName('id') . ' IN (' . implode(',', $ids) . ')');
+        }
+
+        return $db->setQuery($query)->loadAssocList() ?: [];
+    }
+
     protected function getListQuery()
     {
         $db = $this->getDatabase();

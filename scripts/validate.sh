@@ -181,6 +181,17 @@ for required_state in ['FilterForm', 'ActiveFilters', 'Pagination', 'Items', 'To
         print(f'Attempts HtmlView missing {required_state} wiring', file=sys.stderr)
         sys.exit(1)
 
+for required_export_text in ["ToolbarHelper::custom('attempts.export'", 'COM_LOGINGUARD_TOOLBAR_EXPORT']:
+    if required_export_text not in view_text:
+        print(f'Attempts HtmlView missing Joomla toolbar export action: {required_export_text}', file=sys.stderr)
+        sys.exit(1)
+
+controller_text = Path('administrator/components/com_loginguard/src/Controller/AttemptsController.php').read_text(encoding='utf-8')
+for required_export_text in ["requirePermission('loginguard.export')", 'checkToken()', "getModel('Attempts', 'Administrator', ['ignore_request' => false])", 'getExportRows($ids)', 'text/csv; charset=UTF-8', 'Content-Disposition', 'Cache-Control', '\\xEF\\xBB\\xBF', '$app->close()']:
+    if required_export_text not in controller_text:
+        print(f'Attempts export missing complete CSV export support: {required_export_text}', file=sys.stderr)
+        sys.exit(1)
+
 model_text = component_model.read_text(encoding='utf-8')
 for required_state in ["'filter.search'", "'filter.status'", "'filter.where_at'", "'list.ordering'", "'list.direction'"]:
     if required_state not in model_text:
@@ -229,10 +240,15 @@ if config_root is None:
     print('Missing config.xml for com_config integration', file=sys.stderr)
     sys.exit(1)
 config_fields = {field.attrib.get('name') for field in config_root.findall('.//field')}
-required_config_fields = {'trusted_proxies', 'retention_days', 'logging_level', 'lockout_duration', 'failed_attempt_threshold', 'geoip_enabled', 'export_requires_permission', 'audit_alerts_enabled', 'audit_alert_success', 'audit_alert_failed', 'audit_alert_recipients', 'audit_alert_success_subject', 'audit_alert_success_body', 'audit_alert_failed_subject', 'audit_alert_failed_body', 'rules'}
+required_config_fields = {'trusted_proxies', 'retention_days', 'logging_level', 'geoip_enabled', 'export_requires_permission', 'audit_alerts_enabled', 'audit_alert_success', 'audit_alert_failed', 'audit_alert_recipients', 'audit_alert_success_subject', 'audit_alert_success_body', 'audit_alert_failed_subject', 'audit_alert_failed_body', 'rules'}
 if not required_config_fields.issubset(config_fields):
     print(f'config.xml missing fields: {sorted(required_config_fields - config_fields)}', file=sys.stderr)
     sys.exit(1)
+for removed_field in {'lockout_duration', 'failed_attempt_threshold'}:
+    if removed_field in config_fields:
+        print(f'config.xml must not expose non-functional enforcement setting: {removed_field}', file=sys.stderr)
+        sys.exit(1)
+
 
 for view in ['Dashboard', 'Attempts', 'Tools', 'About']:
     view_file = Path(f'administrator/components/com_loginguard/src/View/{view}/HtmlView.php')
@@ -249,7 +265,7 @@ for required_file in [dashboard_view, dashboard_model, dashboard_template]:
         sys.exit(1)
 
 dashboard_view_text = dashboard_view.read_text(encoding='utf-8')
-for required_text in ["requirePermission('core.manage')", "requirePermission('loginguard.view')", 'SuccessLoginCount', 'FailedLoginCount', 'OriginCounts', 'RecentActivity', 'TopFailureReasons', 'TopFailedIps']:
+for required_text in ["requirePermission('core.manage')", "requirePermission('loginguard.view')", 'TelemetryCounts', 'SuccessLoginCount', 'FailedLoginCount', 'OriginCounts', 'RecentActivity', 'TopFailureReasons', 'TopFailedIps']:
     if required_text not in dashboard_view_text:
         print(f'Dashboard HtmlView missing required telemetry/ACL wiring: {required_text}', file=sys.stderr)
         sys.exit(1)
@@ -261,7 +277,7 @@ for required_text in ['SUCCESS_LOGIN', 'FAILED_LOGIN', 'frontend', 'backend', 'P
         sys.exit(1)
 
 dashboard_template_text = dashboard_template.read_text(encoding='utf-8')
-for required_text in ['COM_LOGINGUARD_DASHBOARD_SUCCESS_LOGINS', 'COM_LOGINGUARD_DASHBOARD_FAILED_LOGINS', 'COM_LOGINGUARD_DASHBOARD_ORIGIN_METRICS', 'COM_LOGINGUARD_DASHBOARD_RECENT_ACTIVITY', 'COM_LOGINGUARD_DASHBOARD_TOP_FAILURE_REASONS', 'COM_LOGINGUARD_DASHBOARD_TOP_IPS', 'COM_LOGINGUARD_SUBMENU_LOGIN_INFORMATION']:
+for required_text in ['COM_LOGINGUARD_DASHBOARD_FRONTEND_SUCCESS', 'COM_LOGINGUARD_DASHBOARD_BACKEND_SUCCESS', 'COM_LOGINGUARD_DASHBOARD_FRONTEND_FAILED', 'COM_LOGINGUARD_DASHBOARD_BACKEND_FAILED', 'COM_LOGINGUARD_DASHBOARD_RECENT_ACTIVITY', 'COM_LOGINGUARD_DASHBOARD_TOP_FAILURE_REASONS', 'COM_LOGINGUARD_DASHBOARD_TOP_IPS', 'COM_LOGINGUARD_SUBMENU_LOGIN_INFORMATION']:
     if required_text not in dashboard_template_text:
         print(f'Dashboard template missing required widget rendering: {required_text}', file=sys.stderr)
         sys.exit(1)
@@ -274,6 +290,13 @@ if any(origin in dashboard_template_text for origin in ["'api' =>", "'cli' =>"])
     sys.exit(1)
 
 helper_text = Path('administrator/components/com_loginguard/src/Helper/LoginGuardHelper.php').read_text(encoding='utf-8')
+if 'Joomla\\CMS\\HTML\\Helpers\\Sidebar' not in helper_text or 'Sidebar::addEntry' not in helper_text:
+    print('Submenu helper must use Joomla-native administrator Sidebar APIs', file=sys.stderr)
+    sys.exit(1)
+for view_file in Path('administrator/components/com_loginguard/src/View').glob('*/HtmlView.php'):
+    if 'Sidebar::render()' not in view_file.read_text(encoding='utf-8'):
+        print(f'{view_file} must render Joomla-native administrator sidebar', file=sys.stderr)
+        sys.exit(1)
 for submenu in ['SUBMENU_DASHBOARD', 'SUBMENU_LOGIN_INFORMATION', 'SUBMENU_CONFIGURATION', 'SUBMENU_TOOLS', 'SUBMENU_ABOUT']:
     if submenu not in helper_text:
         print(f'Submenu helper missing {submenu}', file=sys.stderr)
@@ -320,7 +343,7 @@ wrong_repo = 'hazim' + '/LoginGuard'
 if wrong_repo in update_server_text:
     print('Update metadata contains the incorrect repository URL', file=sys.stderr)
     sys.exit(1)
-for required_url in ['https://raw.githubusercontent.com/hazatmda/LoginGuard/main/updates/loginguard.xml', 'https://github.com/hazatmda/LoginGuard/releases/tag/v0.2.2-alpha', 'https://github.com/hazatmda/LoginGuard/releases/download/v0.2.2-alpha/pkg_loginguard_v0.2.2-alpha.zip', 'https://github.com/hazatmda/LoginGuard']:
+for required_url in ['https://raw.githubusercontent.com/hazatmda/LoginGuard/main/updates/loginguard.xml', 'https://github.com/hazatmda/LoginGuard/releases/tag/v0.2.3-alpha', 'https://github.com/hazatmda/LoginGuard/releases/download/v0.2.3-alpha/pkg_loginguard_v0.2.3-alpha.zip', 'https://github.com/hazatmda/LoginGuard']:
     if required_url not in update_server_text:
         print(f'Update metadata missing corrected repository URL: {required_url}', file=sys.stderr)
         sys.exit(1)

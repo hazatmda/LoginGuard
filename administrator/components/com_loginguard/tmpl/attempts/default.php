@@ -13,6 +13,7 @@ HTMLHelper::_('searchtools.form', '#adminForm');
 $listOrder = $this->escape((string) $this->state->get('list.ordering'));
 $listDirn  = $this->escape((string) $this->state->get('list.direction'));
 $canDelete = $this->actions && $this->actions->get('loginguard.delete');
+$canSelect = $canDelete || ($this->actions && $this->actions->get('loginguard.export'));
 ?>
 <form action="<?php echo Route::_('index.php?option=com_loginguard&view=attempts'); ?>" method="post" name="adminForm" id="adminForm">
     <div class="row">
@@ -30,7 +31,7 @@ $canDelete = $this->actions && $this->actions->get('loginguard.delete');
             <caption class="visually-hidden"><?php echo Text::_('COM_LOGINGUARD_ATTEMPTS_TITLE'); ?></caption>
             <thead>
                 <tr>
-                    <?php if ($canDelete) : ?>
+                    <?php if ($canSelect) : ?>
                         <td class="w-1 text-center"><?php echo HTMLHelper::_('grid.checkall'); ?></td>
                     <?php endif; ?>
                     <th scope="col"><?php echo HTMLHelper::_('searchtools.sort', 'JGLOBAL_FIELD_ID_LABEL', 'id', $listDirn, $listOrder); ?></th>
@@ -50,12 +51,12 @@ $canDelete = $this->actions && $this->actions->get('loginguard.delete');
             <tbody>
                 <?php if (empty($this->items)) : ?>
                     <tr>
-                        <td colspan="<?php echo $canDelete ? 13 : 12; ?>" class="text-center"><?php echo Text::_('JGLOBAL_NO_MATCHING_RESULTS'); ?></td>
+                        <td colspan="<?php echo $canSelect ? 13 : 12; ?>" class="text-center"><?php echo Text::_('JGLOBAL_NO_MATCHING_RESULTS'); ?></td>
                     </tr>
                 <?php else : ?>
                     <?php foreach ($this->items as $i => $item) : ?>
                         <tr>
-                            <?php if ($canDelete) : ?>
+                            <?php if ($canSelect) : ?>
                                 <td class="text-center"><?php echo HTMLHelper::_('grid.id', $i, (int) $item->id); ?></td>
                             <?php endif; ?>
                             <td><?php echo (int) $item->id; ?></td>

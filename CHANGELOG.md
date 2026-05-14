@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.2.3-alpha
+
+- Split dashboard telemetry into frontend success, backend success, frontend failed, and backend failed cards.
+- Stabilized CSV export around SearchTools filter state, ACL enforcement, selected rows, headers, UTF-8 encoding, Joomla task routing, and toolbar form submission.
+- Removed non-functional lockout duration and failed-attempt threshold configuration fields until an enforcement engine exists.
+- Switched administrator submenu registration/rendering to Joomla-native Sidebar APIs while preserving Dashboard, Login Information, Configuration, Tools, and About.
+
 ## 0.2.2-alpha
 
 - Fixed administrator sidebar layout wrappers so submenu content is placed beside the main panel consistently.

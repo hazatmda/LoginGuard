@@ -6,9 +6,11 @@ use Joomla\CMS\HTML\HTMLHelper;
 use Joomla\CMS\Language\Text;
 use Joomla\CMS\Router\Route;
 
-$originLabels = [
-    'frontend' => 'COM_LOGINGUARD_WHERE_FRONTEND',
-    'backend' => 'COM_LOGINGUARD_WHERE_BACKEND',
+$telemetryCards = [
+    'frontend_success' => ['label' => 'COM_LOGINGUARD_DASHBOARD_FRONTEND_SUCCESS', 'status' => 'COM_LOGINGUARD_STATUS_SUCCESS_LOGIN'],
+    'backend_success' => ['label' => 'COM_LOGINGUARD_DASHBOARD_BACKEND_SUCCESS', 'status' => 'COM_LOGINGUARD_STATUS_SUCCESS_LOGIN'],
+    'frontend_failed' => ['label' => 'COM_LOGINGUARD_DASHBOARD_FRONTEND_FAILED', 'status' => 'COM_LOGINGUARD_STATUS_FAILED_LOGIN'],
+    'backend_failed' => ['label' => 'COM_LOGINGUARD_DASHBOARD_BACKEND_FAILED', 'status' => 'COM_LOGINGUARD_STATUS_FAILED_LOGIN'],
 ];
 
 $failureReasonLabels = [
@@ -31,41 +33,17 @@ $failureReasonLabels = [
         <div id="j-main-container" class="j-main-container">
     <?php endif; ?>
             <div class="row g-3 mb-3">
-                <div class="col-md-6 col-xl-3">
-                    <div class="card h-100">
-                        <div class="card-body">
-                            <h2 class="h5 card-title"><?php echo Text::_('COM_LOGINGUARD_DASHBOARD_SUCCESS_LOGINS'); ?></h2>
-                            <p class="display-6 mb-0"><?php echo (int) $this->successLoginCount; ?></p>
-                            <p class="text-muted mb-0"><?php echo Text::_('COM_LOGINGUARD_STATUS_SUCCESS_LOGIN'); ?></p>
-                        </div>
-                    </div>
-                </div>
-                <div class="col-md-6 col-xl-3">
-                    <div class="card h-100">
-                        <div class="card-body">
-                            <h2 class="h5 card-title"><?php echo Text::_('COM_LOGINGUARD_DASHBOARD_FAILED_LOGINS'); ?></h2>
-                            <p class="display-6 mb-0"><?php echo (int) $this->failedLoginCount; ?></p>
-                            <p class="text-muted mb-0"><?php echo Text::_('COM_LOGINGUARD_STATUS_FAILED_LOGIN'); ?></p>
-                        </div>
-                    </div>
-                </div>
-                <div class="col-xl-6">
-                    <div class="card h-100">
-                        <div class="card-body">
-                            <h2 class="h5 card-title"><?php echo Text::_('COM_LOGINGUARD_DASHBOARD_ORIGIN_METRICS'); ?></h2>
-                            <div class="row g-2">
-                                <?php foreach ($originLabels as $origin => $label) : ?>
-                                    <div class="col-6">
-                                        <div class="border rounded p-3 h-100">
-                                            <div class="text-muted small"><?php echo Text::_($label); ?></div>
-                                            <div class="fs-4 fw-semibold"><?php echo (int) ($this->originCounts[$origin] ?? 0); ?></div>
-                                        </div>
-                                    </div>
-                                <?php endforeach; ?>
+                <?php foreach ($telemetryCards as $metric => $card) : ?>
+                    <div class="col-md-6 col-xl-3">
+                        <div class="card h-100">
+                            <div class="card-body">
+                                <h2 class="h5 card-title"><?php echo Text::_($card['label']); ?></h2>
+                                <p class="display-6 mb-0"><?php echo (int) ($this->telemetryCounts[$metric] ?? 0); ?></p>
+                                <p class="text-muted mb-0"><?php echo Text::_($card['status']); ?></p>
                             </div>
                         </div>
                     </div>
-                </div>
+                <?php endforeach; ?>
             </div>
 
             <div class="row g-3 mb-3">

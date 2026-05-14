@@ -1,0 +1,1 @@
+-- LoginGuard 0.2.3-alpha preserves schema while updating administrator telemetry and export behavior.

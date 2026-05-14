@@ -23,7 +23,7 @@ final class HtmlView extends BaseHtmlView
 
         $this->actions = LoginGuardHelper::getActions();
         LoginGuardHelper::addSubmenu('tools');
-        $this->sidebar = \Joomla\CMS\HTML\HTMLHelper::_('sidebar.render');
+        $this->sidebar = \Joomla\CMS\HTML\Helpers\Sidebar::render();
 
         ToolbarHelper::title('LoginGuard: Tools', 'wrench');
 

@@ -39,36 +39,23 @@ final class AttemptsController extends AdminController
     public function export(): void
     {
         LoginGuardHelper::requirePermission('loginguard.export');
-        $this->checkToken('get');
+        $this->checkToken();
 
         $app = Factory::getApplication();
-        $db = Factory::getContainer()->get(\Joomla\Database\DatabaseDriver::class);
-        $query = $db->getQuery(true)
-            ->select([
-                $db->quoteName('id'),
-                $db->quoteName('ip_address'),
-                $db->quoteName('name'),
-                $db->quoteName('username'),
-                $db->quoteName('status'),
-                $db->quoteName('reason', 'failure_reason'),
-                $db->quoteName('where_at'),
-                $db->quoteName('country'),
-                $db->quoteName('browser'),
-                $db->quoteName('operating_system'),
-                $db->quoteName('user_agent'),
-                $db->quoteName('created'),
-            ])
-            ->from($db->quoteName('#__loginguard_attempts'))
-            ->order($db->quoteName('created') . ' DESC');
-
-        $rows = $db->setQuery($query)->loadAssocList();
+        $ids = array_map('intval', (array) $this->input->get('cid', [], 'array'));
+        $ids = array_values(array_filter($ids));
+        $model = $this->getModel('Attempts', 'Administrator', ['ignore_request' => false]);
+        $rows = $model->getExportRows($ids);
         $filename = 'loginguard-login-information-' . gmdate('Ymd-His') . '.csv';
 
-        $app->setHeader('Content-Type', 'text/csv; charset=utf-8', true);
+        $app->setHeader('Content-Type', 'text/csv; charset=UTF-8', true);
         $app->setHeader('Content-Disposition', 'attachment; filename="' . $filename . '"', true);
+        $app->setHeader('Cache-Control', 'no-store, no-cache, must-revalidate, max-age=0', true);
+        $app->setHeader('Pragma', 'no-cache', true);
         $app->sendHeaders();
 
         $output = fopen('php://output', 'wb');
+        fwrite($output, "\xEF\xBB\xBF");
         fputcsv($output, ['ID', 'IP Address', 'Name', 'Username', 'Status', 'Failure Reason', 'Where', 'Country', 'Browser', 'Operating System', 'User Agent', 'Datetime']);
 
         foreach ($rows as $row) {

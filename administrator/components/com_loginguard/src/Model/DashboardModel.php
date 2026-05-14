@@ -8,6 +8,48 @@ use Joomla\CMS\MVC\Model\BaseDatabaseModel;
 
 final class DashboardModel extends BaseDatabaseModel
 {
+
+    /**
+     * Count login outcomes separately for frontend and backend dashboard cards.
+     *
+     * @return array<string, int>
+     */
+    public function getTelemetryCounts(): array
+    {
+        $counts = [
+            'frontend_success' => 0,
+            'backend_success' => 0,
+            'frontend_failed' => 0,
+            'backend_failed' => 0,
+        ];
+
+        $db = $this->getDatabase();
+        $originExpression = 'LOWER(COALESCE(NULLIF(' . $db->quoteName('where_at') . ', ' . $db->quote('') . '), ' . $db->quoteName('client') . '))';
+        $query = $db->getQuery(true)
+            ->select([
+                $originExpression . ' AS ' . $db->quoteName('origin'),
+                $db->quoteName('status'),
+                'COUNT(*) AS ' . $db->quoteName('total'),
+            ])
+            ->from($db->quoteName('#__loginguard_attempts'))
+            ->where($originExpression . ' IN (' . $this->quoteList(['frontend', 'backend']) . ')')
+            ->where($db->quoteName('status') . ' IN (' . $this->quoteList(['SUCCESS_LOGIN', 'FAILED_LOGIN']) . ')')
+            ->group([$originExpression, $db->quoteName('status')]);
+
+        $db->setQuery($query);
+
+        foreach ($db->loadObjectList() ?: [] as $row) {
+            $origin = (string) $row->origin;
+            $status = (string) $row->status;
+            $key = $origin . '_' . ($status === 'SUCCESS_LOGIN' ? 'success' : 'failed');
+
+            if (array_key_exists($key, $counts)) {
+                $counts[$key] = (int) $row->total;
+            }
+        }
+
+        return $counts;
+    }
     /**
      * Count all login attempts for the requested normalized status.
      */

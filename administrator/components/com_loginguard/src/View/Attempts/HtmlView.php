@@ -6,7 +6,6 @@ defined('_JEXEC') or die;
 
 use Joomla\CMS\MVC\View\GenericDataException;
 use Joomla\CMS\MVC\View\HtmlView as BaseHtmlView;
-use Joomla\CMS\Session\Session;
 use Joomla\CMS\Toolbar\ToolbarHelper;
 use LoginGuard\Component\LoginGuard\Administrator\Helper\LoginGuardHelper;
 
@@ -49,12 +48,12 @@ final class HtmlView extends BaseHtmlView
         }
 
         LoginGuardHelper::addSubmenu('attempts');
-        $this->sidebar = \Joomla\CMS\HTML\HTMLHelper::_('sidebar.render');
+        $this->sidebar = \Joomla\CMS\HTML\Helpers\Sidebar::render();
 
         ToolbarHelper::title('LoginGuard: Login Information', 'shield-alt');
 
         if ($this->actions->get('loginguard.export')) {
-            ToolbarHelper::link('index.php?option=com_loginguard&task=attempts.export&' . Session::getFormToken() . '=1', 'COM_LOGINGUARD_TOOLBAR_EXPORT', 'download');
+            ToolbarHelper::custom('attempts.export', 'download', '', 'COM_LOGINGUARD_TOOLBAR_EXPORT', false);
         }
 
         if ($this->actions->get('loginguard.delete')) {

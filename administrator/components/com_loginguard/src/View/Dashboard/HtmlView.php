@@ -14,6 +14,9 @@ final class HtmlView extends BaseHtmlView
     /** @var object */
     public $actions;
 
+    /** @var array<string, int> */
+    protected $telemetryCounts = [];
+
     /** @var int */
     protected $successLoginCount = 0;
 
@@ -40,6 +43,7 @@ final class HtmlView extends BaseHtmlView
         LoginGuardHelper::requirePermission('core.manage');
         LoginGuardHelper::requirePermission('loginguard.view');
 
+        $this->telemetryCounts   = (array) $this->get('TelemetryCounts');
         $this->successLoginCount = (int) $this->get('SuccessLoginCount');
         $this->failedLoginCount  = (int) $this->get('FailedLoginCount');
         $this->originCounts      = (array) $this->get('OriginCounts');
@@ -52,7 +56,7 @@ final class HtmlView extends BaseHtmlView
             throw new GenericDataException(implode("\n", $errors), 500);
         }
         LoginGuardHelper::addSubmenu('dashboard');
-        $this->sidebar = \Joomla\CMS\HTML\HTMLHelper::_('sidebar.render');
+        $this->sidebar = \Joomla\CMS\HTML\Helpers\Sidebar::render();
 
         ToolbarHelper::title('LoginGuard: Dashboard', 'shield-alt');
 
