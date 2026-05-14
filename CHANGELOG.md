@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.1.5-alpha
+
+- Fixed the LoginGuard user plugin bootstrap so it no longer requests the unsupported `application` DI container resource during Joomla logout.
+- Kept the existing login success and failed login audit logging flow unchanged while aligning application access with Joomla-native runtime access.
+
 ## 0.1.4-alpha
 
 - Restored the Joomla 5 administrator component bootstrap and entry file so `com_loginguard` opens from the administrator menu.
