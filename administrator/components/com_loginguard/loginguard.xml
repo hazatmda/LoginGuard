@@ -14,6 +14,7 @@
         <submenu>
             <menu view="dashboard">COM_LOGINGUARD_SUBMENU_DASHBOARD</menu>
             <menu view="attempts">COM_LOGINGUARD_SUBMENU_LOGIN_INFORMATION</menu>
+            <menu view="blockedips">COM_LOGINGUARD_SUBMENU_BLOCKED_IPS</menu>
             <menu link="option=com_config&amp;view=component&amp;component=com_loginguard">COM_LOGINGUARD_SUBMENU_CONFIGURATION</menu>
             <menu view="tools">COM_LOGINGUARD_SUBMENU_TOOLS</menu>
             <menu view="about">COM_LOGINGUARD_SUBMENU_ABOUT</menu>

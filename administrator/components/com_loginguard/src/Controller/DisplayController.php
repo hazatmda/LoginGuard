@@ -21,6 +21,10 @@ final class DisplayController extends BaseController
             LoginGuardHelper::requirePermission('loginguard.view');
         }
 
+        if ($view === 'blockedips') {
+            LoginGuardHelper::requirePermission('loginguard.manage_blocks');
+        }
+
         if ($view === 'configuration') {
             LoginGuardHelper::requirePermission('core.admin');
         }

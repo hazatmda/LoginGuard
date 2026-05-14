@@ -19,7 +19,20 @@ final class LoginGuard extends CMSPlugin
     protected $autoloadLanguage = true;
 
     /**
-     * Enforce LoginGuard IP blocking before Joomla authenticates the login.
+     * Enforce LoginGuard IP blocking before Joomla creates an authenticated session.
+     *
+     * @param   mixed  $response  Joomla authorisation response payload.
+     * @param   mixed  $options   Joomla login options payload.
+     *
+     * @return  bool
+     */
+    public function onUserAuthorisation($response = [], $options = []): bool
+    {
+        return $this->enforceBlockedIp($response);
+    }
+
+    /**
+     * Keep the legacy login hook non-blocking; blocking happens in onUserAuthorisation.
      *
      * @param   mixed  $user     Joomla login credential payload.
      * @param   mixed  $options  Joomla login options payload.
@@ -27,6 +40,14 @@ final class LoginGuard extends CMSPlugin
      * @return  bool
      */
     public function onUserLogin($user = [], $options = []): bool
+    {
+        return true;
+    }
+
+    /**
+     * @param   mixed  $payload  Joomla login payload.
+     */
+    private function enforceBlockedIp($payload = []): bool
     {
         if (PHP_SAPI === 'cli') {
             return true;
@@ -51,9 +72,9 @@ final class LoginGuard extends CMSPlugin
             }
 
             $record = $this->buildAttemptRecord([
-                'name' => $this->readPayloadValue($user, 'name', ''),
-                'username' => $this->readPayloadValue($user, 'username', 'unknown'),
-                'email' => $this->readPayloadValue($user, 'email', ''),
+                'name' => $this->readPayloadValue($payload, 'name', ''),
+                'username' => $this->readPayloadValue($payload, 'username', 'unknown'),
+                'email' => $this->readPayloadValue($payload, 'email', ''),
                 'user_id' => 0,
                 'status' => 'BLOCKED_LOGIN',
                 'reason' => 'IP_BLOCKED',
@@ -566,6 +587,7 @@ final class LoginGuard extends CMSPlugin
             'site_name' => (string) $config->get('sitename', ''),
             'country' => (string) ($record['country'] ?? ''),
             'name' => (string) ($record['name'] ?? ''),
+            'full_name' => (string) ($record['name'] ?? ''),
             'email' => (string) ($record['email'] ?? ''),
             'user_agent' => (string) ($record['user_agent'] ?? ''),
         ];
@@ -585,7 +607,7 @@ final class LoginGuard extends CMSPlugin
 
     private function getDefaultAlertBodyTemplate(): string
     {
-        return "LoginGuard recorded a {status} event on {site_name}.\n\nUsername: {username}\nName: {name}\nEmail: {email}\nIP: {ip}\nCountry: {country}\nWhere: {where}\nBrowser: {browser}\nOS: {os}\nUser agent: {user_agent}\nFailure reason: {failure_reason}\nDate/time: {datetime}";
+        return "LoginGuard recorded a {status} event on {site_name}.\n\nUsername: {username}\nFull name: {full_name}\nName: {name}\nEmail: {email}\nIP: {ip}\nCountry: {country}\nWhere: {where}\nBrowser: {browser}\nOS: {os}\nUser agent: {user_agent}\nFailure reason: {failure_reason}\nDate/time: {datetime}";
     }
 
     private function getDefaultBlockedIpAlertBodyTemplate(): string

@@ -6,5 +6,6 @@
         <action name="core.admin" title="JACTION_ADMIN" description="JACTION_ADMIN_COMPONENT_DESC" />
         <action name="loginguard.delete" title="COM_LOGINGUARD_ACTION_DELETE" description="COM_LOGINGUARD_ACTION_DELETE_DESC" />
         <action name="loginguard.export" title="COM_LOGINGUARD_ACTION_EXPORT" description="COM_LOGINGUARD_ACTION_EXPORT_DESC" />
+        <action name="loginguard.manage_blocks" title="COM_LOGINGUARD_ACTION_MANAGE_BLOCKS" description="COM_LOGINGUARD_ACTION_MANAGE_BLOCKS_DESC" />
     </section>
 </access>
