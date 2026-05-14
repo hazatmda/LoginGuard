@@ -9,6 +9,7 @@ use Joomla\CMS\Factory;
 use Joomla\CMS\Plugin\CMSPlugin;
 use Joomla\Database\DatabaseDriver;
 use Joomla\Event\Event;
+use Joomla\Plugin\User\LoginGuard\Service\IpResolver;
 use Throwable;
 
 final class LoginGuard extends CMSPlugin
@@ -109,7 +110,7 @@ final class LoginGuard extends CMSPlugin
             'name' => $this->cleanString((string) ($attempt['name'] ?? '')),
             'email' => $this->cleanString((string) ($attempt['email'] ?? '')),
             'status' => $this->cleanString((string) ($attempt['status'] ?? 'unknown'), 'unknown'),
-            'ip_address' => $this->cleanString((string) ($_SERVER['REMOTE_ADDR'] ?? 'unknown'), 'unknown'),
+            'ip_address' => $this->cleanString(IpResolver::resolve(), 'unknown'),
             'user_agent' => $userAgent,
             'country' => '',
             'browser' => $this->detectBrowser($userAgent),

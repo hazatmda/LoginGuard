@@ -3,6 +3,60 @@ set -euo pipefail
 
 find plugins administrator -name "*.php" -exec php -l {} \;
 
+
+php <<'PHP'
+<?php
+define('_JEXEC', 1);
+require 'plugins/user/loginguard/src/Service/IpResolver.php';
+
+use Joomla\Plugin\User\LoginGuard\Service\IpResolver;
+
+$cases = [
+    'cloudflare_ipv4_priority' => [
+        ['HTTP_CF_CONNECTING_IP' => '1.1.1.1', 'HTTP_X_FORWARDED_FOR' => '8.8.8.8', 'REMOTE_ADDR' => '127.0.0.1'],
+        '1.1.1.1',
+    ],
+    'proxy_x_forwarded_for_first_public' => [
+        ['HTTP_X_FORWARDED_FOR' => 'malformed, 10.0.0.5, 8.8.8.8, 1.1.1.1', 'REMOTE_ADDR' => '127.0.0.1'],
+        '8.8.8.8',
+    ],
+    'x_real_ip_fallback' => [
+        ['HTTP_CF_CONNECTING_IP' => 'bad', 'HTTP_X_FORWARDED_FOR' => '10.0.0.1, nope', 'HTTP_X_REAL_IP' => '9.9.9.9', 'REMOTE_ADDR' => '127.0.0.1'],
+        '9.9.9.9',
+    ],
+    'localhost_remote_fallback' => [
+        ['HTTP_CF_CONNECTING_IP' => 'bad', 'REMOTE_ADDR' => '127.0.0.1'],
+        '127.0.0.1',
+    ],
+    'docker_remote_fallback' => [
+        ['HTTP_X_FORWARDED_FOR' => '172.17.0.2', 'REMOTE_ADDR' => '172.17.0.1'],
+        '172.17.0.1',
+    ],
+    'ipv6_public_proxy' => [
+        ['HTTP_X_FORWARDED_FOR' => 'fd00::1, 2606:4700:4700::1111', 'REMOTE_ADDR' => '::1'],
+        '2606:4700:4700::1111',
+    ],
+    'ipv6_localhost_fallback' => [
+        ['HTTP_X_REAL_IP' => 'fd00::1', 'REMOTE_ADDR' => '::1'],
+        '::1',
+    ],
+    'invalid_values_unknown' => [
+        ['HTTP_CF_CONNECTING_IP' => '1.2.3.4.5', 'HTTP_X_FORWARDED_FOR' => 'bad', 'HTTP_X_REAL_IP' => 'also-bad', 'REMOTE_ADDR' => 'nope'],
+        'unknown',
+    ],
+];
+
+foreach ($cases as $name => [$server, $expected]) {
+    $actual = IpResolver::resolve($server);
+    if ($actual !== $expected) {
+        fwrite(STDERR, "$name expected $expected got $actual\n");
+        exit(1);
+    }
+}
+
+echo "IpResolver validation completed successfully\n";
+PHP
+
 python3 - <<'PY'
 from pathlib import Path
 import sys
@@ -63,6 +117,25 @@ if not (plugin_manifest.parent / schema_path / f"{versions['VERSION']}.sql").is_
     print(f"Missing update migration for {versions['VERSION']}", file=sys.stderr)
     sys.exit(1)
 
+ip_resolver = Path('plugins/user/loginguard/src/Service/IpResolver.php')
+login_guard = Path('plugins/user/loginguard/src/Extension/LoginGuard.php')
+if not ip_resolver.is_file():
+    print('Missing centralized IpResolver service', file=sys.stderr)
+    sys.exit(1)
+
+ip_resolver_text = ip_resolver.read_text(encoding='utf-8')
+for required_text in ['HTTP_CF_CONNECTING_IP', 'HTTP_X_FORWARDED_FOR', 'HTTP_X_REAL_IP', 'REMOTE_ADDR', 'FILTER_VALIDATE_IP', 'FILTER_FLAG_NO_PRIV_RANGE', 'FILTER_FLAG_NO_RES_RANGE']:
+    if required_text not in ip_resolver_text:
+        print(f'IpResolver missing proxy-aware validation token: {required_text}', file=sys.stderr)
+        sys.exit(1)
+
+login_guard_text = login_guard.read_text(encoding='utf-8')
+if 'IpResolver::resolve()' not in login_guard_text:
+    print('Login logging must use IpResolver::resolve()', file=sys.stderr)
+    sys.exit(1)
+if "$_SERVER['REMOTE_ADDR']" in login_guard_text or '$_SERVER["REMOTE_ADDR"]' in login_guard_text:
+    print('LoginGuard extension must not read REMOTE_ADDR directly', file=sys.stderr)
+    sys.exit(1)
 
 component_view = Path('administrator/components/com_loginguard/src/View/Attempts/HtmlView.php')
 component_model = Path('administrator/components/com_loginguard/src/Model/AttemptsModel.php')
