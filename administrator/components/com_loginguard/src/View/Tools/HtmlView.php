@@ -4,7 +4,6 @@ namespace LoginGuard\Component\LoginGuard\Administrator\View\Tools;
 
 defined('_JEXEC') or die;
 
-use Joomla\CMS\HTML\Helpers\Sidebar;
 use Joomla\CMS\MVC\View\HtmlView as BaseHtmlView;
 use Joomla\CMS\Toolbar\ToolbarHelper;
 use LoginGuard\Component\LoginGuard\Administrator\Helper\LoginGuardHelper;
@@ -14,16 +13,11 @@ final class HtmlView extends BaseHtmlView
     /** @var object */
     protected $actions;
 
-    /** @var string */
-    public $sidebar = '';
-
     public function display($tpl = null): void
     {
         LoginGuardHelper::requirePermission('core.manage');
 
         $this->actions = LoginGuardHelper::getActions();
-        LoginGuardHelper::addSubmenu('tools');
-        $this->sidebar = Sidebar::render();
 
         ToolbarHelper::title('LoginGuard: Tools', 'wrench');
 

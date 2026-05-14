@@ -222,9 +222,29 @@ for required_file in ['access.xml', 'config.xml']:
     if f'<filename>{required_file}</filename>' not in component_manifest_text or not (component_manifest.parent / required_file).is_file():
         print(f'Component manifest missing Joomla-native {required_file}', file=sys.stderr)
         sys.exit(1)
-if 'view="attempts"' in component_manifest_text:
-    print('Component root menu must route to dashboard, not attempts', file=sys.stderr)
+component_menu = component_root.find('./administration/menu') if component_root is not None else None
+if component_menu is None or component_menu.attrib.get('view') == 'attempts':
+    print('Component root menu must be present and must not route to attempts', file=sys.stderr)
     sys.exit(1)
+if component_menu.attrib.get('link') != 'option=com_loginguard&view=dashboard':
+    print('Component root menu must route to the dashboard view for stable active menu behavior', file=sys.stderr)
+    sys.exit(1)
+submenu_root = component_root.find('./administration/submenu') if component_root is not None else None
+if submenu_root is None:
+    print('Component manifest missing Joomla-native administrator submenu registration', file=sys.stderr)
+    sys.exit(1)
+expected_submenus = [
+    ('COM_LOGINGUARD_SUBMENU_DASHBOARD', {'view': 'dashboard'}),
+    ('COM_LOGINGUARD_SUBMENU_LOGIN_INFORMATION', {'view': 'attempts'}),
+    ('COM_LOGINGUARD_SUBMENU_CONFIGURATION', {'link': 'option=com_config&view=component&component=com_loginguard'}),
+    ('COM_LOGINGUARD_SUBMENU_TOOLS', {'view': 'tools'}),
+    ('COM_LOGINGUARD_SUBMENU_ABOUT', {'view': 'about'}),
+]
+submenu_items = [((item.text or '').strip(), item.attrib) for item in submenu_root.findall('menu')]
+for label, required_attrs in expected_submenus:
+    if not any(item_label == label and all(attrs.get(name) == value for name, value in required_attrs.items()) for item_label, attrs in submenu_items):
+        print(f'Component manifest missing administrator submenu item: {label} {required_attrs}', file=sys.stderr)
+        sys.exit(1)
 
 access_xml = Path('administrator/components/com_loginguard/access.xml')
 access_root = roots.get(access_xml)
@@ -292,18 +312,17 @@ if any(origin in dashboard_template_text for origin in ["'api' =>", "'cli' =>"])
     sys.exit(1)
 
 helper_text = Path('administrator/components/com_loginguard/src/Helper/LoginGuardHelper.php').read_text(encoding='utf-8')
-for submenu in ['SUBMENU_DASHBOARD', 'SUBMENU_LOGIN_INFORMATION', 'SUBMENU_CONFIGURATION', 'SUBMENU_TOOLS', 'SUBMENU_ABOUT']:
-    if submenu not in helper_text:
-        print(f'Submenu helper missing {submenu}', file=sys.stderr)
-        sys.exit(1)
-if 'Sidebar::addEntry' not in helper_text:
-    print('Submenu helper must use Joomla-native Sidebar::addEntry rendering', file=sys.stderr)
-    sys.exit(1)
-for view in ['Dashboard', 'Attempts', 'Tools', 'About']:
-    sidebar_view_text = Path(f'administrator/components/com_loginguard/src/View/{view}/HtmlView.php').read_text(encoding='utf-8')
-    if 'Sidebar::render()' not in sidebar_view_text:
-        print(f'{view} view must render the Joomla-native administrator sidebar', file=sys.stderr)
-        sys.exit(1)
+internal_sidebar_paths = [
+    Path('administrator/components/com_loginguard/src/Helper/LoginGuardHelper.php'),
+    *(Path(f'administrator/components/com_loginguard/src/View/{view}/HtmlView.php') for view in ['Dashboard', 'Attempts', 'Tools', 'About']),
+    *(Path(f'administrator/components/com_loginguard/tmpl/{view}/default.php') for view in ['dashboard', 'attempts', 'tools', 'about']),
+]
+for internal_sidebar_path in internal_sidebar_paths:
+    internal_sidebar_text = internal_sidebar_path.read_text(encoding='utf-8')
+    for forbidden_sidebar_token in ['Sidebar::addEntry', 'Sidebar::render()', 'j-sidebar-container', '$this->sidebar']:
+        if forbidden_sidebar_token in internal_sidebar_text:
+            print(f'Internal component sidebar token remains in {internal_sidebar_path}: {forbidden_sidebar_token}', file=sys.stderr)
+            sys.exit(1)
 
 for permission in required_actions:
     if permission not in helper_text + view_text + login_guard_text + Path('administrator/components/com_loginguard/src/Controller/DisplayController.php').read_text(encoding='utf-8') + Path('administrator/components/com_loginguard/src/Controller/AttemptsController.php').read_text(encoding='utf-8'):
@@ -346,7 +365,7 @@ wrong_repo = 'hazim' + '/LoginGuard'
 if wrong_repo in update_server_text:
     print('Update metadata contains the incorrect repository URL', file=sys.stderr)
     sys.exit(1)
-for required_url in ['https://raw.githubusercontent.com/hazatmda/LoginGuard/main/updates/loginguard.xml', 'https://github.com/hazatmda/LoginGuard/releases/tag/v0.2.3-alpha', 'https://github.com/hazatmda/LoginGuard/releases/download/v0.2.3-alpha/pkg_loginguard_v0.2.3-alpha.zip', 'https://github.com/hazatmda/LoginGuard']:
+for required_url in ['https://raw.githubusercontent.com/hazatmda/LoginGuard/main/updates/loginguard.xml', 'https://github.com/hazatmda/LoginGuard/releases/tag/v0.2.4-alpha', 'https://github.com/hazatmda/LoginGuard/releases/download/v0.2.4-alpha/pkg_loginguard_v0.2.4-alpha.zip', 'https://github.com/hazatmda/LoginGuard']:
     if required_url not in update_server_text:
         print(f'Update metadata missing corrected repository URL: {required_url}', file=sys.stderr)
         sys.exit(1)

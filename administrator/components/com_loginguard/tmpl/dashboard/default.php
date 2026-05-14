@@ -22,16 +22,8 @@ $failureReasonLabels = [
 ];
 
 ?>
-<form action="<?php echo Route::_('index.php?option=com_loginguard'); ?>" method="post" name="adminForm" id="adminForm">
-    <div class="row">
-    <?php if (!empty($this->sidebar)) : ?>
-        <div id="j-sidebar-container" class="col-md-2">
-            <?php echo $this->sidebar; ?>
-        </div>
-        <div id="j-main-container" class="j-main-container col-md-10">
-    <?php else : ?>
-        <div id="j-main-container" class="j-main-container">
-    <?php endif; ?>
+<form action="<?php echo Route::_('index.php?option=com_loginguard&view=dashboard'); ?>" method="post" name="adminForm" id="adminForm">
+    <div id="j-main-container" class="j-main-container">
             <div class="row g-3 mb-3">
                 <?php foreach ($telemetryLabels as $metric => $label) : ?>
                     <div class="col-md-6 col-xl-3">
@@ -142,5 +134,4 @@ $failureReasonLabels = [
                 </div>
             </div>
         </div>
-    </div>
 </form>

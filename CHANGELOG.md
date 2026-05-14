@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.2.4-alpha
+
+- Registered LoginGuard Dashboard, Login Information, Configuration, Tools, and About as Joomla-native administrator submenu items under Components > Login Guard.
+- Removed the duplicate component-internal sidebar layout so navigation is provided by the administrator Components menu.
+- Synchronized release metadata and package naming for `pkg_loginguard_v0.2.4-alpha.zip`.
+
 ## 0.2.3-alpha
 
 - Split dashboard telemetry into Frontend Success, Backend Success, Frontend Failed, and Backend Failed cards.
