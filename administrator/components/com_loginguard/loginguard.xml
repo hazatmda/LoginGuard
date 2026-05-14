@@ -3,17 +3,19 @@
     <name>com_loginguard</name>
     <author>Hazim</author>
     <creationDate>2026-05-13</creationDate>
-    <version>0.1.9-alpha</version>
+    <version>0.2.0-alpha</version>
     <element>com_loginguard</element>
     <description>COM_LOGINGUARD_XML_DESCRIPTION</description>
 
     <namespace path="src">LoginGuard\Component\LoginGuard</namespace>
 
     <administration>
-        <menu view="attempts" img="class:shield-alt">COM_LOGINGUARD</menu>
+        <menu img="class:shield-alt">COM_LOGINGUARD</menu>
         <files folder="administrator/components/com_loginguard">
             <filename>loginguard.php</filename>
             <filename>loginguard.xml</filename>
+            <filename>access.xml</filename>
+            <filename>config.xml</filename>
             <folder>forms</folder>
             <folder>language</folder>
             <folder>services</folder>

@@ -7,6 +7,7 @@ defined('_JEXEC') or die;
 use Joomla\CMS\Date\Date;
 use Joomla\CMS\Factory;
 use Joomla\CMS\Plugin\CMSPlugin;
+use Joomla\CMS\User\UserHelper;
 use Joomla\Database\DatabaseDriver;
 use Joomla\Event\Event;
 use Joomla\Plugin\User\LoginGuard\Service\IpResolver;
@@ -36,8 +37,8 @@ final class LoginGuard extends CMSPlugin
             'username' => $this->readPayloadValue($user, 'username', $this->readPayloadValue($payload, 'username', 'unknown')),
             'email' => $this->readPayloadValue($user, 'email', $this->readPayloadValue($payload, 'email', '')),
             'user_id' => (int) $this->readPayloadValue($user, 'id', 0),
-            'status' => 'success',
-            'reason' => 'Login successful',
+            'status' => 'SUCCESS_LOGIN',
+            'reason' => '',
         ]);
     }
 
@@ -55,8 +56,8 @@ final class LoginGuard extends CMSPlugin
             'username' => $this->readPayloadValue($payload, 'username', 'unknown'),
             'email' => $this->readPayloadValue($payload, 'email', ''),
             'user_id' => 0,
-            'status' => 'failed',
-            'reason' => $this->readPayloadValue($payload, 'error_message', 'Login failed'),
+            'status' => 'FAILED_LOGIN',
+            'reason' => $this->detectFailureReason($payload),
         ]);
     }
 
@@ -100,16 +101,15 @@ final class LoginGuard extends CMSPlugin
 
         $this->ensureSchema($db);
 
-        $app       = Factory::getApplication();
         $userAgent = (string) ($_SERVER['HTTP_USER_AGENT'] ?? 'unknown');
-        $client    = $app->isClient('administrator') ? 'administrator' : 'site';
+        $client    = $this->detectWhere();
 
         $record = [
             'username' => $this->cleanString((string) ($attempt['username'] ?? 'unknown'), 'unknown'),
             'user_id' => (int) ($attempt['user_id'] ?? 0),
             'name' => $this->cleanString((string) ($attempt['name'] ?? '')),
             'email' => $this->cleanString((string) ($attempt['email'] ?? '')),
-            'status' => $this->cleanString((string) ($attempt['status'] ?? 'unknown'), 'unknown'),
+            'status' => $this->normaliseStatus((string) ($attempt['status'] ?? 'FAILED_LOGIN')),
             'ip_address' => $this->cleanString(IpResolver::resolve(), 'unknown'),
             'user_agent' => $userAgent,
             'country' => '',
@@ -118,7 +118,7 @@ final class LoginGuard extends CMSPlugin
             'where_at' => $client,
             'client' => $client,
             'attempt_type' => 'login',
-            'reason' => $this->cleanString((string) ($attempt['reason'] ?? '')),
+            'reason' => $this->normaliseFailureReason((string) ($attempt['reason'] ?? '')),
             'created' => (new Date())->toSql(),
         ];
 
@@ -146,7 +146,7 @@ final class LoginGuard extends CMSPlugin
             'country' => "ALTER TABLE `#__loginguard_attempts` ADD COLUMN `country` varchar(100) NOT NULL DEFAULT '' AFTER `user_agent`",
             'browser' => "ALTER TABLE `#__loginguard_attempts` ADD COLUMN `browser` varchar(100) NOT NULL DEFAULT '' AFTER `country`",
             'operating_system' => "ALTER TABLE `#__loginguard_attempts` ADD COLUMN `operating_system` varchar(100) NOT NULL DEFAULT '' AFTER `browser`",
-            'where_at' => "ALTER TABLE `#__loginguard_attempts` ADD COLUMN `where_at` varchar(50) NOT NULL DEFAULT '' AFTER `country`",
+            'where_at' => "ALTER TABLE `#__loginguard_attempts` ADD COLUMN `where_at` varchar(50) NOT NULL DEFAULT 'frontend' AFTER `country`",
             'attempt_type' => "ALTER TABLE `#__loginguard_attempts` ADD COLUMN `attempt_type` varchar(50) NOT NULL DEFAULT 'login' AFTER `user_agent`",
         ];
 
@@ -230,6 +230,93 @@ final class LoginGuard extends CMSPlugin
         }
 
         return $default;
+    }
+
+
+    /**
+     * Determine a safe failure reason without storing passwords or exposing more certainty than Joomla provides.
+     *
+     * @param   array<string, mixed>  $payload
+     */
+    private function detectFailureReason(array $payload): string
+    {
+        $error = strtolower((string) $this->readPayloadValue($payload, 'error_message', ''));
+        $type  = strtoupper((string) $this->readPayloadValue($payload, 'type', ''));
+
+        if (str_contains($error, 'block')) {
+            return 'ACCOUNT_BLOCKED';
+        }
+
+        if (str_contains($error, 'disable') || str_contains($error, 'inactive') || str_contains($error, 'activate')) {
+            return 'ACCOUNT_DISABLED';
+        }
+
+        if ($type === 'USERNAME_NOT_FOUND') {
+            return 'USERNAME_NOT_FOUND';
+        }
+
+        if ($type === 'PASSWORD_INCORRECT') {
+            return 'PASSWORD_INCORRECT';
+        }
+
+        $username = trim((string) $this->readPayloadValue($payload, 'username', ''));
+
+        if ($username !== '') {
+            try {
+                $userId = (int) UserHelper::getUserId($username);
+
+                if ($userId === 0) {
+                    return 'USERNAME_NOT_FOUND';
+                }
+
+                if (str_contains($error, 'password')) {
+                    return 'PASSWORD_INCORRECT';
+                }
+            } catch (Throwable $exception) {
+                return 'INVALID_CREDENTIALS';
+            }
+        }
+
+        return 'INVALID_CREDENTIALS';
+    }
+
+    private function detectWhere(): string
+    {
+        if (PHP_SAPI === 'cli') {
+            return 'cli';
+        }
+
+        $app = Factory::getApplication();
+
+        if ($app->isClient('api')) {
+            return 'api';
+        }
+
+        if ($app->isClient('administrator')) {
+            return 'backend';
+        }
+
+        return 'frontend';
+    }
+
+    private function normaliseStatus(string $status): string
+    {
+        $status = strtoupper(trim($status));
+
+        return in_array($status, ['SUCCESS_LOGIN', 'FAILED_LOGIN'], true) ? $status : 'FAILED_LOGIN';
+    }
+
+    private function normaliseFailureReason(string $reason): string
+    {
+        $reason = strtoupper(trim($reason));
+
+        if ($reason === '') {
+            return '';
+        }
+
+        return in_array($reason, ['USERNAME_NOT_FOUND', 'PASSWORD_INCORRECT', 'INVALID_CREDENTIALS', 'ACCOUNT_BLOCKED', 'ACCOUNT_DISABLED'], true)
+            ? $reason
+            : 'INVALID_CREDENTIALS';
     }
 
     private function cleanString(string $value, string $fallback = ''): string

@@ -1,0 +1,87 @@
+<?xml version="1.0" encoding="utf-8"?>
+<config>
+    <fieldset name="component" label="COM_LOGINGUARD_CONFIG_FIELDSET_COMPONENT">
+        <field
+            name="trusted_proxies"
+            type="textarea"
+            label="COM_LOGINGUARD_CONFIG_TRUSTED_PROXIES_LABEL"
+            description="COM_LOGINGUARD_CONFIG_TRUSTED_PROXIES_DESC"
+            rows="4"
+            filter="string"
+        />
+        <field
+            name="retention_days"
+            type="number"
+            label="COM_LOGINGUARD_CONFIG_RETENTION_DAYS_LABEL"
+            description="COM_LOGINGUARD_CONFIG_RETENTION_DAYS_DESC"
+            default="90"
+            min="1"
+            filter="integer"
+        />
+        <field
+            name="logging_level"
+            type="list"
+            label="COM_LOGINGUARD_CONFIG_LOGGING_LEVEL_LABEL"
+            description="COM_LOGINGUARD_CONFIG_LOGGING_LEVEL_DESC"
+            default="standard"
+            validate="options"
+        >
+            <option value="minimal">COM_LOGINGUARD_CONFIG_LOGGING_LEVEL_MINIMAL</option>
+            <option value="standard">COM_LOGINGUARD_CONFIG_LOGGING_LEVEL_STANDARD</option>
+            <option value="verbose">COM_LOGINGUARD_CONFIG_LOGGING_LEVEL_VERBOSE</option>
+        </field>
+        <field
+            name="lockout_duration"
+            type="number"
+            label="COM_LOGINGUARD_CONFIG_LOCKOUT_DURATION_LABEL"
+            description="COM_LOGINGUARD_CONFIG_LOCKOUT_DURATION_DESC"
+            default="15"
+            min="0"
+            filter="integer"
+        />
+        <field
+            name="failed_attempt_threshold"
+            type="number"
+            label="COM_LOGINGUARD_CONFIG_FAILED_ATTEMPT_THRESHOLD_LABEL"
+            description="COM_LOGINGUARD_CONFIG_FAILED_ATTEMPT_THRESHOLD_DESC"
+            default="5"
+            min="1"
+            filter="integer"
+        />
+        <field
+            name="geoip_enabled"
+            type="radio"
+            layout="joomla.form.field.radio.switcher"
+            label="COM_LOGINGUARD_CONFIG_GEOIP_ENABLED_LABEL"
+            description="COM_LOGINGUARD_CONFIG_GEOIP_ENABLED_DESC"
+            default="0"
+            filter="integer"
+        >
+            <option value="0">JNO</option>
+            <option value="1">JYES</option>
+        </field>
+        <field
+            name="export_requires_permission"
+            type="radio"
+            layout="joomla.form.field.radio.switcher"
+            label="COM_LOGINGUARD_CONFIG_EXPORT_REQUIRES_PERMISSION_LABEL"
+            description="COM_LOGINGUARD_CONFIG_EXPORT_REQUIRES_PERMISSION_DESC"
+            default="1"
+            filter="integer"
+        >
+            <option value="0">JNO</option>
+            <option value="1">JYES</option>
+        </field>
+    </fieldset>
+    <fieldset name="permissions" label="JCONFIG_PERMISSIONS_LABEL">
+        <field
+            name="rules"
+            type="rules"
+            label="JCONFIG_PERMISSIONS_LABEL"
+            component="com_loginguard"
+            section="component"
+            filter="rules"
+            validate="rules"
+        />
+    </fieldset>
+</config>
