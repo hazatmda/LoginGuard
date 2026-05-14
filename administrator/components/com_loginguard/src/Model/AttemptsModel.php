@@ -73,6 +73,30 @@ final class AttemptsModel extends ListModel
         }
     }
 
+
+    /**
+     * Return all rows matching the current SearchTools state, optionally limited to selected IDs.
+     *
+     * @param   array<int, int>  $ids
+     *
+     * @return array<int, array<string, mixed>>
+     */
+    public function getExportRows(array $ids = []): array
+    {
+        $db = $this->getDatabase();
+        $query = $this->getListQuery();
+
+        $ids = array_values(array_unique(array_filter(array_map('intval', $ids))));
+
+        if ($ids !== []) {
+            $query->whereIn($db->quoteName('id'), $ids);
+        }
+
+        $rows = $db->setQuery($query)->loadAssocList();
+
+        return is_array($rows) ? $rows : [];
+    }
+
     protected function getListQuery()
     {
         $db = $this->getDatabase();

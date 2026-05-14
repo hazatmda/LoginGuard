@@ -4,6 +4,7 @@ namespace LoginGuard\Component\LoginGuard\Administrator\View\About;
 
 defined('_JEXEC') or die;
 
+use Joomla\CMS\HTML\Helpers\Sidebar;
 use Joomla\CMS\MVC\View\HtmlView as BaseHtmlView;
 use Joomla\CMS\Toolbar\ToolbarHelper;
 use LoginGuard\Component\LoginGuard\Administrator\Helper\LoginGuardHelper;
@@ -22,7 +23,7 @@ final class HtmlView extends BaseHtmlView
 
         $this->actions = LoginGuardHelper::getActions();
         LoginGuardHelper::addSubmenu('about');
-        $this->sidebar = \Joomla\CMS\HTML\HTMLHelper::_('sidebar.render');
+        $this->sidebar = Sidebar::render();
 
         ToolbarHelper::title('LoginGuard: About', 'info-circle');
 

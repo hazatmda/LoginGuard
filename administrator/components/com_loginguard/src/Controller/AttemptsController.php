@@ -5,6 +5,7 @@ namespace LoginGuard\Component\LoginGuard\Administrator\Controller;
 defined('_JEXEC') or die;
 
 use Joomla\CMS\Factory;
+use Joomla\CMS\Filter\OutputFilter;
 use Joomla\CMS\Language\Text;
 use Joomla\CMS\MVC\Controller\AdminController;
 use LoginGuard\Component\LoginGuard\Administrator\Helper\LoginGuardHelper;
@@ -39,47 +40,39 @@ final class AttemptsController extends AdminController
     public function export(): void
     {
         LoginGuardHelper::requirePermission('loginguard.export');
-        $this->checkToken('get');
+        $this->checkToken();
 
         $app = Factory::getApplication();
-        $db = Factory::getContainer()->get(\Joomla\Database\DatabaseDriver::class);
-        $query = $db->getQuery(true)
-            ->select([
-                $db->quoteName('id'),
-                $db->quoteName('ip_address'),
-                $db->quoteName('name'),
-                $db->quoteName('username'),
-                $db->quoteName('status'),
-                $db->quoteName('reason', 'failure_reason'),
-                $db->quoteName('where_at'),
-                $db->quoteName('country'),
-                $db->quoteName('browser'),
-                $db->quoteName('operating_system'),
-                $db->quoteName('user_agent'),
-                $db->quoteName('created'),
-            ])
-            ->from($db->quoteName('#__loginguard_attempts'))
-            ->order($db->quoteName('created') . ' DESC');
-
-        $rows = $db->setQuery($query)->loadAssocList();
+        $model = $this->getModel('Attempts', 'Administrator', ['ignore_request' => false]);
+        $ids = $this->input->get('cid', [], 'array');
+        $rows = $model->getExportRows(is_array($ids) ? $ids : []);
         $filename = 'loginguard-login-information-' . gmdate('Ymd-His') . '.csv';
+        $safeFilename = OutputFilter::stringUrlSafe(pathinfo($filename, PATHINFO_FILENAME)) . '.csv';
 
-        $app->setHeader('Content-Type', 'text/csv; charset=utf-8', true);
-        $app->setHeader('Content-Disposition', 'attachment; filename="' . $filename . '"', true);
+        $app->setHeader('Content-Type', 'text/csv; charset=UTF-8', true);
+        $app->setHeader('Content-Disposition', 'attachment; filename="' . $safeFilename . '"', true);
+        $app->setHeader('Content-Description', 'File Transfer', true);
+        $app->setHeader('Content-Transfer-Encoding', 'binary', true);
+        $app->setHeader('Cache-Control', 'no-store, no-cache, must-revalidate', true);
+        $app->setHeader('Pragma', 'no-cache', true);
+        $app->setHeader('Expires', '0', true);
         $app->sendHeaders();
 
         $output = fopen('php://output', 'wb');
+        fwrite($output, "\xEF\xBB\xBF");
         fputcsv($output, ['ID', 'IP Address', 'Name', 'Username', 'Status', 'Failure Reason', 'Where', 'Country', 'Browser', 'Operating System', 'User Agent', 'Datetime']);
 
         foreach ($rows as $row) {
+            $whereAt = (string) ($row['where_at'] ?: $row['client']);
+
             fputcsv($output, [
                 $row['id'],
                 $row['ip_address'],
                 $row['name'],
                 $row['username'],
                 $row['status'],
-                $row['failure_reason'],
-                $row['where_at'],
+                $row['reason'],
+                $whereAt,
                 $row['country'],
                 $row['browser'],
                 $row['operating_system'],

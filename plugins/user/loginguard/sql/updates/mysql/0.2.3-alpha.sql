@@ -1,0 +1,1 @@
+-- LoginGuard 0.2.3-alpha telemetry, export, sidebar, and configuration cleanup release: no schema changes.
