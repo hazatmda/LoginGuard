@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.9-alpha
+
+- Added a centralized proxy-aware IP resolver for Cloudflare, forwarded proxy headers, real IP headers, and localhost fallback support.
+- Updated login audit logging to resolve client IP addresses through the reusable resolver instead of reading `REMOTE_ADDR` directly.
+- Synchronized release metadata and package naming for `pkg_loginguard_v0.1.9-alpha.zip`.
+
 ## 0.1.8-alpha
 
 - Replaced the administrator SearchTools helper call with Joomla LayoutHelper rendering to avoid `searchtools::default` runtime layout errors.
