@@ -72,3 +72,5 @@ package: pkg_loginguard_v0.1.7-alpha.zip
 ## License
 
 GNU General Public License v3.0.
+
+<!-- Codex disposable PR-flow validation marker: non-runtime README-only change. -->
