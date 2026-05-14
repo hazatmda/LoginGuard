@@ -19,7 +19,7 @@ use Joomla\CMS\Router\Route;
                 <div class="card-body">
                     <h2><?php echo Text::_('COM_LOGINGUARD_ABOUT_TITLE'); ?></h2>
                     <p><?php echo Text::_('COM_LOGINGUARD_ABOUT_DESC'); ?></p>
-                    <p><?php echo Text::sprintf('COM_LOGINGUARD_ABOUT_VERSION', '0.2.0-alpha'); ?></p>
+                    <p><?php echo Text::sprintf('COM_LOGINGUARD_ABOUT_VERSION', '0.2.1-alpha'); ?></p>
                 </div>
             </div>
         </div>

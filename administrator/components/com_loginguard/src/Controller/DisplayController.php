@@ -17,7 +17,7 @@ final class DisplayController extends BaseController
 
         $view = $this->input->getCmd('view', $this->default_view);
 
-        if ($view === 'attempts') {
+        if (in_array($view, ['dashboard', 'attempts'], true)) {
             LoginGuardHelper::requirePermission('loginguard.view');
         }
 

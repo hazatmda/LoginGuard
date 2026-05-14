@@ -226,6 +226,35 @@ for view in ['Dashboard', 'Attempts', 'Tools', 'About']:
         print(f'Missing submenu view {view}', file=sys.stderr)
         sys.exit(1)
 
+dashboard_view = Path('administrator/components/com_loginguard/src/View/Dashboard/HtmlView.php')
+dashboard_model = Path('administrator/components/com_loginguard/src/Model/DashboardModel.php')
+dashboard_template = Path('administrator/components/com_loginguard/tmpl/dashboard/default.php')
+for required_file in [dashboard_view, dashboard_model, dashboard_template]:
+    if not required_file.is_file():
+        print(f'Missing dashboard MVC file: {required_file}', file=sys.stderr)
+        sys.exit(1)
+
+dashboard_view_text = dashboard_view.read_text(encoding='utf-8')
+for required_text in ["requirePermission('core.manage')", "requirePermission('loginguard.view')", 'SuccessLoginCount', 'FailedLoginCount', 'OriginCounts', 'RecentActivity', 'TopFailureReasons', 'TopFailedIps']:
+    if required_text not in dashboard_view_text:
+        print(f'Dashboard HtmlView missing required telemetry/ACL wiring: {required_text}', file=sys.stderr)
+        sys.exit(1)
+
+dashboard_model_text = dashboard_model.read_text(encoding='utf-8')
+for required_text in ['SUCCESS_LOGIN', 'FAILED_LOGIN', 'frontend', 'backend', 'api', 'cli', 'PASSWORD_INCORRECT', 'USERNAME_NOT_FOUND', 'INVALID_CREDENTIALS', 'ACCOUNT_BLOCKED', 'ACCOUNT_DISABLED', '#__loginguard_attempts']:
+    if required_text not in dashboard_model_text:
+        print(f'Dashboard model missing required telemetry token: {required_text}', file=sys.stderr)
+        sys.exit(1)
+
+dashboard_template_text = dashboard_template.read_text(encoding='utf-8')
+for required_text in ['COM_LOGINGUARD_DASHBOARD_SUCCESS_LOGINS', 'COM_LOGINGUARD_DASHBOARD_FAILED_LOGINS', 'COM_LOGINGUARD_DASHBOARD_ORIGIN_METRICS', 'COM_LOGINGUARD_DASHBOARD_RECENT_ACTIVITY', 'COM_LOGINGUARD_DASHBOARD_TOP_FAILURE_REASONS', 'COM_LOGINGUARD_DASHBOARD_TOP_IPS', 'COM_LOGINGUARD_SUBMENU_LOGIN_INFORMATION']:
+    if required_text not in dashboard_template_text:
+        print(f'Dashboard template missing required widget rendering: {required_text}', file=sys.stderr)
+        sys.exit(1)
+if any(forbidden in dashboard_template_text.lower() for forbidden in ['chart.js', 'analytics', 'leaflet', 'react', 'vue']):
+    print('Dashboard template must remain lightweight without charts/maps/SPA/analytics libraries', file=sys.stderr)
+    sys.exit(1)
+
 helper_text = Path('administrator/components/com_loginguard/src/Helper/LoginGuardHelper.php').read_text(encoding='utf-8')
 for submenu in ['SUBMENU_DASHBOARD', 'SUBMENU_LOGIN_INFORMATION', 'SUBMENU_CONFIGURATION', 'SUBMENU_TOOLS', 'SUBMENU_ABOUT']:
     if submenu not in helper_text:

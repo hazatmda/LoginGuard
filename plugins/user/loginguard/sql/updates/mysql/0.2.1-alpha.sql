@@ -1,0 +1,1 @@
+-- LoginGuard 0.2.1-alpha dashboard telemetry release: no destructive schema changes.

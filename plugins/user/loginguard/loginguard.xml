@@ -3,7 +3,7 @@
     <name>plg_user_loginguard</name>
     <author>Hazim</author>
     <creationDate>2026-05-13</creationDate>
-    <version>0.2.0-alpha</version>
+    <version>0.2.1-alpha</version>
     <description>Joomla security plugin for login attempt detection, monitoring, and auditing.</description>
 
     <namespace path="src">Joomla\Plugin\User\LoginGuard</namespace>

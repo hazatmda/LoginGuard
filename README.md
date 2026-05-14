@@ -4,7 +4,7 @@ Joomla 5 package for login attempt detection, monitoring, and auditing.
 
 ## Status
 
-Current development version: `0.2.0-alpha`.
+Current development version: `0.2.1-alpha`.
 
 ## Features planned for MVP
 
@@ -12,9 +12,9 @@ Current development version: `0.2.0-alpha`.
 - Detect failed Joomla login attempts
 - Store login attempt audit records
 - Capture proxy-aware IP address, name, username, status, failure reason, where, country, browser, operating system, user agent, and datetime without storing plaintext passwords
-- Provide a Joomla administrator component with Dashboard, Login Information, Configuration, Tools, and About navigation
+- Provide a Joomla administrator component with Dashboard telemetry, Login Information, Configuration, Tools, and About navigation
 - Integrate Joomla-native ACL permissions and component configuration through access.xml and com_config
-- Search, filter, sort, and paginate login attempt audit records
+- Search, filter, sort, and paginate login attempt audit records while keeping Login Information as the full audit table
 - Generate an installable Joomla package ZIP from GitHub Actions
 
 ## Requirements
@@ -47,7 +47,7 @@ bash scripts/build.sh
 Generated package:
 
 ```text
-packages/pkg_loginguard_v0.2.0-alpha.zip
+packages/pkg_loginguard_v0.2.1-alpha.zip
 ```
 
 ## Versioning Policy
@@ -65,9 +65,9 @@ Before release, these must match:
 Example:
 
 ```text
-version: 0.2.0-alpha
-tag: v0.2.0-alpha
-package: pkg_loginguard_v0.2.0-alpha.zip
+version: 0.2.1-alpha
+tag: v0.2.1-alpha
+package: pkg_loginguard_v0.2.1-alpha.zip
 ```
 
 ## License
