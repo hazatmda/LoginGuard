@@ -20,6 +20,7 @@
             <option value="">JOPTION_SELECT_STATUS</option>
             <option value="SUCCESS_LOGIN">COM_LOGINGUARD_STATUS_SUCCESS_LOGIN</option>
             <option value="FAILED_LOGIN">COM_LOGINGUARD_STATUS_FAILED_LOGIN</option>
+            <option value="BLOCKED_LOGIN">COM_LOGINGUARD_STATUS_BLOCKED_LOGIN</option>
         </field>
         <field
             name="where_at"

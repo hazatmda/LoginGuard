@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.2.5-alpha
+
+- Added active IP block enforcement, whitelist bypasses, temporary automatic threshold-based blocks, cooldown duration, and frontend/backend enforcement toggles.
+- Added blocked IP telemetry on the dashboard, blocked login audit records, GeoIP country-map enrichment, expanded alert variables, and blocked IP mail alerts.
+- Synchronized release metadata and package naming for `pkg_loginguard_v0.2.5-alpha.zip`.
+
 ## 0.2.4-alpha
 
 - Registered LoginGuard Dashboard, Login Information, Configuration, Tools, and About as Joomla-native administrator submenu items under Components > Login Guard.

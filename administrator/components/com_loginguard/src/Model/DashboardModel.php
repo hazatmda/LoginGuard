@@ -18,6 +18,7 @@ final class DashboardModel extends BaseDatabaseModel
             'backend_success' => 0,
             'frontend_failed' => 0,
             'backend_failed' => 0,
+            'blocked_login' => 0,
         ];
 
         $db = $this->getDatabase();
@@ -30,7 +31,7 @@ final class DashboardModel extends BaseDatabaseModel
             ])
             ->from($db->quoteName('#__loginguard_attempts'))
             ->where($originExpression . ' IN (' . $this->quoteList(['frontend', 'backend']) . ')')
-            ->where($db->quoteName('status') . ' IN (' . $this->quoteList(['SUCCESS_LOGIN', 'FAILED_LOGIN']) . ')')
+            ->where($db->quoteName('status') . ' IN (' . $this->quoteList(['SUCCESS_LOGIN', 'FAILED_LOGIN', 'BLOCKED_LOGIN']) . ')')
             ->group([$originExpression, $db->quoteName('status')]);
 
         $db->setQuery($query);
@@ -38,7 +39,7 @@ final class DashboardModel extends BaseDatabaseModel
         foreach ($db->loadObjectList() ?: [] as $row) {
             $origin = (string) $row->origin;
             $status = (string) $row->status;
-            $key = $origin . '_' . ($status === 'SUCCESS_LOGIN' ? 'success' : 'failed');
+            $key = $status === 'BLOCKED_LOGIN' ? 'blocked_login' : $origin . '_' . ($status === 'SUCCESS_LOGIN' ? 'success' : 'failed');
 
             if (array_key_exists($key, $counts)) {
                 $counts[$key] = (int) $row->total;
@@ -83,6 +84,7 @@ final class DashboardModel extends BaseDatabaseModel
             'INVALID_CREDENTIALS' => 0,
             'ACCOUNT_BLOCKED' => 0,
             'ACCOUNT_DISABLED' => 0,
+            'IP_BLOCKED' => 0,
         ];
 
         $db = $this->getDatabase();
@@ -92,7 +94,7 @@ final class DashboardModel extends BaseDatabaseModel
                 'COUNT(*) AS ' . $db->quoteName('total'),
             ])
             ->from($db->quoteName('#__loginguard_attempts'))
-            ->where($db->quoteName('status') . ' = ' . $db->quote('FAILED_LOGIN'))
+            ->where($db->quoteName('status') . ' IN (' . $this->quoteList(['FAILED_LOGIN', 'BLOCKED_LOGIN']) . ')')
             ->where($db->quoteName('reason') . ' IN (' . $this->quoteList(array_keys($reasons)) . ')')
             ->group($db->quoteName('reason'))
             ->order($db->quoteName('total') . ' DESC');
@@ -126,6 +128,79 @@ final class DashboardModel extends BaseDatabaseModel
             ->where($db->quoteName('ip_address') . ' <> ' . $db->quote(''))
             ->group($db->quoteName('ip_address'))
             ->order($db->quoteName('total') . ' DESC');
+
+        $db->setQuery($query, 0, 10);
+
+        return $db->loadObjectList() ?: [];
+    }
+
+
+    /**
+     * @return array<string, int>
+     */
+    public function getBlockedIpTelemetry(): array
+    {
+        $telemetry = [
+            'active' => 0,
+            'temporary' => 0,
+            'permanent' => 0,
+            'expired' => 0,
+        ];
+
+        $db = $this->getDatabase();
+        $now = date('Y-m-d H:i:s');
+        $query = $db->getQuery(true)
+            ->select([
+                $db->quoteName('block_type'),
+                $db->quoteName('blocked_until'),
+                'COUNT(*) AS ' . $db->quoteName('total'),
+            ])
+            ->from($db->quoteName('#__loginguard_blocked_ips'))
+            ->where($db->quoteName('enabled') . ' = 1')
+            ->group([$db->quoteName('block_type'), $db->quoteName('blocked_until')]);
+
+        $db->setQuery($query);
+
+        foreach ($db->loadObjectList() ?: [] as $row) {
+            $total = (int) $row->total;
+            $type = (string) $row->block_type;
+            $until = (string) $row->blocked_until;
+            $isExpired = $until !== '' && $until < $now && $type !== 'permanent';
+
+            if ($isExpired) {
+                $telemetry['expired'] += $total;
+                continue;
+            }
+
+            $telemetry['active'] += $total;
+
+            if (array_key_exists($type, $telemetry)) {
+                $telemetry[$type] += $total;
+            }
+        }
+
+        return $telemetry;
+    }
+
+    /**
+     * @return array<int, object>
+     */
+    public function getRecentBlockedIps(): array
+    {
+        $db = $this->getDatabase();
+        $query = $db->getQuery(true)
+            ->select([
+                $db->quoteName('ip_address'),
+                $db->quoteName('scope'),
+                $db->quoteName('block_type'),
+                $db->quoteName('reason'),
+                $db->quoteName('failure_count'),
+                $db->quoteName('blocked_until'),
+                $db->quoteName('created'),
+                $db->quoteName('enabled'),
+            ])
+            ->from($db->quoteName('#__loginguard_blocked_ips'))
+            ->order($db->quoteName('created') . ' DESC');
 
         $db->setQuery($query, 0, 10);
 

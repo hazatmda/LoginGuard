@@ -11,6 +11,7 @@ $telemetryLabels = [
     'backend_success' => 'COM_LOGINGUARD_DASHBOARD_BACKEND_SUCCESS',
     'frontend_failed' => 'COM_LOGINGUARD_DASHBOARD_FRONTEND_FAILED',
     'backend_failed' => 'COM_LOGINGUARD_DASHBOARD_BACKEND_FAILED',
+    'blocked_login' => 'COM_LOGINGUARD_DASHBOARD_BLOCKED_LOGIN',
 ];
 
 $failureReasonLabels = [
@@ -19,6 +20,7 @@ $failureReasonLabels = [
     'INVALID_CREDENTIALS' => 'COM_LOGINGUARD_REASON_INVALID_CREDENTIALS',
     'ACCOUNT_BLOCKED' => 'COM_LOGINGUARD_REASON_ACCOUNT_BLOCKED',
     'ACCOUNT_DISABLED' => 'COM_LOGINGUARD_REASON_ACCOUNT_DISABLED',
+    'IP_BLOCKED' => 'COM_LOGINGUARD_REASON_IP_BLOCKED',
 ];
 
 ?>
@@ -98,6 +100,65 @@ $failureReasonLabels = [
                                     </li>
                                 <?php endforeach; ?>
                             </ul>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+
+            <div class="row g-3 mb-3">
+                <div class="col-xl-4">
+                    <div class="card h-100">
+                        <div class="card-body">
+                            <h2 class="h5 card-title"><?php echo Text::_('COM_LOGINGUARD_DASHBOARD_BLOCKED_IP_TELEMETRY'); ?></h2>
+                            <ul class="list-group list-group-flush">
+                                <?php foreach (['active', 'temporary', 'permanent', 'expired'] as $metric) : ?>
+                                    <li class="list-group-item d-flex justify-content-between align-items-center px-0">
+                                        <span><?php echo Text::_('COM_LOGINGUARD_BLOCK_METRIC_' . strtoupper($metric)); ?></span>
+                                        <span class="badge bg-secondary rounded-pill"><?php echo (int) ($this->blockedIpTelemetry[$metric] ?? 0); ?></span>
+                                    </li>
+                                <?php endforeach; ?>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-xl-8">
+                    <div class="card h-100">
+                        <div class="card-body">
+                            <h2 class="h5 card-title"><?php echo Text::_('COM_LOGINGUARD_DASHBOARD_RECENT_BLOCKED_IPS'); ?></h2>
+                            <div class="table-responsive">
+                                <table class="table table-striped table-hover align-middle">
+                                    <caption class="visually-hidden"><?php echo Text::_('COM_LOGINGUARD_DASHBOARD_RECENT_BLOCKED_IPS'); ?></caption>
+                                    <thead>
+                                        <tr>
+                                            <th scope="col"><?php echo Text::_('COM_LOGINGUARD_HEADING_IP_ADDRESS'); ?></th>
+                                            <th scope="col"><?php echo Text::_('COM_LOGINGUARD_HEADING_WHERE'); ?></th>
+                                            <th scope="col"><?php echo Text::_('COM_LOGINGUARD_BLOCK_TYPE'); ?></th>
+                                            <th scope="col"><?php echo Text::_('COM_LOGINGUARD_BLOCK_REASON'); ?></th>
+                                            <th scope="col"><?php echo Text::_('COM_LOGINGUARD_BLOCK_UNTIL'); ?></th>
+                                            <th scope="col"><?php echo Text::_('COM_LOGINGUARD_HEADING_DATETIME'); ?></th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        <?php if (empty($this->recentBlockedIps)) : ?>
+                                            <tr>
+                                                <td colspan="6" class="text-center"><?php echo Text::_('JGLOBAL_NO_MATCHING_RESULTS'); ?></td>
+                                            </tr>
+                                        <?php else : ?>
+                                            <?php foreach ($this->recentBlockedIps as $item) : ?>
+                                                <tr>
+                                                    <td><?php echo $this->escape((string) $item->ip_address); ?></td>
+                                                    <td><?php echo $this->escape(Text::_('COM_LOGINGUARD_BLOCK_SCOPE_' . strtoupper((string) $item->scope))); ?></td>
+                                                    <td><?php echo $this->escape(Text::_('COM_LOGINGUARD_BLOCK_TYPE_' . strtoupper((string) $item->block_type))); ?></td>
+                                                    <td><?php echo $this->escape(Text::_('COM_LOGINGUARD_BLOCK_REASON_' . strtoupper((string) $item->reason))); ?></td>
+                                                    <td><?php echo $item->blocked_until ? HTMLHelper::_('date', $item->blocked_until, Text::_('DATE_FORMAT_LC5')) : Text::_('COM_LOGINGUARD_BLOCK_PERMANENT'); ?></td>
+                                                    <td><?php echo HTMLHelper::_('date', $item->created, Text::_('DATE_FORMAT_LC5')); ?></td>
+                                                </tr>
+                                            <?php endforeach; ?>
+                                        <?php endif; ?>
+                                    </tbody>
+                                </table>
+                            </div>
                         </div>
                     </div>
                 </div>

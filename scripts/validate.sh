@@ -263,8 +263,8 @@ if config_root is None:
     print('Missing config.xml for com_config integration', file=sys.stderr)
     sys.exit(1)
 config_fields = {field.attrib.get('name') for field in config_root.findall('.//field')}
-required_config_fields = {'trusted_proxies', 'retention_days', 'logging_level', 'geoip_enabled', 'export_requires_permission', 'audit_alerts_enabled', 'audit_alert_success', 'audit_alert_failed', 'audit_alert_recipients', 'audit_alert_success_subject', 'audit_alert_success_body', 'audit_alert_failed_subject', 'audit_alert_failed_body', 'rules'}
-forbidden_config_fields = {'lockout_duration', 'failed_attempt_threshold'}
+required_config_fields = {'trusted_proxies', 'retention_days', 'logging_level', 'geoip_enabled', 'export_requires_permission', 'enforcement_enabled', 'frontend_enforcement_enabled', 'backend_enforcement_enabled', 'automatic_blocking_enabled', 'failed_attempt_threshold', 'threshold_window_minutes', 'cooldown_duration_minutes', 'automatic_block_scope', 'whitelisted_ips', 'geoip_country_map', 'audit_alerts_enabled', 'audit_alert_success', 'audit_alert_failed', 'audit_alert_recipients', 'audit_alert_success_subject', 'audit_alert_success_body', 'audit_alert_failed_subject', 'audit_alert_failed_body', 'blocked_ip_alerts_enabled', 'blocked_ip_alert_subject', 'blocked_ip_alert_body', 'rules'}
+forbidden_config_fields = {'lockout_duration'}
 if not required_config_fields.issubset(config_fields):
     print(f'config.xml missing fields: {sorted(required_config_fields - config_fields)}', file=sys.stderr)
     sys.exit(1)
@@ -293,7 +293,7 @@ for required_text in ["requirePermission('core.manage')", "requirePermission('lo
         sys.exit(1)
 
 dashboard_model_text = dashboard_model.read_text(encoding='utf-8')
-for required_text in ['SUCCESS_LOGIN', 'FAILED_LOGIN', 'frontend', 'backend', 'PASSWORD_INCORRECT', 'USERNAME_NOT_FOUND', 'INVALID_CREDENTIALS', 'ACCOUNT_BLOCKED', 'ACCOUNT_DISABLED', '#__loginguard_attempts']:
+for required_text in ['SUCCESS_LOGIN', 'FAILED_LOGIN', 'BLOCKED_LOGIN', 'frontend', 'backend', 'PASSWORD_INCORRECT', 'USERNAME_NOT_FOUND', 'INVALID_CREDENTIALS', 'ACCOUNT_BLOCKED', 'ACCOUNT_DISABLED', 'IP_BLOCKED', '#__loginguard_attempts', '#__loginguard_blocked_ips']:
     if required_text not in dashboard_model_text:
         print(f'Dashboard model missing required telemetry token: {required_text}', file=sys.stderr)
         sys.exit(1)
@@ -331,7 +331,7 @@ for permission in required_actions:
 
 install_sql = (plugin_manifest.parent / 'sql/install.mysql.utf8.sql').read_text(encoding='utf-8')
 
-for telemetry in ['SUCCESS_LOGIN', 'FAILED_LOGIN', 'USERNAME_NOT_FOUND', 'PASSWORD_INCORRECT', 'INVALID_CREDENTIALS', 'ACCOUNT_BLOCKED', 'ACCOUNT_DISABLED', 'frontend', 'backend', 'api', 'cli']:
+for telemetry in ['SUCCESS_LOGIN', 'FAILED_LOGIN', 'USERNAME_NOT_FOUND', 'PASSWORD_INCORRECT', 'INVALID_CREDENTIALS', 'ACCOUNT_BLOCKED', 'ACCOUNT_DISABLED', 'frontend', 'backend', 'api', 'cli', 'BLOCKED_LOGIN', 'IP_BLOCKED']:
     if telemetry not in login_guard_text and telemetry not in install_sql:
         print(f'Missing authentication telemetry token: {telemetry}', file=sys.stderr)
         sys.exit(1)
@@ -365,7 +365,7 @@ wrong_repo = 'hazim' + '/LoginGuard'
 if wrong_repo in update_server_text:
     print('Update metadata contains the incorrect repository URL', file=sys.stderr)
     sys.exit(1)
-for required_url in ['https://raw.githubusercontent.com/hazatmda/LoginGuard/main/updates/loginguard.xml', 'https://github.com/hazatmda/LoginGuard/releases/tag/v0.2.4-alpha', 'https://github.com/hazatmda/LoginGuard/releases/download/v0.2.4-alpha/pkg_loginguard_v0.2.4-alpha.zip', 'https://github.com/hazatmda/LoginGuard']:
+for required_url in ['https://raw.githubusercontent.com/hazatmda/LoginGuard/main/updates/loginguard.xml', f'https://github.com/hazatmda/LoginGuard/releases/tag/v{versions["VERSION"]}', f'https://github.com/hazatmda/LoginGuard/releases/download/v{versions["VERSION"]}/pkg_loginguard_v{versions["VERSION"]}.zip', 'https://github.com/hazatmda/LoginGuard']:
     if required_url not in update_server_text:
         print(f'Update metadata missing corrected repository URL: {required_url}', file=sys.stderr)
         sys.exit(1)
@@ -387,7 +387,15 @@ required_columns = [
     'browser', 'operating_system', 'country', 'where_at', 'user_agent',
     'attempt_type', 'client', 'reason', 'created',
 ]
+required_block_columns = ['ip_address', 'scope', 'block_type', 'reason', 'failure_count', 'blocked_until', 'created', 'created_by', 'enabled']
 missing_columns = [column for column in required_columns if f'`{column}`' not in install_sql]
+missing_block_columns = [column for column in required_block_columns if f'`{column}`' not in install_sql]
+if '#__loginguard_blocked_ips' not in install_sql:
+    print('Install SQL missing blocked IP table', file=sys.stderr)
+    sys.exit(1)
+if missing_block_columns:
+    print(f'Install SQL missing blocked IP columns: {", ".join(missing_block_columns)}', file=sys.stderr)
+    sys.exit(1)
 if missing_columns:
     print(f'Install SQL missing required columns: {", ".join(missing_columns)}', file=sys.stderr)
     sys.exit(1)
