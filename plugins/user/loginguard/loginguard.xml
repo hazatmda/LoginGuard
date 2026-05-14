@@ -3,7 +3,7 @@
     <name>plg_user_loginguard</name>
     <author>Hazim</author>
     <creationDate>2026-05-13</creationDate>
-    <version>0.1.6-alpha</version>
+    <version>0.1.7-alpha</version>
     <description>Joomla security plugin for login attempt detection, monitoring, and auditing.</description>
 
     <namespace path="src">Joomla\Plugin\User\LoginGuard</namespace>
@@ -13,17 +13,26 @@
         <folder>src</folder>
         <folder>language</folder>
         <folder>sql</folder>
+        <filename>script.php</filename>
     </files>
 
     <languages>
         <language tag="en-GB">language/en-GB/en-GB.plg_user_loginguard.ini</language>
     </languages>
 
-    <administration>
+    <scriptfile>script.php</scriptfile>
+
+    <install>
         <sql>
             <file driver="mysql" charset="utf8">sql/install.mysql.utf8.sql</file>
         </sql>
-    </administration>
+    </install>
+
+    <update>
+        <schemas>
+            <schemapath type="mysql">sql/updates/mysql</schemapath>
+        </schemas>
+    </update>
 
     <uninstall>
         <sql>
