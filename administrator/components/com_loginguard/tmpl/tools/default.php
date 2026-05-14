@@ -8,15 +8,7 @@ use Joomla\CMS\Router\Route;
 
 ?>
 <form action="<?php echo Route::_('index.php?option=com_loginguard&view=tools'); ?>" method="post" name="adminForm" id="adminForm">
-    <div class="row">
-    <?php if (!empty($this->sidebar)) : ?>
-        <div id="j-sidebar-container" class="col-md-2">
-            <?php echo $this->sidebar; ?>
-        </div>
-        <div id="j-main-container" class="j-main-container col-md-10">
-    <?php else : ?>
-        <div id="j-main-container" class="j-main-container">
-    <?php endif; ?>
+    <div id="j-main-container" class="j-main-container">
             <div class="card">
                 <div class="card-body">
                     <h2><?php echo Text::_('COM_LOGINGUARD_TOOLS_TITLE'); ?></h2>
@@ -30,5 +22,4 @@ use Joomla\CMS\Router\Route;
         </div>
         <input type="hidden" name="task" value="">
         <?php echo HTMLHelper::_('form.token'); ?>
-    </div>
 </form>

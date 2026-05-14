@@ -15,15 +15,7 @@ $listDirn  = $this->escape((string) $this->state->get('list.direction'));
 $canDelete = $this->actions && $this->actions->get('loginguard.delete');
 ?>
 <form action="<?php echo Route::_('index.php?option=com_loginguard&view=attempts'); ?>" method="post" name="adminForm" id="adminForm">
-    <div class="row">
-    <?php if (!empty($this->sidebar)) : ?>
-        <div id="j-sidebar-container" class="col-md-2">
-            <?php echo $this->sidebar; ?>
-        </div>
-        <div id="j-main-container" class="j-main-container col-md-10">
-    <?php else : ?>
-        <div id="j-main-container" class="j-main-container">
-    <?php endif; ?>
+    <div id="j-main-container" class="j-main-container">
         <?php echo LayoutHelper::render('joomla.searchtools.default', ['view' => $this]); ?>
 
         <table class="table table-striped" id="loginguardAttemptsList">
@@ -81,6 +73,5 @@ $canDelete = $this->actions && $this->actions->get('loginguard.delete');
         <input type="hidden" name="task" value="">
         <input type="hidden" name="boxchecked" value="0">
         <?php echo HTMLHelper::_('form.token'); ?>
-    </div>
     </div>
 </form>

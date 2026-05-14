@@ -4,7 +4,6 @@ namespace LoginGuard\Component\LoginGuard\Administrator\View\Dashboard;
 
 defined('_JEXEC') or die;
 
-use Joomla\CMS\HTML\Helpers\Sidebar;
 use Joomla\CMS\MVC\View\GenericDataException;
 use Joomla\CMS\MVC\View\HtmlView as BaseHtmlView;
 use Joomla\CMS\Toolbar\ToolbarHelper;
@@ -27,9 +26,6 @@ final class HtmlView extends BaseHtmlView
     /** @var array<int, object> */
     protected $topFailedIps = [];
 
-    /** @var string */
-    public $sidebar = '';
-
     public function display($tpl = null): void
     {
         LoginGuardHelper::requirePermission('core.manage');
@@ -44,8 +40,6 @@ final class HtmlView extends BaseHtmlView
         if (count($errors = $this->get('Errors'))) {
             throw new GenericDataException(implode("\n", $errors), 500);
         }
-        LoginGuardHelper::addSubmenu('dashboard');
-        $this->sidebar = Sidebar::render();
 
         ToolbarHelper::title('LoginGuard: Dashboard', 'shield-alt');
 

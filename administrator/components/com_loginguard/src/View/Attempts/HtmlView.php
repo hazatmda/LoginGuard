@@ -4,7 +4,6 @@ namespace LoginGuard\Component\LoginGuard\Administrator\View\Attempts;
 
 defined('_JEXEC') or die;
 
-use Joomla\CMS\HTML\Helpers\Sidebar;
 use Joomla\CMS\MVC\View\GenericDataException;
 use Joomla\CMS\MVC\View\HtmlView as BaseHtmlView;
 use Joomla\CMS\Toolbar\ToolbarHelper;
@@ -30,9 +29,6 @@ final class HtmlView extends BaseHtmlView
     /** @var object */
     public $actions;
 
-    /** @var string */
-    public $sidebar = '';
-
     public function display($tpl = null): void
     {
         LoginGuardHelper::requirePermission('loginguard.view');
@@ -47,9 +43,6 @@ final class HtmlView extends BaseHtmlView
         if (count($errors = $this->get('Errors'))) {
             throw new GenericDataException(implode("\n", $errors), 500);
         }
-
-        LoginGuardHelper::addSubmenu('attempts');
-        $this->sidebar = Sidebar::render();
 
         ToolbarHelper::title('LoginGuard: Login Information', 'shield-alt');
 
