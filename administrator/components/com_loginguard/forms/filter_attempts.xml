@@ -22,7 +22,7 @@
             <option value="failed">COM_LOGINGUARD_STATUS_FAILED</option>
         </field>
         <field
-            name="client"
+            name="where_at"
             type="list"
             label="COM_LOGINGUARD_FILTER_WHERE"
             onchange="this.form.submit();"
@@ -62,8 +62,8 @@
             <option value="browser DESC">COM_LOGINGUARD_HEADING_BROWSER_DESC</option>
             <option value="operating_system ASC">COM_LOGINGUARD_HEADING_OS_ASC</option>
             <option value="operating_system DESC">COM_LOGINGUARD_HEADING_OS_DESC</option>
-            <option value="client ASC">COM_LOGINGUARD_HEADING_WHERE_ASC</option>
-            <option value="client DESC">COM_LOGINGUARD_HEADING_WHERE_DESC</option>
+            <option value="where_at ASC">COM_LOGINGUARD_HEADING_WHERE_ASC</option>
+            <option value="where_at DESC">COM_LOGINGUARD_HEADING_WHERE_DESC</option>
         </field>
         <field
             name="limit"

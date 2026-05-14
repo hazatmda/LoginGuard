@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.8-alpha
+
+- Replaced the administrator SearchTools helper call with Joomla LayoutHelper rendering to avoid `searchtools::default` runtime layout errors.
+- Aligned the attempts ListModel, filter XML, SearchTools sorting, and Where filtering with Joomla administrator ListView conventions.
+- Synchronized release metadata and package naming for `pkg_loginguard_v0.1.8-alpha.zip`.
+
 ## 0.1.7-alpha
 
 - Fixed the Joomla plugin installer SQL lifecycle so fresh package installs create `#__loginguard_attempts` from `install.mysql.utf8.sql`.

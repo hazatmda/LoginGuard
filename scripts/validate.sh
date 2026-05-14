@@ -63,6 +63,62 @@ if not (plugin_manifest.parent / schema_path / f"{versions['VERSION']}.sql").is_
     print(f"Missing update migration for {versions['VERSION']}", file=sys.stderr)
     sys.exit(1)
 
+
+component_view = Path('administrator/components/com_loginguard/src/View/Attempts/HtmlView.php')
+component_model = Path('administrator/components/com_loginguard/src/Model/AttemptsModel.php')
+component_template = Path('administrator/components/com_loginguard/tmpl/attempts/default.php')
+component_filter = Path('administrator/components/com_loginguard/forms/filter_attempts.xml')
+
+for required_file in [component_view, component_model, component_template, component_filter]:
+    if not required_file.is_file():
+        print(f'Missing administrator MVC/ListView file: {required_file}', file=sys.stderr)
+        sys.exit(1)
+
+template_text = component_template.read_text(encoding='utf-8')
+if "LayoutHelper::render('joomla.searchtools.default'" not in template_text:
+    print('Attempts template must render Joomla SearchTools through LayoutHelper', file=sys.stderr)
+    sys.exit(1)
+if "HTMLHelper::_('searchtools.default'" in template_text:
+    print('Attempts template must not call the non-layout searchtools.default HTML helper', file=sys.stderr)
+    sys.exit(1)
+if "HTMLHelper::_('searchtools.sort'" not in template_text:
+    print('Attempts template must use Joomla SearchTools sorting helpers', file=sys.stderr)
+    sys.exit(1)
+if "getListFooter()" not in template_text:
+    print('Attempts template missing pagination footer rendering', file=sys.stderr)
+    sys.exit(1)
+
+view_text = component_view.read_text(encoding='utf-8')
+for required_state in ['FilterForm', 'ActiveFilters', 'Pagination', 'Items', 'ToolbarHelper::title']:
+    if required_state not in view_text:
+        print(f'Attempts HtmlView missing {required_state} wiring', file=sys.stderr)
+        sys.exit(1)
+
+model_text = component_model.read_text(encoding='utf-8')
+for required_state in ["'filter.search'", "'filter.status'", "'filter.where_at'", "'list.ordering'", "'list.direction'"]:
+    if required_state not in model_text:
+        print(f'Attempts ListModel missing state handling for {required_state}', file=sys.stderr)
+        sys.exit(1)
+
+filter_root = roots.get(component_filter)
+if filter_root is None:
+    print(f'Missing attempts filter XML: {component_filter}', file=sys.stderr)
+    sys.exit(1)
+filter_fields = {field.attrib.get('name') for field in filter_root.findall("./fields[@name='filter']/field")}
+list_fields = {field.attrib.get('name') for field in filter_root.findall("./fields[@name='list']/field")}
+if not {'search', 'status', 'where_at'}.issubset(filter_fields):
+    print('Attempts filter XML missing search/status/where_at filters', file=sys.stderr)
+    sys.exit(1)
+if not {'fullordering', 'limit'}.issubset(list_fields):
+    print('Attempts filter XML missing SearchTools ordering or limit fields', file=sys.stderr)
+    sys.exit(1)
+
+package_manifest = Path('pkg_loginguard/pkg_loginguard.xml')
+package_name = f"pkg_loginguard_v{versions['VERSION']}.zip"
+if package_name not in Path('README.md').read_text(encoding='utf-8'):
+    print(f'Readme missing expected package name {package_name}', file=sys.stderr)
+    sys.exit(1)
+
 scriptfile = plugin_root.findtext('scriptfile')
 if scriptfile != 'script.php' or not (plugin_manifest.parent / scriptfile).is_file():
     print('Plugin installer scriptfile is not registered or missing', file=sys.stderr)

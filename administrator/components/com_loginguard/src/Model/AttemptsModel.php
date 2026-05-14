@@ -22,6 +22,7 @@ final class AttemptsModel extends ListModel
                 'country',
                 'browser',
                 'operating_system',
+                'where_at',
                 'client',
             ];
         }
@@ -29,20 +30,45 @@ final class AttemptsModel extends ListModel
         parent::__construct($config);
     }
 
-    protected function populateState($ordering = 'created', $direction = 'desc'): void
+    protected function populateState($ordering = 'created', $direction = 'DESC'): void
     {
+        parent::populateState($ordering, $direction);
+
         $app = Factory::getApplication();
 
-        $search = $app->getUserStateFromRequest($this->context . '.filter.search', 'filter_search', '', 'string');
-        $this->setState('filter.search', $search);
+        $filters = $app->getUserStateFromRequest($this->context . '.filter', 'filter', [], 'array');
+        $filters = is_array($filters) ? $filters : [];
 
-        $status = $app->getUserStateFromRequest($this->context . '.filter.status', 'filter_status', '', 'cmd');
-        $this->setState('filter.status', $status);
+        $this->setState(
+            'filter.search',
+            (string) ($filters['search'] ?? $app->getUserStateFromRequest($this->context . '.filter.search', 'filter_search', '', 'string'))
+        );
+        $this->setState(
+            'filter.status',
+            (string) ($filters['status'] ?? $app->getUserStateFromRequest($this->context . '.filter.status', 'filter_status', '', 'cmd'))
+        );
+        $this->setState(
+            'filter.where_at',
+            (string) ($filters['where_at'] ?? $filters['client'] ?? $app->getUserStateFromRequest($this->context . '.filter.where_at', 'filter_where_at', '', 'cmd'))
+        );
 
-        $client = $app->getUserStateFromRequest($this->context . '.filter.client', 'filter_client', '', 'cmd');
-        $this->setState('filter.client', $client);
+        $list = $app->getUserStateFromRequest($this->context . '.list', 'list', [], 'array');
+        $list = is_array($list) ? $list : [];
+        $fullOrdering = trim((string) ($list['fullordering'] ?? ''));
 
-        parent::populateState($ordering, $direction);
+        if ($fullOrdering !== '') {
+            $parts = preg_split('/\s+/', $fullOrdering);
+            $candidateOrdering = $parts[0] ?? $ordering;
+            $candidateDirection = strtoupper($parts[1] ?? $direction);
+
+            if (in_array($candidateOrdering, $this->filter_fields, true)) {
+                $this->setState('list.ordering', $candidateOrdering);
+            }
+
+            if (in_array($candidateDirection, ['ASC', 'DESC'], true)) {
+                $this->setState('list.direction', $candidateDirection);
+            }
+        }
     }
 
     protected function getListQuery()
@@ -59,6 +85,7 @@ final class AttemptsModel extends ListModel
                 $db->quoteName('country'),
                 $db->quoteName('browser'),
                 $db->quoteName('operating_system'),
+                $db->quoteName('where_at'),
                 $db->quoteName('client'),
                 $db->quoteName('reason'),
             ])
@@ -76,6 +103,7 @@ final class AttemptsModel extends ListModel
                 . ' OR ' . $db->quoteName('country') . ' LIKE ' . $db->quote($pattern)
                 . ' OR ' . $db->quoteName('browser') . ' LIKE ' . $db->quote($pattern)
                 . ' OR ' . $db->quoteName('operating_system') . ' LIKE ' . $db->quote($pattern)
+                . ' OR ' . $db->quoteName('where_at') . ' LIKE ' . $db->quote($pattern)
                 . ' OR ' . $db->quoteName('client') . ' LIKE ' . $db->quote($pattern)
                 . ')'
             );
@@ -87,14 +115,19 @@ final class AttemptsModel extends ListModel
             $query->where($db->quoteName('status') . ' = ' . $db->quote($status));
         }
 
-        $client = (string) $this->getState('filter.client');
+        $whereAt = (string) $this->getState('filter.where_at');
 
-        if ($client !== '') {
-            $query->where($db->quoteName('client') . ' = ' . $db->quote($client));
+        if ($whereAt !== '') {
+            $query->where(
+                '('
+                . $db->quoteName('where_at') . ' = ' . $db->quote($whereAt)
+                . ' OR ' . $db->quoteName('client') . ' = ' . $db->quote($whereAt)
+                . ')'
+            );
         }
 
         $ordering = (string) $this->state->get('list.ordering', 'created');
-        $direction = strtoupper((string) $this->state->get('list.direction', 'desc'));
+        $direction = strtoupper((string) $this->state->get('list.direction', 'DESC'));
 
         if (!in_array($ordering, $this->filter_fields, true)) {
             $ordering = 'created';
