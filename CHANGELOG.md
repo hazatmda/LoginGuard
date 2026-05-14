@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.2.3-alpha
+
+- Split dashboard telemetry into Frontend Success, Backend Success, Frontend Failed, and Backend Failed cards.
+- Routed CSV export through the Joomla toolbar form task so SearchTools filters, selected rows, ACL, UTF-8 encoding, and download headers are preserved.
+- Removed non-functional lockout duration and failed attempt threshold configuration fields until a real enforcement engine exists.
+- Stabilized the administrator left sidebar with Joomla-native Sidebar rendering and synchronized release artifacts for `pkg_loginguard_v0.2.3-alpha.zip`.
+
 ## 0.2.2-alpha
 
 - Fixed administrator sidebar layout wrappers so submenu content is placed beside the main panel consistently.

@@ -9,52 +9,43 @@ use Joomla\CMS\MVC\Model\BaseDatabaseModel;
 final class DashboardModel extends BaseDatabaseModel
 {
     /**
-     * Count all login attempts for the requested normalized status.
-     */
-    public function getSuccessLoginCount(): int
-    {
-        return $this->countByStatus('SUCCESS_LOGIN');
-    }
-
-    /**
-     * Count all login attempts for the requested normalized status.
-     */
-    public function getFailedLoginCount(): int
-    {
-        return $this->countByStatus('FAILED_LOGIN');
-    }
-
-    /**
      * @return array<string, int>
      */
-    public function getOriginCounts(): array
+    public function getTelemetryCounts(): array
     {
-        $origins = [
-            'frontend' => 0,
-            'backend' => 0,
+        $counts = [
+            'frontend_success' => 0,
+            'backend_success' => 0,
+            'frontend_failed' => 0,
+            'backend_failed' => 0,
         ];
 
         $db = $this->getDatabase();
+        $originExpression = 'LOWER(COALESCE(NULLIF(' . $db->quoteName('where_at') . ', ' . $db->quote('') . '), ' . $db->quoteName('client') . '))';
         $query = $db->getQuery(true)
             ->select([
-                'LOWER(COALESCE(NULLIF(' . $db->quoteName('where_at') . ', ' . $db->quote('') . '), ' . $db->quoteName('client') . ')) AS ' . $db->quoteName('origin'),
+                $originExpression . ' AS ' . $db->quoteName('origin'),
+                $db->quoteName('status'),
                 'COUNT(*) AS ' . $db->quoteName('total'),
             ])
             ->from($db->quoteName('#__loginguard_attempts'))
-            ->where('LOWER(COALESCE(NULLIF(' . $db->quoteName('where_at') . ', ' . $db->quote('') . '), ' . $db->quoteName('client') . ')) IN (' . $this->quoteList(array_keys($origins)) . ')')
-            ->group('LOWER(COALESCE(NULLIF(' . $db->quoteName('where_at') . ', ' . $db->quote('') . '), ' . $db->quoteName('client') . '))');
+            ->where($originExpression . ' IN (' . $this->quoteList(['frontend', 'backend']) . ')')
+            ->where($db->quoteName('status') . ' IN (' . $this->quoteList(['SUCCESS_LOGIN', 'FAILED_LOGIN']) . ')')
+            ->group([$originExpression, $db->quoteName('status')]);
 
         $db->setQuery($query);
 
         foreach ($db->loadObjectList() ?: [] as $row) {
             $origin = (string) $row->origin;
+            $status = (string) $row->status;
+            $key = $origin . '_' . ($status === 'SUCCESS_LOGIN' ? 'success' : 'failed');
 
-            if (array_key_exists($origin, $origins)) {
-                $origins[$origin] = (int) $row->total;
+            if (array_key_exists($key, $counts)) {
+                $counts[$key] = (int) $row->total;
             }
         }
 
-        return $origins;
+        return $counts;
     }
 
     /**
@@ -149,18 +140,5 @@ final class DashboardModel extends BaseDatabaseModel
         $db = $this->getDatabase();
 
         return implode(',', array_map(static fn ($value) => $db->quote($value), $values));
-    }
-
-    private function countByStatus(string $status): int
-    {
-        $db = $this->getDatabase();
-        $query = $db->getQuery(true)
-            ->select('COUNT(*)')
-            ->from($db->quoteName('#__loginguard_attempts'))
-            ->where($db->quoteName('status') . ' = ' . $db->quote($status));
-
-        $db->setQuery($query);
-
-        return (int) $db->loadResult();
     }
 }

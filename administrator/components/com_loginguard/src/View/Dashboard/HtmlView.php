@@ -4,6 +4,7 @@ namespace LoginGuard\Component\LoginGuard\Administrator\View\Dashboard;
 
 defined('_JEXEC') or die;
 
+use Joomla\CMS\HTML\Helpers\Sidebar;
 use Joomla\CMS\MVC\View\GenericDataException;
 use Joomla\CMS\MVC\View\HtmlView as BaseHtmlView;
 use Joomla\CMS\Toolbar\ToolbarHelper;
@@ -14,14 +15,8 @@ final class HtmlView extends BaseHtmlView
     /** @var object */
     public $actions;
 
-    /** @var int */
-    protected $successLoginCount = 0;
-
-    /** @var int */
-    protected $failedLoginCount = 0;
-
     /** @var array<string, int> */
-    protected $originCounts = [];
+    protected $telemetryCounts = [];
 
     /** @var array<int, object> */
     protected $recentActivity = [];
@@ -40,9 +35,7 @@ final class HtmlView extends BaseHtmlView
         LoginGuardHelper::requirePermission('core.manage');
         LoginGuardHelper::requirePermission('loginguard.view');
 
-        $this->successLoginCount = (int) $this->get('SuccessLoginCount');
-        $this->failedLoginCount  = (int) $this->get('FailedLoginCount');
-        $this->originCounts      = (array) $this->get('OriginCounts');
+        $this->telemetryCounts   = (array) $this->get('TelemetryCounts');
         $this->recentActivity    = (array) $this->get('RecentActivity');
         $this->topFailureReasons = (array) $this->get('TopFailureReasons');
         $this->topFailedIps      = (array) $this->get('TopFailedIps');
@@ -52,7 +45,7 @@ final class HtmlView extends BaseHtmlView
             throw new GenericDataException(implode("\n", $errors), 500);
         }
         LoginGuardHelper::addSubmenu('dashboard');
-        $this->sidebar = \Joomla\CMS\HTML\HTMLHelper::_('sidebar.render');
+        $this->sidebar = Sidebar::render();
 
         ToolbarHelper::title('LoginGuard: Dashboard', 'shield-alt');
 

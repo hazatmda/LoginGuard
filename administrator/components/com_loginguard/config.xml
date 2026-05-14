@@ -31,24 +31,6 @@
             <option value="verbose">COM_LOGINGUARD_CONFIG_LOGGING_LEVEL_VERBOSE</option>
         </field>
         <field
-            name="lockout_duration"
-            type="number"
-            label="COM_LOGINGUARD_CONFIG_LOCKOUT_DURATION_LABEL"
-            description="COM_LOGINGUARD_CONFIG_LOCKOUT_DURATION_DESC"
-            default="15"
-            min="0"
-            filter="integer"
-        />
-        <field
-            name="failed_attempt_threshold"
-            type="number"
-            label="COM_LOGINGUARD_CONFIG_FAILED_ATTEMPT_THRESHOLD_LABEL"
-            description="COM_LOGINGUARD_CONFIG_FAILED_ATTEMPT_THRESHOLD_DESC"
-            default="5"
-            min="1"
-            filter="integer"
-        />
-        <field
             name="geoip_enabled"
             type="radio"
             layout="joomla.form.field.radio.switcher"
