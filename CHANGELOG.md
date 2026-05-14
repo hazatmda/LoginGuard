@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.2.1-alpha
+
+- Added a lightweight Joomla-native dashboard telemetry overview with success and failed login count cards.
+- Added frontend/backend/api/cli summary metrics, recent activity, top failure reasons, and top failed IP panels while preserving Login Information as the full audit table.
+- Kept dashboard telemetry behind existing core.manage and loginguard.view ACL checks, with existing toolbar permissions preserved.
+- Synchronized package metadata and release artifacts for `pkg_loginguard_v0.2.1-alpha.zip`.
+
 ## 0.2.0-alpha
 
 - Added Joomla administrator submenu architecture for Dashboard, Login Information, Configuration, Tools, and About.
