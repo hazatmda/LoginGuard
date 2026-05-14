@@ -3,7 +3,7 @@
     <name>com_loginguard</name>
     <author>Hazim</author>
     <creationDate>2026-05-13</creationDate>
-    <version>0.1.5-alpha</version>
+    <version>0.1.6-alpha</version>
     <element>com_loginguard</element>
     <description>COM_LOGINGUARD_XML_DESCRIPTION</description>
 
@@ -14,6 +14,7 @@
         <files folder="administrator/components/com_loginguard">
             <filename>loginguard.php</filename>
             <filename>loginguard.xml</filename>
+            <folder>forms</folder>
             <folder>language</folder>
             <folder>services</folder>
             <folder>src</folder>

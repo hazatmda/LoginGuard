@@ -14,12 +14,15 @@ final class AttemptsModel extends ListModel
         if (empty($config['filter_fields'])) {
             $config['filter_fields'] = [
                 'id',
-                'username',
-                'user_id',
-                'status',
                 'ip_address',
-                'client',
+                'name',
+                'username',
+                'status',
                 'created',
+                'country',
+                'browser',
+                'operating_system',
+                'client',
             ];
         }
 
@@ -36,6 +39,9 @@ final class AttemptsModel extends ListModel
         $status = $app->getUserStateFromRequest($this->context . '.filter.status', 'filter_status', '', 'cmd');
         $this->setState('filter.status', $status);
 
+        $client = $app->getUserStateFromRequest($this->context . '.filter.client', 'filter_client', '', 'cmd');
+        $this->setState('filter.client', $client);
+
         parent::populateState($ordering, $direction);
     }
 
@@ -45,27 +51,32 @@ final class AttemptsModel extends ListModel
         $query = $db->getQuery(true)
             ->select([
                 $db->quoteName('id'),
-                $db->quoteName('username'),
-                $db->quoteName('user_id'),
-                $db->quoteName('status'),
                 $db->quoteName('ip_address'),
-                $db->quoteName('user_agent'),
+                $db->quoteName('name'),
+                $db->quoteName('username'),
+                $db->quoteName('status'),
+                $db->quoteName('created'),
+                $db->quoteName('country'),
+                $db->quoteName('browser'),
+                $db->quoteName('operating_system'),
                 $db->quoteName('client'),
                 $db->quoteName('reason'),
-                $db->quoteName('created'),
             ])
             ->from($db->quoteName('#__loginguard_attempts'));
 
-        $search = (string) $this->getState('filter.search');
+        $search = trim((string) $this->getState('filter.search'));
 
         if ($search !== '') {
-            $search = '%' . str_replace(' ', '%', trim($search)) . '%';
+            $pattern = '%' . str_replace(' ', '%', $search) . '%';
             $query->where(
                 '('
-                . $db->quoteName('username') . ' LIKE ' . $db->quote($search)
-                . ' OR ' . $db->quoteName('ip_address') . ' LIKE ' . $db->quote($search)
-                . ' OR ' . $db->quoteName('client') . ' LIKE ' . $db->quote($search)
-                . ' OR ' . $db->quoteName('reason') . ' LIKE ' . $db->quote($search)
+                . $db->quoteName('ip_address') . ' LIKE ' . $db->quote($pattern)
+                . ' OR ' . $db->quoteName('name') . ' LIKE ' . $db->quote($pattern)
+                . ' OR ' . $db->quoteName('username') . ' LIKE ' . $db->quote($pattern)
+                . ' OR ' . $db->quoteName('country') . ' LIKE ' . $db->quote($pattern)
+                . ' OR ' . $db->quoteName('browser') . ' LIKE ' . $db->quote($pattern)
+                . ' OR ' . $db->quoteName('operating_system') . ' LIKE ' . $db->quote($pattern)
+                . ' OR ' . $db->quoteName('client') . ' LIKE ' . $db->quote($pattern)
                 . ')'
             );
         }
@@ -76,10 +87,24 @@ final class AttemptsModel extends ListModel
             $query->where($db->quoteName('status') . ' = ' . $db->quote($status));
         }
 
-        $ordering = $this->state->get('list.ordering', 'created');
-        $direction = $this->state->get('list.direction', 'desc');
+        $client = (string) $this->getState('filter.client');
 
-        $query->order($db->escape($ordering . ' ' . $direction));
+        if ($client !== '') {
+            $query->where($db->quoteName('client') . ' = ' . $db->quote($client));
+        }
+
+        $ordering = (string) $this->state->get('list.ordering', 'created');
+        $direction = strtoupper((string) $this->state->get('list.direction', 'desc'));
+
+        if (!in_array($ordering, $this->filter_fields, true)) {
+            $ordering = 'created';
+        }
+
+        if (!in_array($direction, ['ASC', 'DESC'], true)) {
+            $direction = 'DESC';
+        }
+
+        $query->order($db->quoteName($ordering) . ' ' . $direction);
 
         return $query;
     }
