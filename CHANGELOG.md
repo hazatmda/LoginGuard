@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.1.7-alpha
+
+- Fixed the Joomla plugin installer SQL lifecycle so fresh package installs create `#__loginguard_attempts` from `install.mysql.utf8.sql`.
+- Added package update schema registration and a data-preserving installer script to reconcile alpha schemas during upgrades.
+- Kept uninstall cleanup deterministic with `uninstall.mysql.utf8.sql` and installer lifecycle cleanup.
+- Synchronized release metadata and package naming for `pkg_loginguard_v0.1.7-alpha.zip`.
+
 ## 0.1.6-alpha
 
 - Rebuilt LoginGuard login success/failure event handling with defensive Joomla payload normalization to support array, object, and User payloads.

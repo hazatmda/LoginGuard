@@ -33,6 +33,7 @@ final class LoginGuard extends CMSPlugin
         $this->storeAttempt([
             'name' => $this->readPayloadValue($user, 'name', ''),
             'username' => $this->readPayloadValue($user, 'username', $this->readPayloadValue($payload, 'username', 'unknown')),
+            'email' => $this->readPayloadValue($user, 'email', $this->readPayloadValue($payload, 'email', '')),
             'user_id' => (int) $this->readPayloadValue($user, 'id', 0),
             'status' => 'success',
             'reason' => 'Login successful',
@@ -51,6 +52,7 @@ final class LoginGuard extends CMSPlugin
         $this->storeAttempt([
             'name' => $this->readPayloadValue($payload, 'name', ''),
             'username' => $this->readPayloadValue($payload, 'username', 'unknown'),
+            'email' => $this->readPayloadValue($payload, 'email', ''),
             'user_id' => 0,
             'status' => 'failed',
             'reason' => $this->readPayloadValue($payload, 'error_message', 'Login failed'),
@@ -105,13 +107,16 @@ final class LoginGuard extends CMSPlugin
             'username' => $this->cleanString((string) ($attempt['username'] ?? 'unknown'), 'unknown'),
             'user_id' => (int) ($attempt['user_id'] ?? 0),
             'name' => $this->cleanString((string) ($attempt['name'] ?? '')),
+            'email' => $this->cleanString((string) ($attempt['email'] ?? '')),
             'status' => $this->cleanString((string) ($attempt['status'] ?? 'unknown'), 'unknown'),
             'ip_address' => $this->cleanString((string) ($_SERVER['REMOTE_ADDR'] ?? 'unknown'), 'unknown'),
             'user_agent' => $userAgent,
             'country' => '',
             'browser' => $this->detectBrowser($userAgent),
             'operating_system' => $this->detectOperatingSystem($userAgent),
+            'where_at' => $client,
             'client' => $client,
+            'attempt_type' => 'login',
             'reason' => $this->cleanString((string) ($attempt['reason'] ?? '')),
             'created' => (new Date())->toSql(),
         ];
@@ -136,9 +141,12 @@ final class LoginGuard extends CMSPlugin
     {
         $columns = [
             'name' => "ALTER TABLE `#__loginguard_attempts` ADD COLUMN `name` varchar(255) NOT NULL DEFAULT '' AFTER `user_id`",
+            'email' => "ALTER TABLE `#__loginguard_attempts` ADD COLUMN `email` varchar(255) NOT NULL DEFAULT '' AFTER `username`",
             'country' => "ALTER TABLE `#__loginguard_attempts` ADD COLUMN `country` varchar(100) NOT NULL DEFAULT '' AFTER `user_agent`",
             'browser' => "ALTER TABLE `#__loginguard_attempts` ADD COLUMN `browser` varchar(100) NOT NULL DEFAULT '' AFTER `country`",
             'operating_system' => "ALTER TABLE `#__loginguard_attempts` ADD COLUMN `operating_system` varchar(100) NOT NULL DEFAULT '' AFTER `browser`",
+            'where_at' => "ALTER TABLE `#__loginguard_attempts` ADD COLUMN `where_at` varchar(50) NOT NULL DEFAULT '' AFTER `country`",
+            'attempt_type' => "ALTER TABLE `#__loginguard_attempts` ADD COLUMN `attempt_type` varchar(50) NOT NULL DEFAULT 'login' AFTER `user_agent`",
         ];
 
         $existing = [];
