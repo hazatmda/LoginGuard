@@ -114,17 +114,52 @@
             <option value="1">JYES</option>
         </field>
         <field
-            name="audit_alert_clients"
-            type="checkboxes"
-            label="COM_LOGINGUARD_CONFIG_AUDIT_ALERT_CLIENTS_LABEL"
-            description="COM_LOGINGUARD_CONFIG_AUDIT_ALERT_CLIENTS_DESC"
-            default="administrator"
+            name="audit_alert_recipients"
+            type="textarea"
+            label="COM_LOGINGUARD_CONFIG_AUDIT_ALERT_RECIPIENTS_LABEL"
+            description="COM_LOGINGUARD_CONFIG_AUDIT_ALERT_RECIPIENTS_DESC"
+            rows="3"
             showon="audit_alerts_enabled:1"
-            filter="cmd"
-        >
-            <option value="site">COM_LOGINGUARD_CONFIG_AUDIT_ALERT_CLIENT_SITE</option>
-            <option value="administrator">COM_LOGINGUARD_CONFIG_AUDIT_ALERT_CLIENT_ADMINISTRATOR</option>
-        </field>
+            filter="string"
+        />
+        <field
+            name="audit_alert_success_subject"
+            type="text"
+            label="COM_LOGINGUARD_CONFIG_AUDIT_ALERT_SUCCESS_SUBJECT_LABEL"
+            description="COM_LOGINGUARD_CONFIG_AUDIT_ALERT_TEMPLATE_DESC"
+            default="LoginGuard: successful login for {username}"
+            showon="audit_alerts_enabled:1[AND]audit_alert_success:1"
+            filter="string"
+        />
+        <field
+            name="audit_alert_success_body"
+            type="textarea"
+            label="COM_LOGINGUARD_CONFIG_AUDIT_ALERT_SUCCESS_BODY_LABEL"
+            description="COM_LOGINGUARD_CONFIG_AUDIT_ALERT_TEMPLATE_DESC"
+            default="LoginGuard recorded a {status} event on {site_name}.&#10;&#10;Username: {username}&#10;IP: {ip}&#10;Where: {where}&#10;Browser: {browser}&#10;OS: {os}&#10;Failure reason: {failure_reason}&#10;Date/time: {datetime}"
+            rows="8"
+            showon="audit_alerts_enabled:1[AND]audit_alert_success:1"
+            filter="string"
+        />
+        <field
+            name="audit_alert_failed_subject"
+            type="text"
+            label="COM_LOGINGUARD_CONFIG_AUDIT_ALERT_FAILED_SUBJECT_LABEL"
+            description="COM_LOGINGUARD_CONFIG_AUDIT_ALERT_TEMPLATE_DESC"
+            default="LoginGuard: failed login for {username}"
+            showon="audit_alerts_enabled:1[AND]audit_alert_failed:1"
+            filter="string"
+        />
+        <field
+            name="audit_alert_failed_body"
+            type="textarea"
+            label="COM_LOGINGUARD_CONFIG_AUDIT_ALERT_FAILED_BODY_LABEL"
+            description="COM_LOGINGUARD_CONFIG_AUDIT_ALERT_TEMPLATE_DESC"
+            default="LoginGuard recorded a {status} event on {site_name}.&#10;&#10;Username: {username}&#10;IP: {ip}&#10;Where: {where}&#10;Browser: {browser}&#10;OS: {os}&#10;Failure reason: {failure_reason}&#10;Date/time: {datetime}"
+            rows="8"
+            showon="audit_alerts_enabled:1[AND]audit_alert_failed:1"
+            filter="string"
+        />
     </fieldset>
     <fieldset name="permissions" label="JCONFIG_PERMISSIONS_LABEL">
         <field

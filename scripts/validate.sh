@@ -134,9 +134,18 @@ login_guard_text = login_guard.read_text(encoding='utf-8')
 if 'IpResolver::resolve()' not in login_guard_text:
     print('Login logging must use IpResolver::resolve()', file=sys.stderr)
     sys.exit(1)
-for required_text in ["ComponentHelper::getParams('com_loginguard')", 'audit_alerts_enabled', 'audit_alert_success', 'audit_alert_failed', 'audit_alert_clients', 'enqueueMessage']:
+for required_text in ["ComponentHelper::getParams('com_loginguard')", 'Factory::getMailer()', 'audit_alerts_enabled', 'audit_alert_success', 'audit_alert_failed', 'audit_alert_recipients', 'audit_alert_success_subject', 'audit_alert_success_body', 'audit_alert_failed_subject', 'audit_alert_failed_body', 'isFailedAlertThrottled', 'normaliseAlertRecipients']:
     if required_text not in login_guard_text:
         print(f'LoginGuard extension missing audit alert support: {required_text}', file=sys.stderr)
+        sys.exit(1)
+
+for forbidden_text in ['enqueueMessage', 'audit_alert_clients']:
+    if forbidden_text in login_guard_text:
+        print(f'LoginGuard extension must send mail alerts instead of onscreen alert support: {forbidden_text}', file=sys.stderr)
+        sys.exit(1)
+for template_variable in ['{username}', '{ip}', '{status}', '{failure_reason}', '{where}', '{browser}', '{os}', '{datetime}', '{site_name}']:
+    if template_variable not in login_guard_text:
+        print(f'LoginGuard extension missing alert template variable: {template_variable}', file=sys.stderr)
         sys.exit(1)
 if "$_SERVER['REMOTE_ADDR']" in login_guard_text or '$_SERVER["REMOTE_ADDR"]' in login_guard_text:
     print('LoginGuard extension must not read REMOTE_ADDR directly', file=sys.stderr)
@@ -220,7 +229,7 @@ if config_root is None:
     print('Missing config.xml for com_config integration', file=sys.stderr)
     sys.exit(1)
 config_fields = {field.attrib.get('name') for field in config_root.findall('.//field')}
-required_config_fields = {'trusted_proxies', 'retention_days', 'logging_level', 'lockout_duration', 'failed_attempt_threshold', 'geoip_enabled', 'export_requires_permission', 'audit_alerts_enabled', 'audit_alert_success', 'audit_alert_failed', 'audit_alert_clients', 'rules'}
+required_config_fields = {'trusted_proxies', 'retention_days', 'logging_level', 'lockout_duration', 'failed_attempt_threshold', 'geoip_enabled', 'export_requires_permission', 'audit_alerts_enabled', 'audit_alert_success', 'audit_alert_failed', 'audit_alert_recipients', 'audit_alert_success_subject', 'audit_alert_success_body', 'audit_alert_failed_subject', 'audit_alert_failed_body', 'rules'}
 if not required_config_fields.issubset(config_fields):
     print(f'config.xml missing fields: {sorted(required_config_fields - config_fields)}', file=sys.stderr)
     sys.exit(1)
@@ -306,6 +315,15 @@ if not update_manifest.is_file():
     print('Missing Joomla update stream metadata: updates/loginguard.xml', file=sys.stderr)
     sys.exit(1)
 update_text = update_manifest.read_text(encoding='utf-8')
+update_server_text = package_manifest_text + update_text
+wrong_repo = 'hazim' + '/LoginGuard'
+if wrong_repo in update_server_text:
+    print('Update metadata contains the incorrect repository URL', file=sys.stderr)
+    sys.exit(1)
+for required_url in ['https://raw.githubusercontent.com/hazatmda/LoginGuard/main/updates/loginguard.xml', 'https://github.com/hazatmda/LoginGuard/releases/tag/v0.2.2-alpha', 'https://github.com/hazatmda/LoginGuard/releases/download/v0.2.2-alpha/pkg_loginguard_v0.2.2-alpha.zip', 'https://github.com/hazatmda/LoginGuard']:
+    if required_url not in update_server_text:
+        print(f'Update metadata missing corrected repository URL: {required_url}', file=sys.stderr)
+        sys.exit(1)
 for required_text in [f'<version>{versions["VERSION"]}</version>', package_name, '<type>package</type>', '<element>pkg_loginguard</element>']:
     if required_text not in update_text:
         print(f'Update stream missing required metadata: {required_text}', file=sys.stderr)

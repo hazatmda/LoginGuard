@@ -6,12 +6,12 @@
         <element>pkg_loginguard</element>
         <type>package</type>
         <version>0.2.2-alpha</version>
-        <infourl title="LoginGuard">https://github.com/hazim/LoginGuard/releases/tag/v0.2.2-alpha</infourl>
+        <infourl title="LoginGuard">https://github.com/hazatmda/LoginGuard/releases/tag/v0.2.2-alpha</infourl>
         <downloads>
-            <downloadurl type="full" format="zip">https://github.com/hazim/LoginGuard/releases/download/v0.2.2-alpha/pkg_loginguard_v0.2.2-alpha.zip</downloadurl>
+            <downloadurl type="full" format="zip">https://github.com/hazatmda/LoginGuard/releases/download/v0.2.2-alpha/pkg_loginguard_v0.2.2-alpha.zip</downloadurl>
         </downloads>
         <maintainer>Hazim</maintainer>
-        <maintainerurl>https://github.com/hazim/LoginGuard</maintainerurl>
+        <maintainerurl>https://github.com/hazatmda/LoginGuard</maintainerurl>
         <targetplatform name="joomla" version="5\..*" />
         <php_minimum>8.1.0</php_minimum>
     </update>

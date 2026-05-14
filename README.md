@@ -13,7 +13,7 @@ Current development version: `0.2.2-alpha`.
 - Store login attempt audit records
 - Capture proxy-aware IP address, name, username, status, failure reason, where, country, browser, operating system, user agent, and datetime without storing plaintext passwords
 - Provide a Joomla administrator component with Dashboard telemetry, Login Information, Configuration, Tools, and About navigation
-- Queue optional Joomla-native audit alerts for successful and failed login events
+- Send optional Joomla mail audit alerts for successful and failed login events using Joomla Global Configuration mail settings
 - Publish Joomla update server metadata for package update discovery
 - Integrate Joomla-native ACL permissions and component configuration through access.xml and com_config
 - Search, filter, sort, and paginate login attempt audit records while keeping Login Information as the full audit table

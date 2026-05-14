@@ -13,6 +13,6 @@
     </files>
 
     <updateservers>
-        <server type="extension" priority="1" name="LoginGuard Updates">https://raw.githubusercontent.com/hazim/LoginGuard/main/updates/loginguard.xml</server>
+        <server type="extension" priority="1" name="LoginGuard Updates">https://raw.githubusercontent.com/hazatmda/LoginGuard/main/updates/loginguard.xml</server>
     </updateservers>
 </extension>
