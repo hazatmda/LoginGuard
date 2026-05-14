@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.1.6-alpha
+
+- Rebuilt LoginGuard login success/failure event handling with defensive Joomla payload normalization to support array, object, and User payloads.
+- Added safe logout event handlers so LoginGuard never interrupts Joomla logout.
+- Expanded the audit schema and administrator list foundation for ID, IP Address, Name, Username, Status, Datetime, Country, Browser, Operating System, and Where.
+- Added a Joomla administrator HtmlView and SearchTools filter form for the audit table while preserving package/component/plugin architecture.
+- Kept plaintext passwords out of all stored audit records.
+
 ## 0.1.5-alpha
 
 - Fixed the LoginGuard user plugin bootstrap so it no longer requests the unsupported `application` DI container resource during Joomla logout.
