@@ -73,6 +73,94 @@
             <option value="1">JYES</option>
         </field>
     </fieldset>
+
+    <fieldset name="alerts" label="COM_LOGINGUARD_CONFIG_FIELDSET_ALERTS">
+        <field
+            name="audit_alerts_enabled"
+            type="radio"
+            layout="joomla.form.field.radio.switcher"
+            label="COM_LOGINGUARD_CONFIG_AUDIT_ALERTS_ENABLED_LABEL"
+            description="COM_LOGINGUARD_CONFIG_AUDIT_ALERTS_ENABLED_DESC"
+            default="0"
+            filter="integer"
+        >
+            <option value="0">JNO</option>
+            <option value="1">JYES</option>
+        </field>
+        <field
+            name="audit_alert_success"
+            type="radio"
+            layout="joomla.form.field.radio.switcher"
+            label="COM_LOGINGUARD_CONFIG_AUDIT_ALERT_SUCCESS_LABEL"
+            description="COM_LOGINGUARD_CONFIG_AUDIT_ALERT_SUCCESS_DESC"
+            default="0"
+            showon="audit_alerts_enabled:1"
+            filter="integer"
+        >
+            <option value="0">JNO</option>
+            <option value="1">JYES</option>
+        </field>
+        <field
+            name="audit_alert_failed"
+            type="radio"
+            layout="joomla.form.field.radio.switcher"
+            label="COM_LOGINGUARD_CONFIG_AUDIT_ALERT_FAILED_LABEL"
+            description="COM_LOGINGUARD_CONFIG_AUDIT_ALERT_FAILED_DESC"
+            default="1"
+            showon="audit_alerts_enabled:1"
+            filter="integer"
+        >
+            <option value="0">JNO</option>
+            <option value="1">JYES</option>
+        </field>
+        <field
+            name="audit_alert_recipients"
+            type="textarea"
+            label="COM_LOGINGUARD_CONFIG_AUDIT_ALERT_RECIPIENTS_LABEL"
+            description="COM_LOGINGUARD_CONFIG_AUDIT_ALERT_RECIPIENTS_DESC"
+            rows="3"
+            showon="audit_alerts_enabled:1"
+            filter="string"
+        />
+        <field
+            name="audit_alert_success_subject"
+            type="text"
+            label="COM_LOGINGUARD_CONFIG_AUDIT_ALERT_SUCCESS_SUBJECT_LABEL"
+            description="COM_LOGINGUARD_CONFIG_AUDIT_ALERT_TEMPLATE_DESC"
+            default="LoginGuard: successful login for {username}"
+            showon="audit_alerts_enabled:1[AND]audit_alert_success:1"
+            filter="string"
+        />
+        <field
+            name="audit_alert_success_body"
+            type="textarea"
+            label="COM_LOGINGUARD_CONFIG_AUDIT_ALERT_SUCCESS_BODY_LABEL"
+            description="COM_LOGINGUARD_CONFIG_AUDIT_ALERT_TEMPLATE_DESC"
+            default="LoginGuard recorded a {status} event on {site_name}.&#10;&#10;Username: {username}&#10;IP: {ip}&#10;Where: {where}&#10;Browser: {browser}&#10;OS: {os}&#10;Failure reason: {failure_reason}&#10;Date/time: {datetime}"
+            rows="8"
+            showon="audit_alerts_enabled:1[AND]audit_alert_success:1"
+            filter="string"
+        />
+        <field
+            name="audit_alert_failed_subject"
+            type="text"
+            label="COM_LOGINGUARD_CONFIG_AUDIT_ALERT_FAILED_SUBJECT_LABEL"
+            description="COM_LOGINGUARD_CONFIG_AUDIT_ALERT_TEMPLATE_DESC"
+            default="LoginGuard: failed login for {username}"
+            showon="audit_alerts_enabled:1[AND]audit_alert_failed:1"
+            filter="string"
+        />
+        <field
+            name="audit_alert_failed_body"
+            type="textarea"
+            label="COM_LOGINGUARD_CONFIG_AUDIT_ALERT_FAILED_BODY_LABEL"
+            description="COM_LOGINGUARD_CONFIG_AUDIT_ALERT_TEMPLATE_DESC"
+            default="LoginGuard recorded a {status} event on {site_name}.&#10;&#10;Username: {username}&#10;IP: {ip}&#10;Where: {where}&#10;Browser: {browser}&#10;OS: {os}&#10;Failure reason: {failure_reason}&#10;Date/time: {datetime}"
+            rows="8"
+            showon="audit_alerts_enabled:1[AND]audit_alert_failed:1"
+            filter="string"
+        />
+    </fieldset>
     <fieldset name="permissions" label="JCONFIG_PERMISSIONS_LABEL">
         <field
             name="rules"

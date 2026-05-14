@@ -66,6 +66,7 @@ xml_files = [
     *Path('plugins').rglob('*.xml'),
     *Path('administrator').rglob('*.xml'),
     *Path('pkg_loginguard').rglob('*.xml'),
+    *Path('updates').rglob('*.xml'),
 ]
 
 versions = {'VERSION': Path('VERSION').read_text(encoding='utf-8').strip()}
@@ -133,6 +134,19 @@ login_guard_text = login_guard.read_text(encoding='utf-8')
 if 'IpResolver::resolve()' not in login_guard_text:
     print('Login logging must use IpResolver::resolve()', file=sys.stderr)
     sys.exit(1)
+for required_text in ["ComponentHelper::getParams('com_loginguard')", 'Factory::getMailer()', 'audit_alerts_enabled', 'audit_alert_success', 'audit_alert_failed', 'audit_alert_recipients', 'audit_alert_success_subject', 'audit_alert_success_body', 'audit_alert_failed_subject', 'audit_alert_failed_body', 'isFailedAlertThrottled', 'normaliseAlertRecipients']:
+    if required_text not in login_guard_text:
+        print(f'LoginGuard extension missing audit alert support: {required_text}', file=sys.stderr)
+        sys.exit(1)
+
+for forbidden_text in ['enqueueMessage', 'audit_alert_clients']:
+    if forbidden_text in login_guard_text:
+        print(f'LoginGuard extension must send mail alerts instead of onscreen alert support: {forbidden_text}', file=sys.stderr)
+        sys.exit(1)
+for template_variable in ['{username}', '{ip}', '{status}', '{failure_reason}', '{where}', '{browser}', '{os}', '{datetime}', '{site_name}']:
+    if template_variable not in login_guard_text:
+        print(f'LoginGuard extension missing alert template variable: {template_variable}', file=sys.stderr)
+        sys.exit(1)
 if "$_SERVER['REMOTE_ADDR']" in login_guard_text or '$_SERVER["REMOTE_ADDR"]' in login_guard_text:
     print('LoginGuard extension must not read REMOTE_ADDR directly', file=sys.stderr)
     sys.exit(1)
@@ -215,7 +229,7 @@ if config_root is None:
     print('Missing config.xml for com_config integration', file=sys.stderr)
     sys.exit(1)
 config_fields = {field.attrib.get('name') for field in config_root.findall('.//field')}
-required_config_fields = {'trusted_proxies', 'retention_days', 'logging_level', 'lockout_duration', 'failed_attempt_threshold', 'geoip_enabled', 'export_requires_permission', 'rules'}
+required_config_fields = {'trusted_proxies', 'retention_days', 'logging_level', 'lockout_duration', 'failed_attempt_threshold', 'geoip_enabled', 'export_requires_permission', 'audit_alerts_enabled', 'audit_alert_success', 'audit_alert_failed', 'audit_alert_recipients', 'audit_alert_success_subject', 'audit_alert_success_body', 'audit_alert_failed_subject', 'audit_alert_failed_body', 'rules'}
 if not required_config_fields.issubset(config_fields):
     print(f'config.xml missing fields: {sorted(required_config_fields - config_fields)}', file=sys.stderr)
     sys.exit(1)
@@ -241,7 +255,7 @@ for required_text in ["requirePermission('core.manage')", "requirePermission('lo
         sys.exit(1)
 
 dashboard_model_text = dashboard_model.read_text(encoding='utf-8')
-for required_text in ['SUCCESS_LOGIN', 'FAILED_LOGIN', 'frontend', 'backend', 'api', 'cli', 'PASSWORD_INCORRECT', 'USERNAME_NOT_FOUND', 'INVALID_CREDENTIALS', 'ACCOUNT_BLOCKED', 'ACCOUNT_DISABLED', '#__loginguard_attempts']:
+for required_text in ['SUCCESS_LOGIN', 'FAILED_LOGIN', 'frontend', 'backend', 'PASSWORD_INCORRECT', 'USERNAME_NOT_FOUND', 'INVALID_CREDENTIALS', 'ACCOUNT_BLOCKED', 'ACCOUNT_DISABLED', '#__loginguard_attempts']:
     if required_text not in dashboard_model_text:
         print(f'Dashboard model missing required telemetry token: {required_text}', file=sys.stderr)
         sys.exit(1)
@@ -253,6 +267,10 @@ for required_text in ['COM_LOGINGUARD_DASHBOARD_SUCCESS_LOGINS', 'COM_LOGINGUARD
         sys.exit(1)
 if any(forbidden in dashboard_template_text.lower() for forbidden in ['chart.js', 'analytics', 'leaflet', 'react', 'vue']):
     print('Dashboard template must remain lightweight without charts/maps/SPA/analytics libraries', file=sys.stderr)
+    sys.exit(1)
+
+if any(origin in dashboard_template_text for origin in ["'api' =>", "'cli' =>"]):
+    print('Dashboard origin metrics must only render frontend and backend origins', file=sys.stderr)
     sys.exit(1)
 
 helper_text = Path('administrator/components/com_loginguard/src/Helper/LoginGuardHelper.php').read_text(encoding='utf-8')
@@ -287,6 +305,29 @@ for heading in ['COM_LOGINGUARD_HEADING_FAILURE_REASON', 'COM_LOGINGUARD_HEADING
 
 package_manifest = Path('pkg_loginguard/pkg_loginguard.xml')
 package_name = f"pkg_loginguard_v{versions['VERSION']}.zip"
+
+package_manifest_text = package_manifest.read_text(encoding='utf-8')
+update_manifest = Path('updates/loginguard.xml')
+if '<updateservers>' not in package_manifest_text or 'updates/loginguard.xml' not in package_manifest_text:
+    print('Package manifest missing Joomla update server metadata', file=sys.stderr)
+    sys.exit(1)
+if not update_manifest.is_file():
+    print('Missing Joomla update stream metadata: updates/loginguard.xml', file=sys.stderr)
+    sys.exit(1)
+update_text = update_manifest.read_text(encoding='utf-8')
+update_server_text = package_manifest_text + update_text
+wrong_repo = 'hazim' + '/LoginGuard'
+if wrong_repo in update_server_text:
+    print('Update metadata contains the incorrect repository URL', file=sys.stderr)
+    sys.exit(1)
+for required_url in ['https://raw.githubusercontent.com/hazatmda/LoginGuard/main/updates/loginguard.xml', 'https://github.com/hazatmda/LoginGuard/releases/tag/v0.2.2-alpha', 'https://github.com/hazatmda/LoginGuard/releases/download/v0.2.2-alpha/pkg_loginguard_v0.2.2-alpha.zip', 'https://github.com/hazatmda/LoginGuard']:
+    if required_url not in update_server_text:
+        print(f'Update metadata missing corrected repository URL: {required_url}', file=sys.stderr)
+        sys.exit(1)
+for required_text in [f'<version>{versions["VERSION"]}</version>', package_name, '<type>package</type>', '<element>pkg_loginguard</element>']:
+    if required_text not in update_text:
+        print(f'Update stream missing required metadata: {required_text}', file=sys.stderr)
+        sys.exit(1)
 if package_name not in Path('README.md').read_text(encoding='utf-8'):
     print(f'Readme missing expected package name {package_name}', file=sys.stderr)
     sys.exit(1)

@@ -4,7 +4,7 @@ Joomla 5 package for login attempt detection, monitoring, and auditing.
 
 ## Status
 
-Current development version: `0.2.1-alpha`.
+Current development version: `0.2.2-alpha`.
 
 ## Features planned for MVP
 
@@ -13,6 +13,8 @@ Current development version: `0.2.1-alpha`.
 - Store login attempt audit records
 - Capture proxy-aware IP address, name, username, status, failure reason, where, country, browser, operating system, user agent, and datetime without storing plaintext passwords
 - Provide a Joomla administrator component with Dashboard telemetry, Login Information, Configuration, Tools, and About navigation
+- Send optional Joomla mail audit alerts for successful and failed login events using Joomla Global Configuration mail settings
+- Publish Joomla update server metadata for package update discovery
 - Integrate Joomla-native ACL permissions and component configuration through access.xml and com_config
 - Search, filter, sort, and paginate login attempt audit records while keeping Login Information as the full audit table
 - Generate an installable Joomla package ZIP from GitHub Actions
@@ -33,6 +35,7 @@ plugins/user/loginguard/                  Joomla user plugin source
 scripts/build.sh                          Local package build script
 scripts/validate.sh                       Local validation script
 packages/                                 Generated ZIP output directory, ignored by Git
+updates/                                  Joomla extension update stream metadata
 VERSION                                   Canonical project version
 CHANGELOG.md                              Release notes
 ```
@@ -47,7 +50,7 @@ bash scripts/build.sh
 Generated package:
 
 ```text
-packages/pkg_loginguard_v0.2.1-alpha.zip
+packages/pkg_loginguard_v0.2.2-alpha.zip
 ```
 
 ## Versioning Policy
@@ -65,9 +68,9 @@ Before release, these must match:
 Example:
 
 ```text
-version: 0.2.1-alpha
-tag: v0.2.1-alpha
-package: pkg_loginguard_v0.2.1-alpha.zip
+version: 0.2.2-alpha
+tag: v0.2.2-alpha
+package: pkg_loginguard_v0.2.2-alpha.zip
 ```
 
 ## License

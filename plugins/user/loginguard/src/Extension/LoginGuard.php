@@ -4,6 +4,7 @@ namespace Joomla\Plugin\User\LoginGuard\Extension;
 
 defined('_JEXEC') or die;
 
+use Joomla\CMS\Component\ComponentHelper;
 use Joomla\CMS\Date\Date;
 use Joomla\CMS\Factory;
 use Joomla\CMS\Plugin\CMSPlugin;
@@ -136,6 +137,8 @@ final class LoginGuard extends CMSPlugin
 
         $db->setQuery($query);
         $db->execute();
+
+        $this->sendAuditAlert($record, $db);
     }
 
     private function ensureSchema(DatabaseDriver $db): void
@@ -171,6 +174,160 @@ final class LoginGuard extends CMSPlugin
                 // Another request may have added it first; keep login non-blocking.
             }
         }
+    }
+
+    /**
+     * Send an optional Joomla mail audit alert for the audited login event.
+     *
+     * @param   array<string, mixed>  $record
+     */
+    private function sendAuditAlert(array $record, DatabaseDriver $db): void
+    {
+        if (PHP_SAPI === 'cli') {
+            return;
+        }
+
+        $params = ComponentHelper::getParams('com_loginguard');
+
+        if (!$params->get('audit_alerts_enabled', 0)) {
+            return;
+        }
+
+        $status = (string) ($record['status'] ?? '');
+
+        if ($status === 'SUCCESS_LOGIN' && !$params->get('audit_alert_success', 0)) {
+            return;
+        }
+
+        if ($status === 'FAILED_LOGIN' && !$params->get('audit_alert_failed', 1)) {
+            return;
+        }
+
+        if ($status === 'FAILED_LOGIN' && $this->isFailedAlertThrottled($record, $db)) {
+            return;
+        }
+
+        $recipients = $this->normaliseAlertRecipients((string) $params->get('audit_alert_recipients', ''));
+
+        if ($recipients === []) {
+            return;
+        }
+
+        $isSuccess = $status === 'SUCCESS_LOGIN';
+        $subjectTemplate = (string) $params->get(
+            $isSuccess ? 'audit_alert_success_subject' : 'audit_alert_failed_subject',
+            $isSuccess ? 'LoginGuard: successful login for {username}' : 'LoginGuard: failed login for {username}'
+        );
+        $bodyTemplate = (string) $params->get(
+            $isSuccess ? 'audit_alert_success_body' : 'audit_alert_failed_body',
+            $this->getDefaultAlertBodyTemplate()
+        );
+
+        $variables = $this->buildAlertTemplateVariables($record);
+        $subject   = $this->replaceAlertTemplateVariables($subjectTemplate, $variables);
+        $body      = $this->replaceAlertTemplateVariables($bodyTemplate, $variables);
+
+        try {
+            $mailer = Factory::getMailer();
+            $mailer->addRecipient($recipients);
+            $mailer->setSubject($subject);
+            $mailer->setBody($body);
+            $mailer->isHtml(false);
+            $mailer->Send();
+        } catch (Throwable $exception) {
+            // Audit mail must never block the Joomla login flow.
+        }
+    }
+
+    /**
+     * @param   array<string, mixed>  $record
+     */
+    private function isFailedAlertThrottled(array $record, DatabaseDriver $db): bool
+    {
+        $ipAddress = (string) ($record['ip_address'] ?? '');
+
+        if ($ipAddress === '' || $ipAddress === 'unknown') {
+            return false;
+        }
+
+        $threshold = (new Date('-15 minutes'))->toSql();
+
+        try {
+            $query = $db->getQuery(true)
+                ->select('COUNT(*)')
+                ->from($db->quoteName('#__loginguard_attempts'))
+                ->where($db->quoteName('status') . ' = ' . $db->quote('FAILED_LOGIN'))
+                ->where($db->quoteName('ip_address') . ' = ' . $db->quote($ipAddress))
+                ->where($db->quoteName('created') . ' >= ' . $db->quote($threshold));
+
+            $db->setQuery($query);
+
+            return (int) $db->loadResult() > 1;
+        } catch (Throwable $exception) {
+            return false;
+        }
+    }
+
+    /**
+     * @return list<string>
+     */
+    private function normaliseAlertRecipients(string $configuredRecipients): array
+    {
+        $recipients = preg_split('/[\s,;]+/', $configuredRecipients, -1, PREG_SPLIT_NO_EMPTY) ?: [];
+        $validRecipients = [];
+
+        foreach ($recipients as $recipient) {
+            $recipient = trim($recipient);
+
+            if ($recipient !== '' && filter_var($recipient, FILTER_VALIDATE_EMAIL)) {
+                $validRecipients[] = $recipient;
+            }
+        }
+
+        return array_values(array_unique($validRecipients));
+    }
+
+    /**
+     * @param   array<string, mixed>  $record
+     *
+     * @return  array<string, string>
+     */
+    private function buildAlertTemplateVariables(array $record): array
+    {
+        $config = Factory::getConfig();
+        $status = (string) ($record['status'] ?? '');
+        $failureReason = $status === 'FAILED_LOGIN' ? (string) ($record['reason'] ?? '') : '';
+
+        return [
+            'username' => (string) ($record['username'] ?? 'unknown'),
+            'ip' => (string) ($record['ip_address'] ?? 'unknown'),
+            'status' => $status,
+            'failure_reason' => $failureReason,
+            'where' => (string) ($record['where_at'] ?? 'frontend'),
+            'browser' => (string) ($record['browser'] ?? 'unknown'),
+            'os' => (string) ($record['operating_system'] ?? 'unknown'),
+            'datetime' => (string) ($record['created'] ?? (new Date())->toSql()),
+            'site_name' => (string) $config->get('sitename', ''),
+        ];
+    }
+
+    /**
+     * @param   array<string, string>  $variables
+     */
+    private function replaceAlertTemplateVariables(string $template, array $variables): string
+    {
+        $replacements = [];
+
+        foreach ($variables as $name => $value) {
+            $replacements['{' . $name . '}'] = $value;
+        }
+
+        return strtr($template, $replacements);
+    }
+
+    private function getDefaultAlertBodyTemplate(): string
+    {
+        return "LoginGuard recorded a {status} event on {site_name}.\n\nUsername: {username}\nIP: {ip}\nWhere: {where}\nBrowser: {browser}\nOS: {os}\nFailure reason: {failure_reason}\nDate/time: {datetime}";
     }
 
     /**
