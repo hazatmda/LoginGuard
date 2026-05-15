@@ -4,9 +4,12 @@ namespace Joomla\Plugin\User\LoginGuard\Extension;
 
 defined('_JEXEC') or die;
 
+use Joomla\CMS\Authentication\Authentication;
+use Joomla\CMS\Authentication\AuthenticationResponse;
 use Joomla\CMS\Component\ComponentHelper;
 use Joomla\CMS\Date\Date;
 use Joomla\CMS\Factory;
+use Joomla\CMS\Language\Text;
 use Joomla\CMS\Plugin\CMSPlugin;
 use Joomla\CMS\User\UserHelper;
 use Joomla\Database\DatabaseDriver;
@@ -24,11 +27,33 @@ final class LoginGuard extends CMSPlugin
      * @param   mixed  $response  Joomla authorisation response payload.
      * @param   mixed  $options   Joomla login options payload.
      *
-     * @return  bool
+     * @return  AuthenticationResponse|null  Denied response for legacy dispatchers; null when LoginGuard allows the login.
      */
-    public function onUserAuthorisation($response = [], $options = []): bool
+    public function onUserAuthorisation($response = null, $options = [])
     {
-        return $this->enforceBlockedIp($response);
+        if ($response instanceof Event) {
+            $event = $response;
+            $authResponse = $this->getAuthenticationResponseFromEvent($event);
+
+            if ($authResponse === null || !$this->enforceBlockedIp($authResponse)) {
+                return null;
+            }
+
+            $deniedResponse = $this->markAuthenticationResponseDenied($authResponse);
+            $event->addResult($deniedResponse);
+            $this->enqueueBlockedLoginMessage();
+
+            return null;
+        }
+
+        if (!$response instanceof AuthenticationResponse || !$this->enforceBlockedIp($response)) {
+            return null;
+        }
+
+        $deniedResponse = $this->markAuthenticationResponseDenied($response);
+        $this->enqueueBlockedLoginMessage();
+
+        return $deniedResponse;
     }
 
     /**
@@ -50,7 +75,7 @@ final class LoginGuard extends CMSPlugin
     private function enforceBlockedIp($payload = []): bool
     {
         if (PHP_SAPI === 'cli') {
-            return true;
+            return false;
         }
 
         try {
@@ -62,13 +87,13 @@ final class LoginGuard extends CMSPlugin
             $params = ComponentHelper::getParams('com_loginguard');
 
             if (!$this->isEnforcementEnabled($client, $params) || $this->isWhitelistedIp($ipAddress, $params)) {
-                return true;
+                return false;
             }
 
             $block = $this->getActiveBlockForIp($ipAddress, $client, $db);
 
             if ($block === null) {
-                return true;
+                return false;
             }
 
             $record = $this->buildAttemptRecord([
@@ -83,9 +108,50 @@ final class LoginGuard extends CMSPlugin
             $this->insertAttemptRecord($record, $db);
             $this->sendBlockedIpAlert($record, $block, $db);
 
-            return false;
-        } catch (Throwable $exception) {
             return true;
+        } catch (Throwable $exception) {
+            return false;
+        }
+    }
+
+
+    private function getAuthenticationResponseFromEvent(Event $event): ?AuthenticationResponse
+    {
+        if (method_exists($event, 'getAuthenticationResponse')) {
+            $response = $event->getAuthenticationResponse();
+
+            return $response instanceof AuthenticationResponse ? $response : null;
+        }
+
+        $arguments = $event->getArguments();
+
+        foreach (['authenticationResponse', 'subject', 0] as $key) {
+            if (array_key_exists($key, $arguments) && $arguments[$key] instanceof AuthenticationResponse) {
+                return $arguments[$key];
+            }
+        }
+
+        return null;
+    }
+
+    private function markAuthenticationResponseDenied(AuthenticationResponse $response): AuthenticationResponse
+    {
+        $response->status = Authentication::STATUS_DENIED;
+        $response->error_message = Text::_('PLG_USER_LOGINGUARD_LOGIN_BLOCKED');
+
+        return $response;
+    }
+
+    private function enqueueBlockedLoginMessage(): void
+    {
+        if (PHP_SAPI === 'cli') {
+            return;
+        }
+
+        try {
+            Factory::getApplication()->enqueueMessage(Text::_('PLG_USER_LOGINGUARD_LOGIN_BLOCKED'), 'warning');
+        } catch (Throwable $exception) {
+            // User-facing messaging must never interrupt the authorisation response.
         }
     }
 

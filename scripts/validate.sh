@@ -118,6 +118,28 @@ if not (plugin_manifest.parent / schema_path / f"{versions['VERSION']}.sql").is_
     print(f"Missing update migration for {versions['VERSION']}", file=sys.stderr)
     sys.exit(1)
 
+package_manifest = Path('pkg_loginguard/pkg_loginguard.xml')
+package_root = roots.get(package_manifest)
+package_manifest_text = package_manifest.read_text(encoding='utf-8')
+if package_root is None:
+    print(f'Missing package manifest: {package_manifest}', file=sys.stderr)
+    sys.exit(1)
+if package_root.findtext('scriptfile') != 'script.php' or not Path('pkg_loginguard/script.php').is_file():
+    print('Package manifest must include the package installer script.php lifecycle helper', file=sys.stderr)
+    sys.exit(1)
+if package_root.findtext('blockChildUninstall') != 'true':
+    print('Package manifest must block independent child extension uninstall for lifecycle synchronization', file=sys.stderr)
+    sys.exit(1)
+package_script_text = Path('pkg_loginguard/script.php').read_text(encoding='utf-8')
+for required_text in ['class Pkg_LoginguardInstallerScript', 'preflight', 'postflight', 'uninstall', 'package_id', 'synchroniseChildExtensions']:
+    if required_text not in package_script_text:
+        print(f'Package installer script missing lifecycle synchronization token: {required_text}', file=sys.stderr)
+        sys.exit(1)
+build_script_text = Path('scripts/build.sh').read_text(encoding='utf-8')
+if 'cp pkg_loginguard/script.php' not in build_script_text:
+    print('Build script must include the package lifecycle script in the release ZIP', file=sys.stderr)
+    sys.exit(1)
+
 ip_resolver = Path('plugins/user/loginguard/src/Service/IpResolver.php')
 login_guard = Path('plugins/user/loginguard/src/Extension/LoginGuard.php')
 if not ip_resolver.is_file():
@@ -139,10 +161,18 @@ for required_text in ["ComponentHelper::getParams('com_loginguard')", 'Factory::
         print(f'LoginGuard extension missing audit alert support: {required_text}', file=sys.stderr)
         sys.exit(1)
 
-for forbidden_text in ['enqueueMessage', 'audit_alert_clients']:
+for forbidden_text in ['audit_alert_clients']:
     if forbidden_text in login_guard_text:
         print(f'LoginGuard extension must send mail alerts instead of onscreen alert support: {forbidden_text}', file=sys.stderr)
         sys.exit(1)
+
+for required_text in ['AuthenticationResponse', 'Authentication::STATUS_DENIED', 'getAuthenticationResponseFromEvent', 'addResult($deniedResponse)', 'PLG_USER_LOGINGUARD_LOGIN_BLOCKED']:
+    if required_text not in login_guard_text:
+        print(f'LoginGuard extension missing AuthenticationResponse authorisation enforcement: {required_text}', file=sys.stderr)
+        sys.exit(1)
+if 'public function onUserAuthorisation($response = null, $options = [])' not in login_guard_text or 'public function onUserAuthorisation($response = [], $options = []): bool' in login_guard_text or 'return $this->enforceBlockedIp($response);' in login_guard_text:
+    print('LoginGuard authorisation enforcement must not return boolean results from onUserAuthorisation', file=sys.stderr)
+    sys.exit(1)
 for template_variable in ['{username}', '{ip}', '{status}', '{failure_reason}', '{where}', '{browser}', '{os}', '{datetime}', '{site_name}', '{country_code}', '{region}', '{city}', '{isp}', '{asn}']:
     if template_variable not in login_guard_text:
         print(f'LoginGuard extension missing alert template variable: {template_variable}', file=sys.stderr)
@@ -351,7 +381,6 @@ for heading in ['COM_LOGINGUARD_HEADING_FAILURE_REASON', 'COM_LOGINGUARD_HEADING
 package_manifest = Path('pkg_loginguard/pkg_loginguard.xml')
 package_name = f"pkg_loginguard_v{versions['VERSION']}.zip"
 
-package_manifest_text = package_manifest.read_text(encoding='utf-8')
 update_manifest = Path('updates/loginguard.xml')
 if '<updateservers>' not in package_manifest_text or 'updates/loginguard.xml' not in package_manifest_text:
     print('Package manifest missing Joomla update server metadata', file=sys.stderr)

@@ -1,12 +1,17 @@
 # Changelog
 
+## 0.2.7-alpha
+
+- Fixed LoginGuard IP enforcement in `onUserAuthorisation` so blocked logins return a Joomla `AuthenticationResponse` denial instead of an invalid boolean result.
+- Preserved backend/frontend enforcement, blocked IP audit records, whitelist bypasses, recovery-safe fail-open behavior, and LoginGuard alerting while complying with Joomla's authorisation contract.
+- Added package uninstall lifecycle synchronization with a package script, child uninstall blocking, registry relinking/cleanup, and package build inclusion for reinstall, upgrade, rollback, and uninstall flows.
+- Synchronized release metadata and package naming for `pkg_loginguard_v0.2.7-alpha.zip`.
+
 ## 0.2.6-alpha
 
 - Stabilized Joomla package update metadata, update-server integration, direct release ZIP naming, and installer/update lifecycle checks for `pkg_loginguard_v0.2.6-alpha.zip`.
 - Expanded GeoIP enrichment from country-only telemetry to country, country code, region, city, ISP, and ASN fields while preserving offline deterministic mapping.
 - Added City, ISP, and ASN to the Login Information table and CSV export while preserving enforcement, whitelist, blocked IP management, Dashboard, SearchTools, ACL, and Joomla MVC behavior.
-
-
 - Added active IP block enforcement, whitelist bypasses, temporary automatic threshold-based blocks, cooldown duration, and frontend/backend enforcement toggles.
 - Added blocked IP telemetry on the dashboard, blocked login audit records, GeoIP country-map enrichment, expanded alert variables, and blocked IP mail alerts.
 - Synchronized release metadata and package naming for `pkg_loginguard_v0.2.6-alpha.zip`.
