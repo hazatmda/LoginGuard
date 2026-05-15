@@ -4,6 +4,7 @@ namespace LoginGuard\Component\LoginGuard\Administrator\View\Dashboard;
 
 defined('_JEXEC') or die;
 
+use Joomla\CMS\Factory;
 use Joomla\CMS\MVC\View\GenericDataException;
 use Joomla\CMS\MVC\View\HtmlView as BaseHtmlView;
 use Joomla\CMS\Toolbar\ToolbarHelper;
@@ -47,6 +48,9 @@ final class HtmlView extends BaseHtmlView
     /** @var array<string, int|string> */
     protected $operationalStatus = [];
 
+    /** @var bool */
+    protected $compactDashboardMode = true;
+
     public function display($tpl = null): void
     {
         LoginGuardHelper::requirePermission('core.manage');
@@ -63,6 +67,7 @@ final class HtmlView extends BaseHtmlView
         $this->topCountries      = (array) $this->get('TopCountries');
         $this->attackOriginSummary = (array) $this->get('AttackOriginSummary');
         $this->operationalStatus = (array) $this->get('OperationalStatus');
+        $this->compactDashboardMode = (bool) Factory::getApplication()->getIdentity()->getParam('loginguard_compact_dashboard', 1);
         $this->actions           = LoginGuardHelper::getActions();
 
         if (count($errors = $this->get('Errors'))) {
