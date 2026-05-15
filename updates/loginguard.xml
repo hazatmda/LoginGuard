@@ -5,10 +5,10 @@
         <description>LoginGuard package with the user plugin, scheduled cleanup task plugin, and administrator component.</description>
         <element>com_loginguard</element>
         <type>component</type>
-        <version>0.2.17</version>
-        <infourl title="LoginGuard">https://github.com/hazatmda/LoginGuard/releases/tag/v0.2.17</infourl>
+        <version>0.2.18</version>
+        <infourl title="LoginGuard">https://github.com/hazatmda/LoginGuard/releases/tag/v0.2.18</infourl>
         <downloads>
-            <downloadurl type="full" format="zip">https://github.com/hazatmda/LoginGuard/releases/download/v0.2.17/pkg_loginguard_v0.2.17.zip</downloadurl>
+            <downloadurl type="full" format="zip">https://github.com/hazatmda/LoginGuard/releases/download/v0.2.18/pkg_loginguard_v0.2.18.zip</downloadurl>
         </downloads>
         <maintainer>Hazim</maintainer>
         <maintainerurl>https://github.com/hazatmda/LoginGuard</maintainerurl>

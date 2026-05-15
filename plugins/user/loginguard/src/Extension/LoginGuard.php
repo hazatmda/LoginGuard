@@ -579,7 +579,7 @@ final class LoginGuard extends CMSPlugin
 
         $variables = $this->buildAlertTemplateVariables($record);
         $variables['block_type'] = (string) ($block->block_type ?? 'temporary');
-        $variables['block_until'] = (string) ($block->blocked_until ?? ($record['block_until'] ?? ''));
+        $variables['block_until'] = $this->formatConfiguredDateTime((string) ($block->blocked_until ?? ($record['block_until'] ?? '')));
         $variables['failure_count'] = (string) ($block->failure_count ?? ($record['failure_count'] ?? ''));
         $variables['block_reason'] = (string) ($block->reason ?? 'threshold_exceeded');
 
@@ -676,7 +676,7 @@ final class LoginGuard extends CMSPlugin
             'where' => $this->formatAlertWhere((string) ($record['where_at'] ?? 'frontend')),
             'browser' => (string) ($record['browser'] ?? 'unknown'),
             'os' => (string) ($record['operating_system'] ?? 'unknown'),
-            'datetime' => (string) ($record['created'] ?? (new Date())->toSql()),
+            'datetime' => $this->formatConfiguredDateTime((string) ($record['created'] ?? (new Date())->toSql())),
             'site_name' => (string) $config->get('sitename', ''),
             'country' => (string) ($record['country'] ?? ''),
             'country_code' => (string) ($record['country_code'] ?? ''),
@@ -689,6 +689,32 @@ final class LoginGuard extends CMSPlugin
             'email' => (string) ($record['email'] ?? ''),
             'user_agent' => (string) ($record['user_agent'] ?? ''),
         ];
+    }
+
+
+    private function getConfiguredTimezone(): \DateTimeZone
+    {
+        $timezone = (string) Factory::getConfig()->get('offset', 'UTC');
+
+        try {
+            return new \DateTimeZone($timezone !== '' ? $timezone : 'UTC');
+        } catch (\Exception $exception) {
+            return new \DateTimeZone('UTC');
+        }
+    }
+
+    private function formatConfiguredDateTime(string $value): string
+    {
+        $value = trim($value);
+
+        if ($value === '') {
+            return '';
+        }
+
+        $date = new Date($value, 'UTC');
+        $date->setTimezone($this->getConfiguredTimezone());
+
+        return $date->format(Text::_('DATE_FORMAT_LC5'), false);
     }
 
     /** @param array<string, string> $variables */

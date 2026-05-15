@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.2.18
+
+- Modernized the Blocked IPs operational workspace with telemetry hierarchy, modal add/edit workflows, responsive cards/table behavior, clearer badge hierarchy, and conditional temporary expiration editing.
+- Normalized LoginGuard administrator, export, and structured email timestamps through Joomla configured timezone formatting.
+- Synchronized release metadata and package naming for `pkg_loginguard_v0.2.18.zip`.
+
 ## 0.2.17
 
 - Moved Joomla updater authority from the bootstrap package lifecycle to the `com_loginguard` component lifecycle.

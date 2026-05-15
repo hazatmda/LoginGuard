@@ -1,0 +1,2 @@
+-- LoginGuard 0.2.18 operational UX and timezone normalization release.
+-- No schema changes are required for this version.

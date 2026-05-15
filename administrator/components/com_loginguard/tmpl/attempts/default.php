@@ -6,6 +6,7 @@ use Joomla\CMS\HTML\HTMLHelper;
 use Joomla\CMS\Language\Text;
 use Joomla\CMS\Layout\LayoutHelper;
 use Joomla\CMS\Router\Route;
+use LoginGuard\Component\LoginGuard\Administrator\Helper\LoginGuardHelper;
 
 HTMLHelper::_('behavior.core');
 HTMLHelper::_('searchtools.form', '#adminForm');
@@ -19,7 +20,7 @@ $columnValue = function (object $item, string $column): string {
         'status' => $this->escape(Text::_('COM_LOGINGUARD_STATUS_' . strtoupper((string) $item->status))),
         'reason' => (string) $item->reason === '' ? '' : $this->escape(Text::_('COM_LOGINGUARD_REASON_' . strtoupper((string) $item->reason))),
         'where_at' => $this->escape(Text::_('COM_LOGINGUARD_WHERE_' . strtoupper((string) ($item->where_at ?: $item->client)))),
-        'created' => HTMLHelper::_('date', $item->created, Text::_('DATE_FORMAT_LC5')),
+        'created' => LoginGuardHelper::formatConfiguredDateTime((string) $item->created),
         'user_agent' => '<span class="small text-break">' . $this->escape((string) $item->user_agent) . '</span>',
         default => $this->escape((string) ($item->{$column} ?? '')),
     };
