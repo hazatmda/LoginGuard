@@ -4,7 +4,7 @@ Joomla 5 package for login attempt detection, monitoring, and auditing.
 
 ## Status
 
-Current development version: `0.2.7-alpha`.
+Current development version: `0.2.8-alpha`.
 
 ## Features planned for MVP
 
@@ -17,6 +17,7 @@ Current development version: `0.2.7-alpha`.
 - Publish Joomla update server metadata for package update discovery with direct release ZIP URLs
 - Integrate Joomla-native ACL permissions and component configuration through access.xml and com_config
 - Search, filter, sort, and paginate login attempt audit records while keeping Login Information as the full audit table
+- Run scheduled retention cleanup in bounded batches for old login attempts and stale blocked-IP records
 - Generate an installable Joomla package ZIP from GitHub Actions
 
 ## GeoIP Enrichment
@@ -43,6 +44,7 @@ The extended format stores `country`, `country_code`, `region`, `city`, `isp`, a
 administrator/components/com_loginguard/  Joomla administrator component source
 pkg_loginguard/                           Joomla package manifest source
 plugins/user/loginguard/                  Joomla user plugin source
+plugins/task/loginguardcleanup/            Joomla Scheduler cleanup task plugin source
 scripts/build.sh                          Local package build script
 scripts/validate.sh                       Local validation script
 packages/                                 Generated ZIP output directory, ignored by Git
@@ -61,7 +63,7 @@ bash scripts/build.sh
 Generated package:
 
 ```text
-packages/pkg_loginguard_v0.2.7-alpha.zip
+packages/pkg_loginguard_v0.2.8-alpha.zip
 ```
 
 ## Versioning Policy
@@ -79,9 +81,9 @@ Before release, these must match:
 Example:
 
 ```text
-version: 0.2.7-alpha
-tag: v0.2.7-alpha
-package: pkg_loginguard_v0.2.7-alpha.zip
+version: 0.2.8-alpha
+tag: v0.2.8-alpha
+package: pkg_loginguard_v0.2.8-alpha.zip
 ```
 
 ## License

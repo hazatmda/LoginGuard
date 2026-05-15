@@ -14,6 +14,11 @@ mkdir -p "${BUILD_DIR}" "${OUTPUT_DIR}"
     zip -r "../../../${BUILD_DIR}/plg_user_loginguard.zip" . >/dev/null
 )
 
+(
+    cd plugins/task/loginguardcleanup
+    zip -r "../../../${BUILD_DIR}/plg_task_loginguardcleanup.zip" . >/dev/null
+)
+
 COMPONENT_BUILD_DIR="build/com_loginguard"
 mkdir -p "${COMPONENT_BUILD_DIR}/administrator/components/com_loginguard"
 cp -R administrator/components/com_loginguard/. "${COMPONENT_BUILD_DIR}/administrator/components/com_loginguard/"
