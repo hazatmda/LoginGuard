@@ -15,7 +15,7 @@ final class LoginGuardHelper
         $user = Factory::getApplication()->getIdentity();
         $actions = new CMSObject();
 
-        foreach (['core.manage', 'loginguard.view', 'core.admin', 'loginguard.delete', 'loginguard.export'] as $action) {
+        foreach (['core.manage', 'loginguard.view', 'core.admin', 'loginguard.delete', 'loginguard.export', 'loginguard.manage_blocks'] as $action) {
             $actions->set($action, (bool) $user->authorise($action, 'com_loginguard'));
         }
 

@@ -26,6 +26,12 @@ final class HtmlView extends BaseHtmlView
     /** @var array<int, object> */
     protected $topFailedIps = [];
 
+    /** @var array<string, int> */
+    protected $blockedIpTelemetry = [];
+
+    /** @var array<int, object> */
+    protected $recentBlockedIps = [];
+
     public function display($tpl = null): void
     {
         LoginGuardHelper::requirePermission('core.manage');
@@ -35,6 +41,8 @@ final class HtmlView extends BaseHtmlView
         $this->recentActivity    = (array) $this->get('RecentActivity');
         $this->topFailureReasons = (array) $this->get('TopFailureReasons');
         $this->topFailedIps      = (array) $this->get('TopFailedIps');
+        $this->blockedIpTelemetry = (array) $this->get('BlockedIpTelemetry');
+        $this->recentBlockedIps  = (array) $this->get('RecentBlockedIps');
         $this->actions           = LoginGuardHelper::getActions();
 
         if (count($errors = $this->get('Errors'))) {

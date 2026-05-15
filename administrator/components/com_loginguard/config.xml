@@ -42,6 +42,118 @@
             <option value="0">JNO</option>
             <option value="1">JYES</option>
         </field>
+
+        <field
+            name="enforcement_enabled"
+            type="radio"
+            layout="joomla.form.field.radio.switcher"
+            label="COM_LOGINGUARD_CONFIG_ENFORCEMENT_ENABLED_LABEL"
+            description="COM_LOGINGUARD_CONFIG_ENFORCEMENT_ENABLED_DESC"
+            default="0"
+            filter="integer"
+        >
+            <option value="0">JNO</option>
+            <option value="1">JYES</option>
+        </field>
+        <field
+            name="frontend_enforcement_enabled"
+            type="radio"
+            layout="joomla.form.field.radio.switcher"
+            label="COM_LOGINGUARD_CONFIG_FRONTEND_ENFORCEMENT_LABEL"
+            description="COM_LOGINGUARD_CONFIG_FRONTEND_ENFORCEMENT_DESC"
+            default="1"
+            showon="enforcement_enabled:1"
+            filter="integer"
+        >
+            <option value="0">JNO</option>
+            <option value="1">JYES</option>
+        </field>
+        <field
+            name="backend_enforcement_enabled"
+            type="radio"
+            layout="joomla.form.field.radio.switcher"
+            label="COM_LOGINGUARD_CONFIG_BACKEND_ENFORCEMENT_LABEL"
+            description="COM_LOGINGUARD_CONFIG_BACKEND_ENFORCEMENT_DESC"
+            default="1"
+            showon="enforcement_enabled:1"
+            filter="integer"
+        >
+            <option value="0">JNO</option>
+            <option value="1">JYES</option>
+        </field>
+        <field
+            name="automatic_blocking_enabled"
+            type="radio"
+            layout="joomla.form.field.radio.switcher"
+            label="COM_LOGINGUARD_CONFIG_AUTOMATIC_BLOCKING_LABEL"
+            description="COM_LOGINGUARD_CONFIG_AUTOMATIC_BLOCKING_DESC"
+            default="0"
+            showon="enforcement_enabled:1"
+            filter="integer"
+        >
+            <option value="0">JNO</option>
+            <option value="1">JYES</option>
+        </field>
+        <field
+            name="failed_attempt_threshold"
+            type="number"
+            label="COM_LOGINGUARD_CONFIG_FAILED_ATTEMPT_THRESHOLD_LABEL"
+            description="COM_LOGINGUARD_CONFIG_FAILED_ATTEMPT_THRESHOLD_DESC"
+            default="5"
+            min="1"
+            showon="automatic_blocking_enabled:1"
+            filter="integer"
+        />
+        <field
+            name="threshold_window_minutes"
+            type="number"
+            label="COM_LOGINGUARD_CONFIG_THRESHOLD_WINDOW_LABEL"
+            description="COM_LOGINGUARD_CONFIG_THRESHOLD_WINDOW_DESC"
+            default="15"
+            min="1"
+            showon="automatic_blocking_enabled:1"
+            filter="integer"
+        />
+        <field
+            name="cooldown_duration_minutes"
+            type="number"
+            label="COM_LOGINGUARD_CONFIG_COOLDOWN_LABEL"
+            description="COM_LOGINGUARD_CONFIG_COOLDOWN_DESC"
+            default="30"
+            min="1"
+            showon="automatic_blocking_enabled:1"
+            filter="integer"
+        />
+        <field
+            name="automatic_block_scope"
+            type="list"
+            label="COM_LOGINGUARD_CONFIG_AUTOMATIC_BLOCK_SCOPE_LABEL"
+            description="COM_LOGINGUARD_CONFIG_AUTOMATIC_BLOCK_SCOPE_DESC"
+            default="all"
+            showon="automatic_blocking_enabled:1"
+            validate="options"
+        >
+            <option value="all">COM_LOGINGUARD_BLOCK_SCOPE_ALL</option>
+            <option value="frontend">COM_LOGINGUARD_WHERE_FRONTEND</option>
+            <option value="backend">COM_LOGINGUARD_WHERE_BACKEND</option>
+        </field>
+        <field
+            name="whitelisted_ips"
+            type="textarea"
+            label="COM_LOGINGUARD_CONFIG_WHITELISTED_IPS_LABEL"
+            description="COM_LOGINGUARD_CONFIG_WHITELISTED_IPS_DESC"
+            rows="4"
+            filter="string"
+        />
+        <field
+            name="geoip_country_map"
+            type="textarea"
+            label="COM_LOGINGUARD_CONFIG_GEOIP_COUNTRY_MAP_LABEL"
+            description="COM_LOGINGUARD_CONFIG_GEOIP_COUNTRY_MAP_DESC"
+            rows="4"
+            showon="geoip_enabled:1"
+            filter="string"
+        />
         <field
             name="export_requires_permission"
             type="radio"
@@ -95,6 +207,39 @@
             <option value="0">JNO</option>
             <option value="1">JYES</option>
         </field>
+
+        <field
+            name="blocked_ip_alerts_enabled"
+            type="radio"
+            layout="joomla.form.field.radio.switcher"
+            label="COM_LOGINGUARD_CONFIG_BLOCKED_IP_ALERTS_ENABLED_LABEL"
+            description="COM_LOGINGUARD_CONFIG_BLOCKED_IP_ALERTS_ENABLED_DESC"
+            default="1"
+            showon="audit_alerts_enabled:1"
+            filter="integer"
+        >
+            <option value="0">JNO</option>
+            <option value="1">JYES</option>
+        </field>
+        <field
+            name="blocked_ip_alert_subject"
+            type="text"
+            label="COM_LOGINGUARD_CONFIG_BLOCKED_IP_ALERT_SUBJECT_LABEL"
+            description="COM_LOGINGUARD_CONFIG_BLOCKED_IP_ALERT_TEMPLATE_DESC"
+            default="LoginGuard: blocked IP {ip}"
+            showon="audit_alerts_enabled:1[AND]blocked_ip_alerts_enabled:1"
+            filter="string"
+        />
+        <field
+            name="blocked_ip_alert_body"
+            type="textarea"
+            label="COM_LOGINGUARD_CONFIG_BLOCKED_IP_ALERT_BODY_LABEL"
+            description="COM_LOGINGUARD_CONFIG_BLOCKED_IP_ALERT_TEMPLATE_DESC"
+            default="LoginGuard blocked IP {ip} on {site_name}.&#10;&#10;Where: {where}&#10;Block type: {block_type}&#10;Block reason: {block_reason}&#10;Blocked until: {block_until}&#10;Failure count: {failure_count}&#10;Country: {country}&#10;Date/time: {datetime}"
+            rows="8"
+            showon="audit_alerts_enabled:1[AND]blocked_ip_alerts_enabled:1"
+            filter="string"
+        />
         <field
             name="audit_alert_recipients"
             type="textarea"
