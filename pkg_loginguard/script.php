@@ -4,9 +4,10 @@
  * LoginGuard package installer lifecycle helper.
  *
  * Joomla's package adapter owns installation and removal of the child plugin and
- * component. This script keeps the package registry synchronized around those
- * operations so upgrades, rollbacks, and package uninstalls do not leave stale
- * package-child metadata behind when an alpha child extension was removed first.
+ * component. The package remains a bootstrap installer while com_loginguard owns
+ * updater authority. This script keeps package-child metadata and component
+ * update-site bindings synchronized so upgrades, rollbacks, and package
+ * uninstalls do not leave stale lifecycle state behind.
  */
 
 defined('_JEXEC') or die;
@@ -159,15 +160,20 @@ class Pkg_LoginguardInstallerScript
         try {
             $db = $this->getDatabase();
             $packageId = $this->getExtensionId($db, 'package', 'pkg_loginguard', '');
+            $componentId = $this->getExtensionId($db, 'component', 'com_loginguard', '');
 
-            if ($packageId === 0) {
+            if ($componentId === 0) {
                 return;
             }
 
             $this->deleteStaleUpdateSiteMappings($db);
             $updateSiteId = $this->ensureUpdateSite($db);
-            $this->bindUpdateSiteToExtension($db, $updateSiteId, $packageId);
-            $this->removeDuplicatePackageUpdateSiteBindings($db, $updateSiteId, $packageId);
+            $this->bindUpdateSiteToExtension($db, $updateSiteId, $componentId);
+            $this->removeDuplicateComponentUpdateSiteBindings($db, $updateSiteId, $componentId);
+
+            if ($packageId > 0) {
+                $this->removePackageUpdateSiteBindings($db, $packageId);
+            }
         } catch (\Throwable $exception) {
             // Update-site repair is best-effort and must never block package installs or updates.
         }
@@ -238,12 +244,21 @@ class Pkg_LoginguardInstallerScript
         $db->setQuery($query)->execute();
     }
 
-    private function removeDuplicatePackageUpdateSiteBindings(DatabaseDriver $db, int $canonicalUpdateSiteId, int $packageId): void
+    private function removeDuplicateComponentUpdateSiteBindings(DatabaseDriver $db, int $canonicalUpdateSiteId, int $componentId): void
+    {
+        $query = $db->getQuery(true)
+            ->delete($db->quoteName('#__update_sites_extensions'))
+            ->where($db->quoteName('extension_id') . ' = ' . (int) $componentId)
+            ->where($db->quoteName('update_site_id') . ' <> ' . (int) $canonicalUpdateSiteId)
+            ->where($db->quoteName('update_site_id') . ' IN (SELECT ' . $db->quoteName('update_site_id') . ' FROM ' . $db->quoteName('#__update_sites') . ' WHERE ' . $db->quoteName('name') . ' LIKE ' . $db->quote('%LoginGuard%') . ')');
+        $db->setQuery($query)->execute();
+    }
+
+    private function removePackageUpdateSiteBindings(DatabaseDriver $db, int $packageId): void
     {
         $query = $db->getQuery(true)
             ->delete($db->quoteName('#__update_sites_extensions'))
             ->where($db->quoteName('extension_id') . ' = ' . (int) $packageId)
-            ->where($db->quoteName('update_site_id') . ' <> ' . (int) $canonicalUpdateSiteId)
             ->where($db->quoteName('update_site_id') . ' IN (SELECT ' . $db->quoteName('update_site_id') . ' FROM ' . $db->quoteName('#__update_sites') . ' WHERE ' . $db->quoteName('name') . ' LIKE ' . $db->quote('%LoginGuard%') . ')');
         $db->setQuery($query)->execute();
     }

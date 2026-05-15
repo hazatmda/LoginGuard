@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.2.17
+
+- Moved Joomla updater authority from the bootstrap package lifecycle to the `com_loginguard` component lifecycle.
+- Published update-server metadata from the component manifest while keeping `pkg_loginguard` as the installer package for child extensions.
+- Converted the update stream to component metadata for `com_loginguard` while retaining the package ZIP download artifact `pkg_loginguard_v0.2.17.zip`.
+- Preserved package child-extension synchronization, update-site repair, and installer/update compatibility for fresh installs and upgrades.
+
 ## 0.2.16
 
 - Added structured SOC-style HTML email rendering that maps template variables to telemetry rows without dumping raw template bodies.
