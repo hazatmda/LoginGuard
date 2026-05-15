@@ -59,7 +59,7 @@ final class HtmlView extends BaseHtmlView
         $user = Factory::getApplication()->getIdentity();
         $this->dashboardTimeframe = (string) $user->getParam('loginguard_dashboard_timeframe', 'today');
 
-        if (!in_array($this->dashboardTimeframe, ['today', '24h', '7d'], true)) {
+        if (!in_array($this->dashboardTimeframe, ['today', '24h', '7d', 'all'], true)) {
             $this->dashboardTimeframe = 'today';
         }
 

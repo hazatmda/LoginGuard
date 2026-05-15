@@ -29,31 +29,17 @@ $timeframeOptions = [
     'today' => ['COM_LOGINGUARD_DASHBOARD_TIMEFRAME_TODAY', 'dashboard.setTodayTimeframe'],
     '24h' => ['COM_LOGINGUARD_DASHBOARD_TIMEFRAME_24H', 'dashboard.set24hTimeframe'],
     '7d' => ['COM_LOGINGUARD_DASHBOARD_TIMEFRAME_7D', 'dashboard.set7dTimeframe'],
+    'all' => ['COM_LOGINGUARD_DASHBOARD_TIMEFRAME_ALL', 'dashboard.setAllTimeframe'],
 ];
 
-$kpiGroups = [
-    'frontend' => [
-        'label' => 'COM_LOGINGUARD_SCOPE_FRONTEND',
-        'items' => [
-            ['frontend_success', 'COM_LOGINGUARD_DASHBOARD_FRONTEND_SUCCESS', 'success'],
-            ['frontend_failed', 'COM_LOGINGUARD_DASHBOARD_FRONTEND_FAILED', 'danger'],
-        ],
-    ],
-    'backend' => [
-        'label' => 'COM_LOGINGUARD_SCOPE_BACKEND',
-        'items' => [
-            ['backend_success', 'COM_LOGINGUARD_DASHBOARD_BACKEND_SUCCESS', 'success'],
-            ['backend_failed', 'COM_LOGINGUARD_DASHBOARD_BACKEND_FAILED', 'danger'],
-        ],
-    ],
-    'totals' => [
-        'label' => 'COM_LOGINGUARD_DASHBOARD_TOTALS',
-        'items' => [
-            ['success_login', 'COM_LOGINGUARD_DASHBOARD_SUCCESSFUL_LOGINS', 'success'],
-            ['failed_login', 'COM_LOGINGUARD_DASHBOARD_FAILED_LOGINS', 'danger'],
-            ['blocked_login', 'COM_LOGINGUARD_DASHBOARD_BLOCKED_LOGINS', 'warning'],
-        ],
-    ],
+$kpiCards = [
+    ['frontend_success', 'COM_LOGINGUARD_DASHBOARD_FRONTEND_SUCCESS', 'success'],
+    ['frontend_failed', 'COM_LOGINGUARD_DASHBOARD_FRONTEND_FAILED', 'danger'],
+    ['backend_success', 'COM_LOGINGUARD_DASHBOARD_BACKEND_SUCCESS', 'success'],
+    ['backend_failed', 'COM_LOGINGUARD_DASHBOARD_BACKEND_FAILED', 'danger'],
+    ['success_login', 'COM_LOGINGUARD_DASHBOARD_SUCCESSFUL_LOGINS', 'success'],
+    ['failed_login', 'COM_LOGINGUARD_DASHBOARD_FAILED_LOGINS', 'danger'],
+    ['blocked_login', 'COM_LOGINGUARD_DASHBOARD_BLOCKED_LOGINS', 'warning'],
 ];
 
 $cleanupEnabled = (int) ($cleanupMetrics['automatic_cleanup_enabled'] ?? 0) === 1;
@@ -105,7 +91,7 @@ $blockedIpStatus = static function (object $item) use ($nowSql): string {
 };
 ?>
 <style>
-.loginguard-dashboard{--lg-card-border:rgba(0,0,0,.08)}.loginguard-dashboard .card{border-color:var(--lg-card-border);box-shadow:none}.loginguard-dashboard .card-body{padding:1rem}.loginguard-dashboard--compact .card-body{padding:.65rem}.loginguard-dashboard--compact .card-title{margin-bottom:.45rem}.loginguard-kpi-group{border:1px solid var(--lg-card-border);border-radius:.5rem;padding:.5rem;background:rgba(0,0,0,.015)}.loginguard-kpi-group__title{font-size:.72rem;letter-spacing:.065em}.loginguard-kpi-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(8.5rem,1fr));gap:.5rem}.loginguard-metric{border-left:.22rem solid var(--bs-info);min-height:4.55rem}.loginguard-metric--success{border-left-color:var(--bs-success)}.loginguard-metric--warning{border-left-color:var(--bs-warning)}.loginguard-metric--danger{border-left-color:var(--bs-danger)}.loginguard-metric__label{font-size:.69rem;letter-spacing:.055em}.loginguard-metric__value{font-size:1.8rem;line-height:1;font-weight:700}.loginguard-dashboard--compact .loginguard-metric__value{font-size:1.45rem}.loginguard-chip{font-size:.78rem}.loginguard-dashboard--compact .list-group-item{padding-top:.3rem;padding-bottom:.3rem}.loginguard-compact-list .list-group-item{border-left:0;border-right:0}.loginguard-action-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(8rem,1fr));gap:.5rem}.loginguard-dashboard--compact .table>:not(caption)>*>*{padding:.35rem .45rem}@media (min-width:1200px){.loginguard-kpi-strip{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:.75rem}}
+.loginguard-dashboard{--lg-card-border:rgba(0,0,0,.08);--lg-dashboard-gap:.75rem}.loginguard-dashboard .card{border-color:var(--lg-card-border);box-shadow:none}.loginguard-dashboard .card-body{padding:1rem}.loginguard-dashboard--compact .card-body{padding:.65rem}.loginguard-dashboard--compact .card-title{margin-bottom:.45rem}.loginguard-kpi-strip{display:grid;grid-template-columns:1fr;gap:var(--lg-dashboard-gap);align-items:stretch}.loginguard-metric{border-left:.22rem solid var(--bs-info);min-height:4.55rem}.loginguard-metric .card-body{display:flex;flex-direction:column;justify-content:space-between;min-height:100%}.loginguard-metric--success{border-left-color:var(--bs-success)}.loginguard-metric--warning{border-left-color:var(--bs-warning)}.loginguard-metric--danger{border-left-color:var(--bs-danger)}.loginguard-metric__label{font-size:.69rem;letter-spacing:.055em}.loginguard-metric__value{font-size:1.8rem;line-height:1;font-weight:700}.loginguard-dashboard--compact .loginguard-metric__value{font-size:1.45rem}.loginguard-chip{font-size:.78rem}.loginguard-dashboard--compact .list-group-item{padding-top:.3rem;padding-bottom:.3rem}.loginguard-compact-list .list-group-item{border-left:0;border-right:0}.loginguard-action-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(8rem,1fr));gap:.5rem}.loginguard-dashboard--compact .table>:not(caption)>*>*{padding:.35rem .45rem}@media (min-width:576px){.loginguard-kpi-strip{grid-template-columns:repeat(2,minmax(0,1fr))}}@media (min-width:992px){.loginguard-kpi-strip{grid-template-columns:repeat(4,minmax(0,1fr))}}@media (min-width:1400px){.loginguard-kpi-strip{grid-template-columns:repeat(7,minmax(0,1fr))}}
 </style>
 <form action="<?php echo Route::_('index.php?option=com_loginguard&view=dashboard'); ?>" method="post" name="adminForm" id="adminForm">
     <div id="j-main-container" class="j-main-container loginguard-dashboard <?php echo $densityClass; ?>">
@@ -129,19 +115,12 @@ $blockedIpStatus = static function (object $item) use ($nowSql): string {
             </div>
         </div>
 
-        <div class="loginguard-kpi-strip mb-3">
-            <?php foreach ($kpiGroups as $group) : ?>
-                <section class="loginguard-kpi-group mb-2 mb-xl-0" aria-label="<?php echo Text::_($group['label']); ?>">
-                    <div class="text-muted text-uppercase fw-semibold loginguard-kpi-group__title mb-2"><?php echo Text::_($group['label']); ?></div>
-                    <div class="loginguard-kpi-grid">
-                        <?php foreach ($group['items'] as $item) : ?>
-                            <div class="card h-100 loginguard-metric loginguard-metric--<?php echo $this->escape($item[2]); ?>"><div class="card-body <?php echo $cardPaddingClass; ?>">
-                                <div class="text-muted text-uppercase loginguard-metric__label"><?php echo Text::_($item[1]); ?></div>
-                                <div class="loginguard-metric__value"><?php echo (int) ($this->telemetryCounts[$item[0]] ?? 0); ?></div>
-                            </div></div>
-                        <?php endforeach; ?>
-                    </div>
-                </section>
+        <div class="loginguard-kpi-strip mb-3" aria-label="<?php echo Text::_('COM_LOGINGUARD_DASHBOARD_TOTALS'); ?>">
+            <?php foreach ($kpiCards as $item) : ?>
+                <div class="card h-100 loginguard-metric loginguard-metric--<?php echo $this->escape($item[2]); ?>"><div class="card-body <?php echo $cardPaddingClass; ?>">
+                    <div class="text-muted text-uppercase loginguard-metric__label"><?php echo Text::_($item[1]); ?></div>
+                    <div class="loginguard-metric__value"><?php echo (int) ($this->telemetryCounts[$item[0]] ?? 0); ?></div>
+                </div></div>
             <?php endforeach; ?>
         </div>
 
