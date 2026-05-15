@@ -4,7 +4,7 @@ Joomla 5 package for login attempt detection, monitoring, and auditing.
 
 ## Status
 
-Current development version: `0.2.15`.
+Current development version: `0.2.16`.
 
 ## Features planned for MVP
 
@@ -22,14 +22,7 @@ Current development version: `0.2.15`.
 
 ## GeoIP Enrichment
 
-LoginGuard keeps GeoIP enrichment deterministic and offline. Enable GeoIP in the component configuration and enter one mapping per line:
-
-```text
-IP-or-CIDR=Country
-IP-or-CIDR=Country|Country Code|Region|City|ISP|ASN
-```
-
-The extended format stores `country`, `country_code`, `region`, `city`, `isp`, and `asn`. The Login Information table displays Country, City, ISP, and ASN, and CSV export includes all GeoIP fields.
+LoginGuard automatically enriches login telemetry when a local GeoIP capability is available. No administrator GeoIP setup is required: the plugin detects PHP GeoIP functions, common local MaxMind database locations, and legacy offline maps from upgraded installations. If no local provider is available, LoginGuard gracefully stores empty location fields while preserving proxy-aware IP resolution and the login audit flow. The Login Information table displays Country, City, ISP, and ASN, and CSV export includes all GeoIP fields.
 
 ## Requirements
 
@@ -63,7 +56,7 @@ bash scripts/build.sh
 Generated package:
 
 ```text
-packages/pkg_loginguard_v0.2.15.zip
+packages/pkg_loginguard_v0.2.16.zip
 ```
 
 ## Versioning Policy
@@ -81,9 +74,9 @@ Before release, these must match:
 Example:
 
 ```text
-version: 0.2.15
-tag: v0.2.15
-package: pkg_loginguard_v0.2.15.zip
+version: 0.2.16
+tag: v0.2.16
+package: pkg_loginguard_v0.2.16.zip
 ```
 
 ## License
