@@ -179,7 +179,7 @@ for required_text in ['AuthenticationResponse', 'Authentication::STATUS_DENIED',
 if 'public function onUserAuthorisation($response = null, $options = [])' not in login_guard_text or 'public function onUserAuthorisation($response = [], $options = []): bool' in login_guard_text or 'return $this->enforceBlockedIp($response);' in login_guard_text:
     print('LoginGuard authorisation enforcement must not return boolean results from onUserAuthorisation', file=sys.stderr)
     sys.exit(1)
-for template_variable in ['{username}', '{ip}', '{status}', '{failure_reason}', '{where}', '{browser}', '{os}', '{datetime}', '{site_name}', '{country_code}', '{region}', '{city}', '{isp}', '{asn}']:
+for template_variable in ['{full_name}', '{username}', '{email}', '{ip}', '{status}', '{failure_reason}', '{where}', '{browser}', '{os}', '{country}', '{country_code}', '{region}', '{city}', '{isp}', '{asn}', '{user_agent}', '{datetime}', '{site_name}']:
     if template_variable not in login_guard_text:
         print(f'LoginGuard extension missing alert template variable: {template_variable}', file=sys.stderr)
         sys.exit(1)

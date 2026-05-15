@@ -1,0 +1,2 @@
+-- LoginGuard 0.2.14-alpha email formatting and dashboard density cleanup release.
+-- No database schema changes are required for this release.
