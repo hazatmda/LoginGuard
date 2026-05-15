@@ -5,7 +5,6 @@ namespace LoginGuard\Component\LoginGuard\Administrator\Controller;
 defined('_JEXEC') or die;
 
 use Joomla\CMS\Component\ComponentHelper;
-use Joomla\CMS\Date\Date;
 use Joomla\CMS\Factory;
 use Joomla\CMS\Language\Text;
 use Joomla\CMS\MVC\Controller\AdminController;
@@ -88,7 +87,7 @@ final class BlockedipsController extends AdminController
                 $db->quote($reason),
                 (string) $failureCount,
                 $blockedUntilSql,
-                $db->quote((new Date())->toSql()),
+                $db->quote(gmdate('Y-m-d H:i:s')),
                 (string) (int) $app->getIdentity()->id,
                 (string) $enabled,
             ];

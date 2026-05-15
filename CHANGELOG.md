@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.2.19
+
+- Fixed LoginGuard timestamp rendering so emails, Login Information, dashboard, Blocked IP views, and CSV exports share one UTC-storage to Joomla-configured-timezone display path.
+- Hardened Login Information column visibility persistence with the stable `loginguard.logininfo.columns` localStorage key so hidden columns survive refreshes and navigation.
+- Synchronized release metadata and package naming for `pkg_loginguard_v0.2.19.zip`.
+
 ## 0.2.18
 
 - Modernized the Blocked IPs operational workspace with telemetry hierarchy, modal add/edit workflows, responsive cards/table behavior, clearer badge hierarchy, and conditional temporary expiration editing.

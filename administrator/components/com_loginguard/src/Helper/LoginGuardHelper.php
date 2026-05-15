@@ -4,7 +4,6 @@ namespace LoginGuard\Component\LoginGuard\Administrator\Helper;
 
 defined('_JEXEC') or die;
 
-use Joomla\CMS\Date\Date;
 use Joomla\CMS\Factory;
 use Joomla\CMS\Language\Text;
 use Joomla\CMS\Object\CMSObject;
@@ -49,10 +48,13 @@ final class LoginGuardHelper
             return '';
         }
 
-        $date = new Date($value, 'UTC');
-        $date->setTimezone(self::getConfiguredTimezone());
+        try {
+            $date = new \DateTimeImmutable($value, new \DateTimeZone('UTC'));
+        } catch (\Exception $exception) {
+            return '';
+        }
 
-        return $date->format($format ?: Text::_('DATE_FORMAT_LC5'), false);
+        return $date->setTimezone(self::getConfiguredTimezone())->format($format ?: Text::_('DATE_FORMAT_LC5'));
     }
 
     public static function formatConfiguredDateTimeInput(?string $value): string
