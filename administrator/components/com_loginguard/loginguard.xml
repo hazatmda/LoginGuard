@@ -2,8 +2,8 @@
 <extension type="component" method="upgrade">
     <name>com_loginguard</name>
     <author>Hazim</author>
-    <creationDate>2026-05-13</creationDate>
-    <version>0.2.5-alpha</version>
+    <creationDate>2026-05-15</creationDate>
+    <version>0.2.6-alpha</version>
     <element>com_loginguard</element>
     <description>COM_LOGINGUARD_XML_DESCRIPTION</description>
 

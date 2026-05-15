@@ -21,6 +21,11 @@ final class AttemptsModel extends ListModel
                 'created',
                 'reason',
                 'country',
+                'country_code',
+                'region',
+                'city',
+                'isp',
+                'asn',
                 'browser',
                 'operating_system',
                 'where_at',
@@ -110,6 +115,11 @@ final class AttemptsModel extends ListModel
                 $db->quoteName('created'),
                 $db->quoteName('reason'),
                 $db->quoteName('country'),
+                $db->quoteName('country_code'),
+                $db->quoteName('region'),
+                $db->quoteName('city'),
+                $db->quoteName('isp'),
+                $db->quoteName('asn'),
                 $db->quoteName('browser'),
                 $db->quoteName('operating_system'),
                 $db->quoteName('where_at'),
@@ -128,6 +138,11 @@ final class AttemptsModel extends ListModel
                 . ' OR ' . $db->quoteName('name') . ' LIKE ' . $db->quote($pattern)
                 . ' OR ' . $db->quoteName('username') . ' LIKE ' . $db->quote($pattern)
                 . ' OR ' . $db->quoteName('country') . ' LIKE ' . $db->quote($pattern)
+                . ' OR ' . $db->quoteName('country_code') . ' LIKE ' . $db->quote($pattern)
+                . ' OR ' . $db->quoteName('region') . ' LIKE ' . $db->quote($pattern)
+                . ' OR ' . $db->quoteName('city') . ' LIKE ' . $db->quote($pattern)
+                . ' OR ' . $db->quoteName('isp') . ' LIKE ' . $db->quote($pattern)
+                . ' OR ' . $db->quoteName('asn') . ' LIKE ' . $db->quote($pattern)
                 . ' OR ' . $db->quoteName('browser') . ' LIKE ' . $db->quote($pattern)
                 . ' OR ' . $db->quoteName('operating_system') . ' LIKE ' . $db->quote($pattern)
                 . ' OR ' . $db->quoteName('reason') . ' LIKE ' . $db->quote($pattern)

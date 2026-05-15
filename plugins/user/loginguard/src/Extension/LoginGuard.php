@@ -176,7 +176,7 @@ final class LoginGuard extends CMSPlugin
     private function buildAttemptRecord(array $attempt, string $ipAddress, string $client): array
     {
         $userAgent = (string) ($_SERVER['HTTP_USER_AGENT'] ?? 'unknown');
-        $country   = $this->detectCountry($ipAddress);
+        $geoip     = $this->detectGeoIp($ipAddress);
 
         return [
             'username' => $this->cleanString((string) ($attempt['username'] ?? 'unknown'), 'unknown'),
@@ -186,7 +186,12 @@ final class LoginGuard extends CMSPlugin
             'status' => $this->normaliseStatus((string) ($attempt['status'] ?? 'FAILED_LOGIN')),
             'ip_address' => $ipAddress,
             'user_agent' => $userAgent,
-            'country' => $country,
+            'country' => $geoip['country'],
+            'country_code' => $geoip['country_code'],
+            'region' => $geoip['region'],
+            'city' => $geoip['city'],
+            'isp' => $geoip['isp'],
+            'asn' => $geoip['asn'],
             'browser' => $this->detectBrowser($userAgent),
             'operating_system' => $this->detectOperatingSystem($userAgent),
             'where_at' => $client,
@@ -221,6 +226,11 @@ final class LoginGuard extends CMSPlugin
             'name' => "ALTER TABLE `#__loginguard_attempts` ADD COLUMN `name` varchar(255) NOT NULL DEFAULT '' AFTER `user_id`",
             'email' => "ALTER TABLE `#__loginguard_attempts` ADD COLUMN `email` varchar(255) NOT NULL DEFAULT '' AFTER `username`",
             'country' => "ALTER TABLE `#__loginguard_attempts` ADD COLUMN `country` varchar(100) NOT NULL DEFAULT '' AFTER `user_agent`",
+            'country_code' => "ALTER TABLE `#__loginguard_attempts` ADD COLUMN `country_code` varchar(10) NOT NULL DEFAULT '' AFTER `country`",
+            'region' => "ALTER TABLE `#__loginguard_attempts` ADD COLUMN `region` varchar(100) NOT NULL DEFAULT '' AFTER `country_code`",
+            'city' => "ALTER TABLE `#__loginguard_attempts` ADD COLUMN `city` varchar(100) NOT NULL DEFAULT '' AFTER `region`",
+            'isp' => "ALTER TABLE `#__loginguard_attempts` ADD COLUMN `isp` varchar(255) NOT NULL DEFAULT '' AFTER `city`",
+            'asn' => "ALTER TABLE `#__loginguard_attempts` ADD COLUMN `asn` varchar(50) NOT NULL DEFAULT '' AFTER `isp`",
             'browser' => "ALTER TABLE `#__loginguard_attempts` ADD COLUMN `browser` varchar(100) NOT NULL DEFAULT '' AFTER `country`",
             'operating_system' => "ALTER TABLE `#__loginguard_attempts` ADD COLUMN `operating_system` varchar(100) NOT NULL DEFAULT '' AFTER `browser`",
             'where_at' => "ALTER TABLE `#__loginguard_attempts` ADD COLUMN `where_at` varchar(50) NOT NULL DEFAULT 'frontend' AFTER `country`",
@@ -593,6 +603,11 @@ final class LoginGuard extends CMSPlugin
             'datetime' => (string) ($record['created'] ?? (new Date())->toSql()),
             'site_name' => (string) $config->get('sitename', ''),
             'country' => (string) ($record['country'] ?? ''),
+            'country_code' => (string) ($record['country_code'] ?? ''),
+            'region' => (string) ($record['region'] ?? ''),
+            'city' => (string) ($record['city'] ?? ''),
+            'isp' => (string) ($record['isp'] ?? ''),
+            'asn' => (string) ($record['asn'] ?? ''),
             'name' => (string) ($record['name'] ?? ''),
             'full_name' => (string) ($record['name'] ?? ''),
             'email' => (string) ($record['email'] ?? ''),
@@ -614,12 +629,12 @@ final class LoginGuard extends CMSPlugin
 
     private function getDefaultAlertBodyTemplate(): string
     {
-        return "LoginGuard recorded a {status} event on {site_name}.\n\nUsername: {username}\nFull name: {full_name}\nName: {name}\nEmail: {email}\nIP: {ip}\nCountry: {country}\nWhere: {where}\nBrowser: {browser}\nOS: {os}\nUser agent: {user_agent}\nFailure reason: {failure_reason}\nDate/time: {datetime}";
+        return "LoginGuard recorded a {status} event on {site_name}.\n\nUsername: {username}\nFull name: {full_name}\nName: {name}\nEmail: {email}\nIP: {ip}\nCountry: {country}\nCountry code: {country_code}\nRegion: {region}\nCity: {city}\nISP: {isp}\nASN: {asn}\nWhere: {where}\nBrowser: {browser}\nOS: {os}\nUser agent: {user_agent}\nFailure reason: {failure_reason}\nDate/time: {datetime}";
     }
 
     private function getDefaultBlockedIpAlertBodyTemplate(): string
     {
-        return "LoginGuard blocked IP {ip} on {site_name}.\n\nWhere: {where}\nBlock type: {block_type}\nBlock reason: {block_reason}\nBlocked until: {block_until}\nFailure count: {failure_count}\nCountry: {country}\nDate/time: {datetime}";
+        return "LoginGuard blocked IP {ip} on {site_name}.\n\nWhere: {where}\nBlock type: {block_type}\nBlock reason: {block_reason}\nBlocked until: {block_until}\nFailure count: {failure_count}\nCountry: {country}\nCountry code: {country_code}\nRegion: {region}\nCity: {city}\nISP: {isp}\nASN: {asn}\nDate/time: {datetime}";
     }
 
     /** @return array<string, mixed> */
@@ -761,26 +776,59 @@ final class LoginGuard extends CMSPlugin
             : 'INVALID_CREDENTIALS';
     }
 
-    private function detectCountry(string $ipAddress): string
+    /**
+     * Resolve optional offline GeoIP fields from configured IP/CIDR rules.
+     *
+     * The map is intentionally local and deterministic so login enforcement never
+     * depends on a remote telemetry service. Each line supports either the legacy
+     * format `IP/CIDR=Country` or the extended v0.2.6 format
+     * `IP/CIDR=Country|Country Code|Region|City|ISP|ASN`.
+     *
+     * @return array{country: string, country_code: string, region: string, city: string, isp: string, asn: string}
+     */
+    private function detectGeoIp(string $ipAddress): array
     {
+        $empty = [
+            'country' => '',
+            'country_code' => '',
+            'region' => '',
+            'city' => '',
+            'isp' => '',
+            'asn' => '',
+        ];
         $params = ComponentHelper::getParams('com_loginguard');
 
-        if (!$params->get('geoip_enabled', 0)) {
-            return '';
+        if (!$params->get('geoip_enabled', 0) || $ipAddress === '' || $ipAddress === 'unknown') {
+            return $empty;
         }
 
         $map = (string) $params->get('geoip_country_map', '');
         $entries = preg_split('/\R+/', $map, -1, PREG_SPLIT_NO_EMPTY) ?: [];
 
         foreach ($entries as $entry) {
-            [$rule, $country] = array_pad(array_map('trim', explode('=', $entry, 2)), 2, '');
+            [$rule, $metadata] = array_pad(array_map('trim', explode('=', $entry, 2)), 2, '');
 
-            if ($country !== '' && $this->ipMatchesRule($ipAddress, $rule)) {
-                return $country;
+            if ($metadata === '' || !$this->ipMatchesRule($ipAddress, $rule)) {
+                continue;
             }
+
+            [$country, $countryCode, $region, $city, $isp, $asn] = array_pad(
+                array_map('trim', explode('|', $metadata, 6)),
+                6,
+                ''
+            );
+
+            return [
+                'country' => $country,
+                'country_code' => strtoupper($countryCode),
+                'region' => $region,
+                'city' => $city,
+                'isp' => $isp,
+                'asn' => strtoupper($asn),
+            ];
         }
 
-        return '';
+        return $empty;
     }
 
     private function cleanString(string $value, string $fallback = ''): string
