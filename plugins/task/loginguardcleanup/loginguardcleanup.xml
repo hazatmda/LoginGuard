@@ -3,7 +3,7 @@
     <name>plg_task_loginguardcleanup</name>
     <author>Hazim</author>
     <creationDate>2026-05-15</creationDate>
-    <version>0.2.12-alpha</version>
+    <version>0.2.13-alpha</version>
     <description>PLG_TASK_LOGINGUARDCLEANUP_XML_DESCRIPTION</description>
 
     <namespace path="src">Joomla\Plugin\Task\LoginGuardCleanup</namespace>

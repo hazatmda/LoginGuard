@@ -1,0 +1,2 @@
+-- LoginGuard 0.2.13-alpha responsive dashboard layout and All timeframe release.
+-- No database schema changes are required for this release.

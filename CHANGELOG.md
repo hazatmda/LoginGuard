@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.2.13-alpha
+
+- Reworked dashboard KPI cards into a responsive seven-card strip that stacks cleanly on small screens, balances on medium screens, and expands to one horizontal row on large screens.
+- Added the per-administrator All dashboard timeframe option and preserved Today as the default timeframe.
+- Synchronized release metadata and package naming for `pkg_loginguard_v0.2.13-alpha.zip`.
+
 ## 0.2.12-alpha
 
 - Refined the administrator dashboard telemetry layout with a top KPI strip, per-administrator timeframe selector, compact operational health chips, and reduced dashboard spacing.

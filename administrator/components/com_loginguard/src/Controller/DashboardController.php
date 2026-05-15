@@ -45,6 +45,11 @@ final class DashboardController extends BaseController
         $this->setDashboardTimeframe('7d');
     }
 
+    public function setAllTimeframe(): void
+    {
+        $this->setDashboardTimeframe('all');
+    }
+
     public function setCompactDensity(): void
     {
         $this->setDashboardDensity(1);
@@ -62,7 +67,7 @@ final class DashboardController extends BaseController
         LoginGuardHelper::requirePermission('loginguard.view');
         $this->checkToken();
 
-        if (!in_array($timeframe, ['today', '24h', '7d'], true)) {
+        if (!in_array($timeframe, ['today', '24h', '7d', 'all'], true)) {
             $timeframe = 'today';
         }
 

@@ -424,6 +424,10 @@ final class DashboardModel extends BaseDatabaseModel
             return (new Date('-7 days'))->toSql();
         }
 
+        if ($range === 'all') {
+            return '';
+        }
+
         return (new Date('today'))->toSql();
     }
 
