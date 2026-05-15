@@ -139,6 +139,12 @@ build_script_text = Path('scripts/build.sh').read_text(encoding='utf-8')
 if 'cp pkg_loginguard/script.php' not in build_script_text:
     print('Build script must include the package lifecycle script in the release ZIP', file=sys.stderr)
     sys.exit(1)
+if 'plg_task_loginguardcleanup.zip' not in build_script_text:
+    print('Build script must include the LoginGuard scheduled cleanup task plugin ZIP', file=sys.stderr)
+    sys.exit(1)
+if '<file type="plugin" id="loginguardcleanup" group="task">plg_task_loginguardcleanup.zip</file>' not in package_manifest_text:
+    print('Package manifest must include the LoginGuard task scheduler plugin child extension', file=sys.stderr)
+    sys.exit(1)
 
 ip_resolver = Path('plugins/user/loginguard/src/Service/IpResolver.php')
 login_guard = Path('plugins/user/loginguard/src/Extension/LoginGuard.php')
@@ -293,7 +299,7 @@ if config_root is None:
     print('Missing config.xml for com_config integration', file=sys.stderr)
     sys.exit(1)
 config_fields = {field.attrib.get('name') for field in config_root.findall('.//field')}
-required_config_fields = {'trusted_proxies', 'retention_days', 'logging_level', 'geoip_enabled', 'export_requires_permission', 'enforcement_enabled', 'frontend_enforcement_enabled', 'backend_enforcement_enabled', 'automatic_blocking_enabled', 'failed_attempt_threshold', 'threshold_window_minutes', 'cooldown_duration_minutes', 'automatic_block_scope', 'whitelisted_ips', 'geoip_country_map', 'audit_alerts_enabled', 'audit_alert_success', 'audit_alert_failed', 'audit_alert_recipients', 'audit_alert_success_subject', 'audit_alert_success_body', 'audit_alert_failed_subject', 'audit_alert_failed_body', 'blocked_ip_alerts_enabled', 'blocked_ip_alert_subject', 'blocked_ip_alert_body', 'rules'}
+required_config_fields = {'trusted_proxies', 'retention_days', 'automatic_cleanup_enabled', 'login_retention_days', 'blocked_ip_retention_days', 'cleanup_batch_size', 'cleanup_execution_logging', 'logging_level', 'geoip_enabled', 'export_requires_permission', 'enforcement_enabled', 'frontend_enforcement_enabled', 'backend_enforcement_enabled', 'automatic_blocking_enabled', 'failed_attempt_threshold', 'threshold_window_minutes', 'cooldown_duration_minutes', 'automatic_block_scope', 'whitelisted_ips', 'geoip_country_map', 'audit_alerts_enabled', 'audit_alert_success', 'audit_alert_failed', 'audit_alert_recipients', 'audit_alert_success_subject', 'audit_alert_success_body', 'audit_alert_failed_subject', 'audit_alert_failed_body', 'blocked_ip_alerts_enabled', 'blocked_ip_alert_subject', 'blocked_ip_alert_body', 'rules'}
 forbidden_config_fields = {'lockout_duration'}
 if not required_config_fields.issubset(config_fields):
     print(f'config.xml missing fields: {sorted(required_config_fields - config_fields)}', file=sys.stderr)
@@ -308,6 +314,23 @@ for view in ['Dashboard', 'Attempts', 'Tools', 'About']:
         print(f'Missing submenu view {view}', file=sys.stderr)
         sys.exit(1)
 
+cleanup_service = Path('administrator/components/com_loginguard/src/Service/CleanupService.php')
+task_plugin = Path('plugins/task/loginguardcleanup/src/Extension/LoginGuardCleanup.php')
+task_manifest = Path('plugins/task/loginguardcleanup/loginguardcleanup.xml')
+for required_file in [cleanup_service, task_plugin, task_manifest, Path('plugins/task/loginguardcleanup/services/provider.php')]:
+    if not required_file.is_file():
+        print(f'Missing scheduled cleanup file: {required_file}', file=sys.stderr)
+        sys.exit(1)
+cleanup_service_text = cleanup_service.read_text(encoding='utf-8')
+for required_text in ['cleanupOldAttempts', 'cleanupExpiredBlocks', 'cleanupDisabledBlocks', 'deleteInBatches', 'fetchIds', 'cleanup_batch_size', 'login_retention_days', 'blocked_ip_retention_days', '#__loginguard_cleanup_runs', 'MAX_BATCHES_PER_RUN', 'whereIn']:
+    if required_text not in cleanup_service_text:
+        print(f'CleanupService missing retention/batch token: {required_text}', file=sys.stderr)
+        sys.exit(1)
+cleanup_task_text = task_plugin.read_text(encoding='utf-8')
+for required_text in ['TaskPluginTrait', 'TASKS_MAP', 'loginguard.cleanup', 'onTaskOptionsList', 'onExecuteTask', 'ComponentHelper::getParams', 'automatic_cleanup_enabled', 'CleanupService']:
+    if required_text not in cleanup_task_text:
+        print(f'Scheduled cleanup task plugin missing token: {required_text}', file=sys.stderr)
+        sys.exit(1)
 dashboard_view = Path('administrator/components/com_loginguard/src/View/Dashboard/HtmlView.php')
 dashboard_model = Path('administrator/components/com_loginguard/src/Model/DashboardModel.php')
 dashboard_template = Path('administrator/components/com_loginguard/tmpl/dashboard/default.php')
@@ -360,6 +383,9 @@ for permission in required_actions:
         sys.exit(1)
 
 install_sql = (plugin_manifest.parent / 'sql/install.mysql.utf8.sql').read_text(encoding='utf-8')
+if '#__loginguard_cleanup_runs' not in install_sql:
+    print('Install SQL missing cleanup metrics table', file=sys.stderr)
+    sys.exit(1)
 
 for telemetry in ['SUCCESS_LOGIN', 'FAILED_LOGIN', 'USERNAME_NOT_FOUND', 'PASSWORD_INCORRECT', 'INVALID_CREDENTIALS', 'ACCOUNT_BLOCKED', 'ACCOUNT_DISABLED', 'frontend', 'backend', 'api', 'cli', 'BLOCKED_LOGIN', 'IP_BLOCKED']:
     if telemetry not in login_guard_text and telemetry not in install_sql:

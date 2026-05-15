@@ -19,6 +19,62 @@
             filter="integer"
         />
         <field
+            name="automatic_cleanup_enabled"
+            type="radio"
+            layout="joomla.form.field.radio.switcher"
+            label="COM_LOGINGUARD_CONFIG_AUTOMATIC_CLEANUP_ENABLED_LABEL"
+            description="COM_LOGINGUARD_CONFIG_AUTOMATIC_CLEANUP_ENABLED_DESC"
+            default="0"
+            filter="integer"
+        >
+            <option value="0">JNO</option>
+            <option value="1">JYES</option>
+        </field>
+        <field
+            name="login_retention_days"
+            type="number"
+            label="COM_LOGINGUARD_CONFIG_LOGIN_RETENTION_DAYS_LABEL"
+            description="COM_LOGINGUARD_CONFIG_LOGIN_RETENTION_DAYS_DESC"
+            default="90"
+            min="1"
+            showon="automatic_cleanup_enabled:1"
+            filter="integer"
+        />
+        <field
+            name="blocked_ip_retention_days"
+            type="number"
+            label="COM_LOGINGUARD_CONFIG_BLOCKED_IP_RETENTION_DAYS_LABEL"
+            description="COM_LOGINGUARD_CONFIG_BLOCKED_IP_RETENTION_DAYS_DESC"
+            default="30"
+            min="1"
+            showon="automatic_cleanup_enabled:1"
+            filter="integer"
+        />
+        <field
+            name="cleanup_batch_size"
+            type="number"
+            label="COM_LOGINGUARD_CONFIG_CLEANUP_BATCH_SIZE_LABEL"
+            description="COM_LOGINGUARD_CONFIG_CLEANUP_BATCH_SIZE_DESC"
+            default="500"
+            min="1"
+            max="5000"
+            showon="automatic_cleanup_enabled:1"
+            filter="integer"
+        />
+        <field
+            name="cleanup_execution_logging"
+            type="radio"
+            layout="joomla.form.field.radio.switcher"
+            label="COM_LOGINGUARD_CONFIG_CLEANUP_EXECUTION_LOGGING_LABEL"
+            description="COM_LOGINGUARD_CONFIG_CLEANUP_EXECUTION_LOGGING_DESC"
+            default="1"
+            showon="automatic_cleanup_enabled:1"
+            filter="integer"
+        >
+            <option value="0">JNO</option>
+            <option value="1">JYES</option>
+        </field>
+        <field
             name="logging_level"
             type="list"
             label="COM_LOGINGUARD_CONFIG_LOGGING_LEVEL_LABEL"

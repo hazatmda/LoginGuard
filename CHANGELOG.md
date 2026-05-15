@@ -1,11 +1,13 @@
 # Changelog
 
-## 0.2.7-alpha
+## 0.2.8-alpha
 
-- Fixed LoginGuard IP enforcement in `onUserAuthorisation` so blocked logins return a Joomla `AuthenticationResponse` denial instead of an invalid boolean result.
-- Preserved backend/frontend enforcement, blocked IP audit records, whitelist bypasses, recovery-safe fail-open behavior, and LoginGuard alerting while complying with Joomla's authorisation contract.
-- Added package uninstall lifecycle synchronization with a package script, child uninstall blocking, registry relinking/cleanup, and package build inclusion for reinstall, upgrade, rollback, and uninstall flows.
-- Synchronized release metadata and package naming for `pkg_loginguard_v0.2.7-alpha.zip`.
+- Added automatic retention cleanup configuration for login attempts, stale blocked IP records, batch size, and execution logging.
+- Added a Joomla Scheduler task plugin that runs LoginGuard cleanup through bounded batch deletion instead of unrestricted large-table deletes.
+- Added `CleanupService` for pruning old login attempts, expired temporary blocks, and disabled blocked-IP rows while recording cleanup metrics.
+- Added cleanup run storage and dashboard retention metrics for total attempts, total blocked IPs, last cleanup execution, deleted-row counts, batches, and active retention policy visibility.
+- Preserved SearchTools, CSV export, ACL, GeoIP telemetry, enforcement architecture, install/update lifecycle, update detection, and package build behavior.
+- Synchronized release metadata and package naming for `pkg_loginguard_v0.2.8-alpha.zip`.
 
 ## 0.2.6-alpha
 

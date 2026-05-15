@@ -43,7 +43,10 @@ class Pkg_LoginguardInstallerScript
             return true;
         }
 
-        return $this->synchroniseChildExtensions(false);
+        $this->synchroniseChildExtensions(false);
+        $this->enableChildExtension('plugin', 'loginguardcleanup', 'task');
+
+        return true;
     }
 
     /**
@@ -98,8 +101,29 @@ class Pkg_LoginguardInstallerScript
     {
         return [
             ['type' => 'plugin', 'element' => 'loginguard', 'folder' => 'user'],
+            ['type' => 'plugin', 'element' => 'loginguardcleanup', 'folder' => 'task'],
             ['type' => 'component', 'element' => 'com_loginguard', 'folder' => ''],
         ];
+    }
+
+    private function enableChildExtension(string $type, string $element, string $folder): void
+    {
+        try {
+            $db = $this->getDatabase();
+            $extensionId = $this->getExtensionId($db, $type, $element, $folder);
+
+            if ($extensionId === 0) {
+                return;
+            }
+
+            $query = $db->getQuery(true)
+                ->update($db->quoteName('#__extensions'))
+                ->set($db->quoteName('enabled') . ' = 1')
+                ->where($db->quoteName('extension_id') . ' = ' . (int) $extensionId);
+            $db->setQuery($query)->execute();
+        } catch (\Throwable $exception) {
+            // Enabling the scheduler plugin is best-effort and must not block installs.
+        }
     }
 
     private function getExtensionId(DatabaseDriver $db, string $type, string $element, string $folder): int

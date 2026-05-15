@@ -210,6 +210,68 @@ final class DashboardModel extends BaseDatabaseModel
         return $db->loadObjectList() ?: [];
     }
 
+
+    /**
+     * @return array<string, int|string>
+     */
+    public function getCleanupMetrics(): array
+    {
+        $db = $this->getDatabase();
+        $params = \Joomla\CMS\Component\ComponentHelper::getParams('com_loginguard');
+        $metrics = [
+            'total_attempts' => $this->countTable('#__loginguard_attempts'),
+            'total_blocked_ips' => $this->countTable('#__loginguard_blocked_ips'),
+            'last_cleanup_execution' => '',
+            'last_attempts_deleted' => 0,
+            'last_expired_blocks_deleted' => 0,
+            'last_disabled_blocks_deleted' => 0,
+            'last_total_deleted' => 0,
+            'last_batches' => 0,
+            'automatic_cleanup_enabled' => (int) $params->get('automatic_cleanup_enabled', 0),
+            'login_retention_days' => max(1, (int) $params->get('login_retention_days', (int) $params->get('retention_days', 90))),
+            'blocked_ip_retention_days' => max(1, (int) $params->get('blocked_ip_retention_days', 30)),
+            'cleanup_batch_size' => max(1, (int) $params->get('cleanup_batch_size', 500)),
+        ];
+
+        $query = $db->getQuery(true)
+            ->select([
+                $db->quoteName('finished_at'),
+                $db->quoteName('attempts_deleted'),
+                $db->quoteName('expired_blocks_deleted'),
+                $db->quoteName('disabled_blocks_deleted'),
+                $db->quoteName('total_deleted'),
+                $db->quoteName('batches'),
+            ])
+            ->from($db->quoteName('#__loginguard_cleanup_runs'))
+            ->order($db->quoteName('finished_at') . ' DESC');
+
+        $db->setQuery($query, 0, 1);
+        $lastRun = $db->loadObject();
+
+        if ($lastRun) {
+            $metrics['last_cleanup_execution'] = (string) $lastRun->finished_at;
+            $metrics['last_attempts_deleted'] = (int) $lastRun->attempts_deleted;
+            $metrics['last_expired_blocks_deleted'] = (int) $lastRun->expired_blocks_deleted;
+            $metrics['last_disabled_blocks_deleted'] = (int) $lastRun->disabled_blocks_deleted;
+            $metrics['last_total_deleted'] = (int) $lastRun->total_deleted;
+            $metrics['last_batches'] = (int) $lastRun->batches;
+        }
+
+        return $metrics;
+    }
+
+    private function countTable(string $table): int
+    {
+        $db = $this->getDatabase();
+        $query = $db->getQuery(true)
+            ->select('COUNT(*)')
+            ->from($db->quoteName($table));
+
+        $db->setQuery($query);
+
+        return (int) $db->loadResult();
+    }
+
     /**
      * @param   array<int, string>  $values
      */

@@ -52,6 +52,18 @@ $failureReasonLabels = [
     'IP_BLOCKED' => 'COM_LOGINGUARD_REASON_IP_BLOCKED',
 ];
 
+$cleanupMetrics = $this->cleanupMetrics ?? [];
+$lastCleanup = (string) ($cleanupMetrics['last_cleanup_execution'] ?? '');
+$cleanupStatus = (int) ($cleanupMetrics['automatic_cleanup_enabled'] ?? 0) === 1
+    ? Text::_('COM_LOGINGUARD_DASHBOARD_CLEANUP_ENABLED')
+    : Text::_('COM_LOGINGUARD_DASHBOARD_CLEANUP_DISABLED');
+$retentionPolicy = Text::sprintf(
+    'COM_LOGINGUARD_DASHBOARD_RETENTION_POLICY_VALUE',
+    (int) ($cleanupMetrics['login_retention_days'] ?? 90),
+    (int) ($cleanupMetrics['blocked_ip_retention_days'] ?? 30),
+    (int) ($cleanupMetrics['cleanup_batch_size'] ?? 500)
+);
+
 ?>
 <form action="<?php echo Route::_('index.php?option=com_loginguard&view=dashboard'); ?>" method="post" name="adminForm" id="adminForm">
     <div id="j-main-container" class="j-main-container">
@@ -67,6 +79,49 @@ $failureReasonLabels = [
                         </div>
                     </div>
                 <?php endforeach; ?>
+            </div>
+
+            <div class="row g-3 mb-3">
+                <div class="col-md-6 col-xl-3">
+                    <div class="card h-100">
+                        <div class="card-body">
+                            <h2 class="h5 card-title"><?php echo Text::_('COM_LOGINGUARD_DASHBOARD_TOTAL_ATTEMPTS'); ?></h2>
+                            <p class="display-6 mb-0"><?php echo (int) ($cleanupMetrics['total_attempts'] ?? 0); ?></p>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-6 col-xl-3">
+                    <div class="card h-100">
+                        <div class="card-body">
+                            <h2 class="h5 card-title"><?php echo Text::_('COM_LOGINGUARD_DASHBOARD_TOTAL_BLOCKED_IPS'); ?></h2>
+                            <p class="display-6 mb-0"><?php echo (int) ($cleanupMetrics['total_blocked_ips'] ?? 0); ?></p>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-6 col-xl-3">
+                    <div class="card h-100">
+                        <div class="card-body">
+                            <h2 class="h5 card-title"><?php echo Text::_('COM_LOGINGUARD_DASHBOARD_LAST_CLEANUP'); ?></h2>
+                            <p class="mb-1"><?php echo $lastCleanup !== '' ? HTMLHelper::_('date', $lastCleanup, Text::_('DATE_FORMAT_LC5')) : Text::_('COM_LOGINGUARD_DASHBOARD_LAST_CLEANUP_NEVER'); ?></p>
+                            <p class="text-muted mb-0"><?php echo $this->escape($cleanupStatus); ?></p>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-6 col-xl-3">
+                    <div class="card h-100">
+                        <div class="card-body">
+                            <h2 class="h5 card-title"><?php echo Text::_('COM_LOGINGUARD_DASHBOARD_CLEANUP_DELETED'); ?></h2>
+                            <p class="display-6 mb-0"><?php echo (int) ($cleanupMetrics['last_total_deleted'] ?? 0); ?></p>
+                            <p class="text-muted mb-0"><?php echo Text::_('COM_LOGINGUARD_DASHBOARD_CLEANUP_BATCHES'); ?>: <?php echo (int) ($cleanupMetrics['last_batches'] ?? 0); ?></p>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-12">
+                    <div class="alert alert-info mb-0">
+                        <strong><?php echo Text::_('COM_LOGINGUARD_DASHBOARD_RETENTION_POLICY'); ?>:</strong>
+                        <?php echo $this->escape($retentionPolicy); ?>
+                    </div>
+                </div>
             </div>
 
             <div class="row g-3 mb-3">
