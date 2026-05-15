@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.2.9-alpha
+
+- Modernized the Dashboard into an operational security overview with protection status, enforcement/scheduler health, cleanup visibility, quick actions, attack trends, top attacking IPs, backend/frontend summaries, and country telemetry.
+- Added Joomla user-state compatible Login Information column visibility preferences while preserving SearchTools and full CSV export compatibility.
+- Removed the Tools page and submenu while preserving export functionality inside Login Information.
+- Enhanced the About page with owner, organization, repository, compatibility, release-channel, support, and operational guidance.
+- Improved blocked-IP and empty-state UX with clearer operational status and expiration messaging.
+- Synchronized release metadata and package naming for `pkg_loginguard_v0.2.9-alpha.zip`.
+
 ## 0.2.8-alpha
 
 - Added automatic retention cleanup configuration for login attempts, stale blocked IP records, batch size, and execution logging.

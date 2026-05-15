@@ -121,7 +121,7 @@ $statusForBlock = static function (object $item) use ($nowSql): string {
             <tbody>
                 <?php if (empty($this->items)) : ?>
                     <tr>
-                        <td colspan="12" class="text-center"><?php echo Text::_('JGLOBAL_NO_MATCHING_RESULTS'); ?></td>
+                        <td colspan="12" class="text-center text-muted"><?php echo Text::_('COM_LOGINGUARD_EMPTY_BLOCKED_IPS'); ?></td>
                     </tr>
                 <?php else : ?>
                     <?php foreach ($this->items as $i => $item) : ?>
@@ -131,8 +131,8 @@ $statusForBlock = static function (object $item) use ($nowSql): string {
                             <td><?php echo $this->escape((string) $item->ip_address); ?></td>
                             <td><?php echo $this->escape(Text::_('COM_LOGINGUARD_SCOPE_' . strtoupper((string) $item->scope))); ?></td>
                             <td><?php echo $this->escape(Text::_('COM_LOGINGUARD_BLOCK_TYPE_' . strtoupper((string) $item->block_type))); ?></td>
-                            <td><?php echo $this->escape($statusForBlock($item)); ?></td>
-                            <td><?php echo $this->escape(Text::_((int) $item->enabled === 1 ? 'COM_LOGINGUARD_BLOCKEDIPS_ENABLED' : 'COM_LOGINGUARD_BLOCKEDIPS_DISABLED')); ?></td>
+                            <td><span class="badge bg-secondary"><?php echo $this->escape($statusForBlock($item)); ?></span></td>
+                            <td><span class="badge <?php echo (int) $item->enabled === 1 ? 'bg-success' : 'bg-danger'; ?>"><?php echo $this->escape(Text::_((int) $item->enabled === 1 ? 'COM_LOGINGUARD_BLOCKEDIPS_ENABLED' : 'COM_LOGINGUARD_BLOCKEDIPS_DISABLED')); ?></span></td>
                             <td><?php echo $this->escape((string) $item->reason); ?></td>
                             <td><?php echo (int) $item->failure_count; ?></td>
                             <td><?php echo empty($item->blocked_until) ? Text::_((string) $item->block_type === 'permanent' ? 'COM_LOGINGUARD_BLOCKEDIPS_PERMANENT' : 'COM_LOGINGUARD_BLOCKEDIPS_TEMPORARY_NO_EXPIRY') : HTMLHelper::_('date', $item->blocked_until, Text::_('DATE_FORMAT_LC5')); ?></td>

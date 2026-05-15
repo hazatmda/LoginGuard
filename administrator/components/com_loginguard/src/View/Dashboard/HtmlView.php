@@ -35,6 +35,18 @@ final class HtmlView extends BaseHtmlView
     /** @var array<string, int|string> */
     protected $cleanupMetrics = [];
 
+    /** @var array<int, object> */
+    protected $failedLoginTrends = [];
+
+    /** @var array<int, object> */
+    protected $topCountries = [];
+
+    /** @var array<string, int> */
+    protected $attackOriginSummary = [];
+
+    /** @var array<string, int|string> */
+    protected $operationalStatus = [];
+
     public function display($tpl = null): void
     {
         LoginGuardHelper::requirePermission('core.manage');
@@ -47,6 +59,10 @@ final class HtmlView extends BaseHtmlView
         $this->blockedIpTelemetry = (array) $this->get('BlockedIpTelemetry');
         $this->recentBlockedIps  = (array) $this->get('RecentBlockedIps');
         $this->cleanupMetrics    = (array) $this->get('CleanupMetrics');
+        $this->failedLoginTrends = (array) $this->get('FailedLoginTrends');
+        $this->topCountries      = (array) $this->get('TopCountries');
+        $this->attackOriginSummary = (array) $this->get('AttackOriginSummary');
+        $this->operationalStatus = (array) $this->get('OperationalStatus');
         $this->actions           = LoginGuardHelper::getActions();
 
         if (count($errors = $this->get('Errors'))) {

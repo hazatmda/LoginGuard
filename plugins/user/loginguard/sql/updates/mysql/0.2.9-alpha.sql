@@ -1,0 +1,1 @@
+-- LoginGuard 0.2.9-alpha operational UX dashboard and administrator list preferences release: no schema changes.
