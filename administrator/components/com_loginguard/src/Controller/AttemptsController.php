@@ -82,7 +82,7 @@ final class AttemptsController extends AdminController
                 $row['browser'],
                 $row['operating_system'],
                 $row['user_agent'],
-                $row['created'],
+                LoginGuardHelper::formatConfiguredDateTime((string) $row['created']),
             ]);
         }
 

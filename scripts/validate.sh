@@ -426,9 +426,13 @@ for heading in ['COM_LOGINGUARD_HEADING_FAILURE_REASON', 'COM_LOGINGUARD_HEADING
 
 package_manifest = Path('pkg_loginguard/pkg_loginguard.xml')
 package_name = f"pkg_loginguard_v{versions['VERSION']}.zip"
+release_tag = f"v{versions['VERSION']}"
+expected_update_url = 'https://raw.githubusercontent.com/hazatmda/LoginGuard/main/updates/loginguard.xml'
+expected_release_url = f'https://github.com/hazatmda/LoginGuard/releases/tag/{release_tag}'
+expected_download_url = f'https://github.com/hazatmda/LoginGuard/releases/download/{release_tag}/{package_name}'
 
 update_manifest = Path('updates/loginguard.xml')
-if '<updateservers>' in package_manifest_text or 'updates/loginguard.xml' in package_manifest_text:
+if '<updateservers>' in package_manifest_text or 'updates/loginguard.xml' in package_manifest_text or '<downloadurl' in package_manifest_text:
     print('Package manifest must remain a bootstrap installer without updater authority', file=sys.stderr)
     sys.exit(1)
 if '<updateservers>' not in component_manifest_text or 'updates/loginguard.xml' not in component_manifest_text:
@@ -438,12 +442,45 @@ if not update_manifest.is_file():
     print('Missing Joomla update stream metadata: updates/loginguard.xml', file=sys.stderr)
     sys.exit(1)
 update_text = update_manifest.read_text(encoding='utf-8')
-update_server_text = component_manifest_text + update_text
+update_server_text = component_manifest_text + update_text + package_script_text
 wrong_repo = 'hazim' + '/LoginGuard'
 if wrong_repo in update_server_text:
     print('Update metadata contains the incorrect repository URL', file=sys.stderr)
     sys.exit(1)
-for required_url in ['https://raw.githubusercontent.com/hazatmda/LoginGuard/main/updates/loginguard.xml', f'https://github.com/hazatmda/LoginGuard/releases/tag/v{versions["VERSION"]}', f'https://github.com/hazatmda/LoginGuard/releases/download/v{versions["VERSION"]}/pkg_loginguard_v{versions["VERSION"]}.zip', 'https://github.com/hazatmda/LoginGuard']:
+
+active_release_files = [
+    Path('VERSION'),
+    Path('README.md'),
+    Path('administrator/components/com_loginguard/tmpl/about/default.php'),
+    component_manifest,
+    package_manifest,
+    Path('plugins/user/loginguard/loginguard.xml'),
+    Path('plugins/task/loginguardcleanup/loginguardcleanup.xml'),
+    update_manifest,
+]
+for active_file in active_release_files:
+    active_text = active_file.read_text(encoding='utf-8')
+    for stale_token in ['0.2.17', 'v0.2.17', 'pkg_loginguard_v0.2.17.zip']:
+        if stale_token in active_text:
+            print(f'Active release metadata contains stale token {stale_token}: {active_file}', file=sys.stderr)
+            sys.exit(1)
+
+component_update_servers = component_root.findall('./updateservers/server') if component_root is not None else []
+if len(component_update_servers) != 1:
+    print('Component manifest must register exactly one Joomla update server', file=sys.stderr)
+    sys.exit(1)
+component_update_server = component_update_servers[0]
+if (component_update_server.text or '').strip() != expected_update_url:
+    print('Component manifest update server URL is not aligned with updates/loginguard.xml', file=sys.stderr)
+    sys.exit(1)
+if component_update_server.attrib.get('type') != 'extension' or component_update_server.attrib.get('priority') != '1':
+    print('Component updater authority must remain an extension update server with priority 1', file=sys.stderr)
+    sys.exit(1)
+if component_root.findtext('element') != 'com_loginguard' or component_root.attrib.get('type') != 'component':
+    print('Component manifest must keep com_loginguard as updater owner', file=sys.stderr)
+    sys.exit(1)
+
+for required_url in [expected_update_url, expected_release_url, expected_download_url, 'https://github.com/hazatmda/LoginGuard']:
     if required_url not in update_server_text:
         print(f'Update metadata missing corrected repository URL: {required_url}', file=sys.stderr)
         sys.exit(1)
@@ -451,21 +488,47 @@ for required_text in [f'<version>{versions["VERSION"]}</version>', package_name,
     if required_text not in update_text:
         print(f'Update stream missing required metadata: {required_text}', file=sys.stderr)
         sys.exit(1)
-if package_name not in Path('README.md').read_text(encoding='utf-8'):
-    print(f'Readme missing expected package name {package_name}', file=sys.stderr)
+readme_text = Path('README.md').read_text(encoding='utf-8')
+for required_readme_text in [f'Current development version: `{versions["VERSION"]}`.', package_name, f'tag: {release_tag}', f'package: {package_name}']:
+    if required_readme_text not in readme_text:
+        print(f'Readme missing expected release synchronization text: {required_readme_text}', file=sys.stderr)
+        sys.exit(1)
+if 'PACKAGE_NAME="pkg_loginguard_v${VERSION}.zip"' not in build_script_text:
+    print('Build script must derive package filename from the canonical VERSION file', file=sys.stderr)
     sys.exit(1)
 
 update_root = roots.get(update_manifest)
-if update_root is None or update_root.find('./update/downloads/downloadurl') is None:
+update_node = update_root.find('./update') if update_root is not None else None
+download_node = update_root.find('./update/downloads/downloadurl') if update_root is not None else None
+if update_node is None or download_node is None:
     print('Update stream missing direct package download URL metadata', file=sys.stderr)
     sys.exit(1)
-download_url = (update_root.findtext('./update/downloads/downloadurl') or '').strip()
-expected_download_url = f'https://github.com/hazatmda/LoginGuard/releases/download/v{versions["VERSION"]}/{package_name}'
+update_expectations = {
+    'element': 'com_loginguard',
+    'type': 'component',
+    'version': versions['VERSION'],
+    'infourl': expected_release_url,
+    'maintainerurl': 'https://github.com/hazatmda/LoginGuard',
+    'php_minimum': '8.1.0',
+}
+for child_name, expected_value in update_expectations.items():
+    actual_value = (update_node.findtext(child_name) or '').strip()
+    if actual_value != expected_value:
+        print(f'Update stream {child_name} mismatch: expected {expected_value}, got {actual_value}', file=sys.stderr)
+        sys.exit(1)
+target_platform = update_node.find('targetplatform')
+if target_platform is None or target_platform.attrib.get('name') != 'joomla' or target_platform.attrib.get('version') != r'5\..*':
+    print('Update stream target platform must remain Joomla 5.x', file=sys.stderr)
+    sys.exit(1)
+download_url = (download_node.text or '').strip()
 if download_url != expected_download_url:
     print(f'Update stream direct ZIP URL mismatch: {download_url}', file=sys.stderr)
     sys.exit(1)
-if update_root.find('./update/downloads/downloadurl').attrib.get('type') != 'full' or update_root.find('./update/downloads/downloadurl').attrib.get('format') != 'zip':
+if download_node.attrib.get('type') != 'full' or download_node.attrib.get('format') != 'zip':
     print('Update stream download URL must be a full zip package', file=sys.stderr)
+    sys.exit(1)
+if 'repairUpdateSiteRegistration' not in package_script_text or 'removePackageUpdateSiteBindings' not in package_script_text or 'bindUpdateSiteToExtension($db, $updateSiteId, $componentId)' not in package_script_text:
+    print('Package installer must keep update-site registration owned by com_loginguard', file=sys.stderr)
     sys.exit(1)
 
 for geoip_token in ['detectGeoIp', 'country_code', 'region', 'city', 'isp', 'asn', "explode('|', $metadata, 6)"]:

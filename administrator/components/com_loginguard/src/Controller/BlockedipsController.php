@@ -43,14 +43,23 @@ final class BlockedipsController extends AdminController
         if ($blockType === 'permanent') {
             $blockedUntilSql = 'NULL';
         } else {
-            $timestamp = $blockedUntil !== '' ? strtotime($blockedUntil) : false;
+            $blockedUntilDate = null;
 
-            if ($timestamp === false) {
-                $cooldownMinutes = max(1, (int) ComponentHelper::getParams('com_loginguard')->get('cooldown_duration_minutes', 30));
-                $timestamp = time() + ($cooldownMinutes * 60);
+            if ($blockedUntil !== '') {
+                try {
+                    $blockedUntilDate = new \DateTimeImmutable($blockedUntil, LoginGuardHelper::getConfiguredTimezone());
+                } catch (\Exception $exception) {
+                    $blockedUntilDate = null;
+                }
             }
 
-            $blockedUntilSql = $db->quote((new Date('@' . $timestamp))->toSql());
+            if ($blockedUntilDate === null) {
+                $cooldownMinutes = max(1, (int) ComponentHelper::getParams('com_loginguard')->get('cooldown_duration_minutes', 30));
+                $fallbackTimestamp = time() + ($cooldownMinutes * 60);
+                $blockedUntilDate = new \DateTimeImmutable('@' . $fallbackTimestamp);
+            }
+
+            $blockedUntilSql = $db->quote($blockedUntilDate->setTimezone(new \DateTimeZone('UTC'))->format('Y-m-d H:i:s'));
         }
 
         $reason = $reason === '' ? 'manual' : substr($reason, 0, 50);

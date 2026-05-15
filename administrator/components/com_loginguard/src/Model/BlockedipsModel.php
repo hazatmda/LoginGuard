@@ -95,7 +95,7 @@ final class BlockedipsModel extends ListModel
         ];
 
         $db = $this->getDatabase();
-        $now = date('Y-m-d H:i:s');
+        $now = gmdate('Y-m-d H:i:s');
         $query = $db->getQuery(true)
             ->select([
                 $db->quoteName('block_type'),

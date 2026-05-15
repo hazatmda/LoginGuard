@@ -5,6 +5,7 @@ defined('_JEXEC') or die;
 use Joomla\CMS\HTML\HTMLHelper;
 use Joomla\CMS\Language\Text;
 use Joomla\CMS\Router\Route;
+use LoginGuard\Component\LoginGuard\Administrator\Helper\LoginGuardHelper;
 
 HTMLHelper::_('behavior.core');
 
@@ -68,7 +69,7 @@ $failureReasonLabels = [
     'ACCOUNT_DISABLED' => 'COM_LOGINGUARD_REASON_ACCOUNT_DISABLED',
     'IP_BLOCKED' => 'COM_LOGINGUARD_REASON_IP_BLOCKED',
 ];
-$nowSql = date('Y-m-d H:i:s');
+$nowSql = gmdate('Y-m-d H:i:s');
 $blockedIpStatus = static function (object $item) use ($nowSql): string {
     if ((int) $item->enabled !== 1) {
         return Text::_('COM_LOGINGUARD_BLOCKEDIPS_STATUS_DISABLED');
@@ -212,7 +213,7 @@ $blockedIpStatus = static function (object $item) use ($nowSql): string {
                 <div class="d-flex justify-content-between align-items-start gap-2 mb-2"><h2 class="h5 card-title mb-0"><?php echo Text::_('COM_LOGINGUARD_DASHBOARD_RECENT_ACTIVITY'); ?></h2><a class="btn btn-sm btn-outline-primary" href="<?php echo Route::_('index.php?option=com_loginguard&view=attempts'); ?>"><?php echo Text::_('COM_LOGINGUARD_SUBMENU_LOGIN_INFORMATION'); ?></a></div>
                 <div class="table-responsive"><table class="<?php echo $tableClass; ?>"><caption class="visually-hidden"><?php echo Text::_('COM_LOGINGUARD_DASHBOARD_RECENT_ACTIVITY'); ?></caption><thead><tr><th><?php echo Text::_('COM_LOGINGUARD_HEADING_IP_ADDRESS'); ?></th><th><?php echo Text::_('COM_LOGINGUARD_HEADING_USERNAME'); ?></th><th><?php echo Text::_('COM_LOGINGUARD_HEADING_STATUS'); ?></th><th><?php echo Text::_('COM_LOGINGUARD_HEADING_WHERE'); ?></th><th><?php echo Text::_('COM_LOGINGUARD_HEADING_DATETIME'); ?></th></tr></thead><tbody>
                     <?php if (empty($this->recentActivity)) : ?><tr><td colspan="5" class="text-center text-muted"><?php echo Text::_('COM_LOGINGUARD_EMPTY_RECENT_ACTIVITY'); ?></td></tr><?php else : ?>
-                        <?php foreach ($this->recentActivity as $item) : ?><?php $where = (string) ($item->where_at ?: $item->client); ?><tr><td><?php echo $this->escape((string) $item->ip_address); ?></td><td><?php echo $this->escape((string) $item->username); ?></td><td><?php echo $this->escape(Text::_('COM_LOGINGUARD_STATUS_' . strtoupper((string) $item->status))); ?></td><td><?php echo $this->escape(Text::_('COM_LOGINGUARD_WHERE_' . strtoupper($where))); ?></td><td><?php echo HTMLHelper::_('date', $item->created, Text::_('DATE_FORMAT_LC5')); ?></td></tr><?php endforeach; ?>
+                        <?php foreach ($this->recentActivity as $item) : ?><?php $where = (string) ($item->where_at ?: $item->client); ?><tr><td><?php echo $this->escape((string) $item->ip_address); ?></td><td><?php echo $this->escape((string) $item->username); ?></td><td><?php echo $this->escape(Text::_('COM_LOGINGUARD_STATUS_' . strtoupper((string) $item->status))); ?></td><td><?php echo $this->escape(Text::_('COM_LOGINGUARD_WHERE_' . strtoupper($where))); ?></td><td><?php echo LoginGuardHelper::formatConfiguredDateTime((string) $item->created); ?></td></tr><?php endforeach; ?>
                     <?php endif; ?>
                 </tbody></table></div>
             </div></div></div>
@@ -220,7 +221,7 @@ $blockedIpStatus = static function (object $item) use ($nowSql): string {
                 <h2 class="h5 card-title"><?php echo Text::_('COM_LOGINGUARD_DASHBOARD_RECENT_BLOCKED_IPS'); ?></h2>
                 <div class="table-responsive"><table class="<?php echo $tableClass; ?>"><caption class="visually-hidden"><?php echo Text::_('COM_LOGINGUARD_DASHBOARD_RECENT_BLOCKED_IPS'); ?></caption><thead><tr><th><?php echo Text::_('COM_LOGINGUARD_HEADING_IP_ADDRESS'); ?></th><th><?php echo Text::_('COM_LOGINGUARD_HEADING_BLOCK_STATUS'); ?></th><th><?php echo Text::_('COM_LOGINGUARD_HEADING_BLOCKED_UNTIL'); ?></th><th><?php echo Text::_('COM_LOGINGUARD_HEADING_FAILURE_COUNT'); ?></th></tr></thead><tbody>
                     <?php if (empty($this->recentBlockedIps)) : ?><tr><td colspan="4" class="text-center text-muted"><?php echo Text::_('COM_LOGINGUARD_EMPTY_BLOCKED_IPS'); ?></td></tr><?php else : ?>
-                        <?php foreach ($this->recentBlockedIps as $item) : ?><tr><td><?php echo $this->escape((string) $item->ip_address); ?></td><td><span class="badge bg-secondary"><?php echo $this->escape($blockedIpStatus($item)); ?></span></td><td><?php echo empty($item->blocked_until) ? Text::_((string) $item->block_type === 'permanent' ? 'COM_LOGINGUARD_BLOCKEDIPS_PERMANENT' : 'COM_LOGINGUARD_BLOCKEDIPS_TEMPORARY_NO_EXPIRY') : HTMLHelper::_('date', $item->blocked_until, Text::_('DATE_FORMAT_LC5')); ?></td><td><?php echo (int) $item->failure_count; ?></td></tr><?php endforeach; ?>
+                        <?php foreach ($this->recentBlockedIps as $item) : ?><tr><td><?php echo $this->escape((string) $item->ip_address); ?></td><td><span class="badge bg-secondary"><?php echo $this->escape($blockedIpStatus($item)); ?></span></td><td><?php echo empty($item->blocked_until) ? Text::_((string) $item->block_type === 'permanent' ? 'COM_LOGINGUARD_BLOCKEDIPS_PERMANENT' : 'COM_LOGINGUARD_BLOCKEDIPS_TEMPORARY_NO_EXPIRY') : LoginGuardHelper::formatConfiguredDateTime((string) $item->blocked_until); ?></td><td><?php echo (int) $item->failure_count; ?></td></tr><?php endforeach; ?>
                     <?php endif; ?>
                 </tbody></table></div>
             </div></div></div>

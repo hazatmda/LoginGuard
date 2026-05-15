@@ -94,6 +94,14 @@
         />
 
         <field
+            name="automatic_policy_note"
+            type="note"
+            label="COM_LOGINGUARD_CONFIG_AUTOMATIC_POLICY_NOTE_LABEL"
+            description="COM_LOGINGUARD_CONFIG_AUTOMATIC_POLICY_NOTE_DESC"
+            class="alert alert-info"
+        />
+
+        <field
             name="enforcement_enabled"
             type="radio"
             layout="joomla.form.field.radio.switcher"
