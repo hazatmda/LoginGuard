@@ -32,6 +32,9 @@ final class HtmlView extends BaseHtmlView
     /** @var object */
     public $actions;
 
+    /** @var array<string, int> */
+    protected $blockedIpTelemetry = [];
+
     public function display($tpl = null): void
     {
         LoginGuardHelper::requirePermission('loginguard.manage_blocks');
@@ -42,6 +45,7 @@ final class HtmlView extends BaseHtmlView
         $this->filterForm    = $this->get('FilterForm');
         $this->activeFilters = $this->get('ActiveFilters');
         $this->editItem      = $this->get('EditItem');
+        $this->blockedIpTelemetry = (array) $this->get('BlockedIpTelemetry');
         $this->actions       = LoginGuardHelper::getActions();
 
         if (count($errors = $this->get('Errors'))) {

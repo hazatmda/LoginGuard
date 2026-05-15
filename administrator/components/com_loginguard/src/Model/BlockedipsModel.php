@@ -81,6 +81,56 @@ final class BlockedipsModel extends ListModel
         return $item ?: null;
     }
 
+
+    /**
+     * @return array<string, int>
+     */
+    public function getBlockedIpTelemetry(): array
+    {
+        $telemetry = [
+            'active' => 0,
+            'temporary' => 0,
+            'permanent' => 0,
+            'expired' => 0,
+        ];
+
+        $db = $this->getDatabase();
+        $now = date('Y-m-d H:i:s');
+        $query = $db->getQuery(true)
+            ->select([
+                $db->quoteName('block_type'),
+                $db->quoteName('blocked_until'),
+                'COUNT(*) AS ' . $db->quoteName('total'),
+            ])
+            ->from($db->quoteName('#__loginguard_blocked_ips'))
+            ->where($db->quoteName('enabled') . ' = 1')
+            ->group([$db->quoteName('block_type'), $db->quoteName('blocked_until')]);
+
+        $db->setQuery($query);
+
+        foreach ($db->loadObjectList() ?: [] as $row) {
+            $total = (int) $row->total;
+            $type = (string) $row->block_type;
+            $until = (string) $row->blocked_until;
+            $isPermanent = $type === 'permanent';
+            $isTemporaryActive = $type === 'temporary' && $until !== '' && $until >= $now;
+
+            if ($isPermanent || $isTemporaryActive) {
+                $telemetry['active'] += $total;
+            }
+
+            if ($isPermanent) {
+                $telemetry['permanent'] += $total;
+            } elseif ($isTemporaryActive) {
+                $telemetry['temporary'] += $total;
+            } else {
+                $telemetry['expired'] += $total;
+            }
+        }
+
+        return $telemetry;
+    }
+
     protected function getListQuery()
     {
         $db = $this->getDatabase();
