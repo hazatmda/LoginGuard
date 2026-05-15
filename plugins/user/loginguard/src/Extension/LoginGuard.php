@@ -7,7 +7,6 @@ defined('_JEXEC') or die;
 use Joomla\CMS\Authentication\Authentication;
 use Joomla\CMS\Authentication\AuthenticationResponse;
 use Joomla\CMS\Component\ComponentHelper;
-use Joomla\CMS\Date\Date;
 use Joomla\CMS\Factory;
 use Joomla\CMS\Language\Text;
 use Joomla\CMS\Plugin\CMSPlugin;
@@ -264,7 +263,7 @@ final class LoginGuard extends CMSPlugin
             'client' => $client,
             'attempt_type' => 'login',
             'reason' => $this->normaliseFailureReason((string) ($attempt['reason'] ?? '')),
-            'created' => (new Date())->toSql(),
+            'created' => gmdate('Y-m-d H:i:s'),
         ];
     }
 
@@ -418,7 +417,7 @@ final class LoginGuard extends CMSPlugin
             return null;
         }
 
-        $now = (new Date())->toSql();
+        $now = gmdate('Y-m-d H:i:s');
         $query = $db->getQuery(true)
             ->select('*')
             ->from($db->quoteName('#__loginguard_blocked_ips'))
@@ -460,7 +459,7 @@ final class LoginGuard extends CMSPlugin
         $threshold = max(1, (int) $params->get('failed_attempt_threshold', 5));
         $windowMinutes = max(1, (int) $params->get('threshold_window_minutes', 15));
         $cooldownMinutes = max(1, (int) $params->get('cooldown_duration_minutes', 30));
-        $since = (new Date('-' . $windowMinutes . ' minutes'))->toSql();
+        $since = gmdate('Y-m-d H:i:s', time() - ($windowMinutes * 60));
 
         try {
             $query = $db->getQuery(true)
@@ -477,8 +476,8 @@ final class LoginGuard extends CMSPlugin
                 return;
             }
 
-            $now = new Date();
-            $blockedUntil = (new Date('+' . $cooldownMinutes . ' minutes'))->toSql();
+            $now = gmdate('Y-m-d H:i:s');
+            $blockedUntil = gmdate('Y-m-d H:i:s', time() + ($cooldownMinutes * 60));
             $columns = ['ip_address', 'scope', 'block_type', 'reason', 'failure_count', 'blocked_until', 'created', 'created_by', 'enabled'];
             $values = [
                 $db->quote($ipAddress),
@@ -487,7 +486,7 @@ final class LoginGuard extends CMSPlugin
                 $db->quote('threshold_exceeded'),
                 (string) $failureCount,
                 $db->quote($blockedUntil),
-                $db->quote($now->toSql()),
+                $db->quote($now),
                 '0',
                 '1',
             ];
@@ -626,7 +625,7 @@ final class LoginGuard extends CMSPlugin
 
         $threshold = max(1, (int) $params->get('failed_alert_threshold', 10));
         $windowMinutes = max(1, (int) $params->get('failed_alert_throttle_window_minutes', 15));
-        $since = (new Date('-' . $windowMinutes . ' minutes'))->toSql();
+        $since = gmdate('Y-m-d H:i:s', time() - ($windowMinutes * 60));
 
         try {
             $query = $db->getQuery(true)
@@ -676,7 +675,7 @@ final class LoginGuard extends CMSPlugin
             'where' => $this->formatAlertWhere((string) ($record['where_at'] ?? 'frontend')),
             'browser' => (string) ($record['browser'] ?? 'unknown'),
             'os' => (string) ($record['operating_system'] ?? 'unknown'),
-            'datetime' => $this->formatConfiguredDateTime((string) ($record['created'] ?? (new Date())->toSql())),
+            'datetime' => $this->formatConfiguredDateTime((string) ($record['created'] ?? gmdate('Y-m-d H:i:s'))),
             'site_name' => (string) $config->get('sitename', ''),
             'country' => (string) ($record['country'] ?? ''),
             'country_code' => (string) ($record['country_code'] ?? ''),
@@ -711,10 +710,13 @@ final class LoginGuard extends CMSPlugin
             return '';
         }
 
-        $date = new Date($value, 'UTC');
-        $date->setTimezone($this->getConfiguredTimezone());
+        try {
+            $date = new \DateTimeImmutable($value, new \DateTimeZone('UTC'));
+        } catch (\Exception $exception) {
+            return '';
+        }
 
-        return $date->format(Text::_('DATE_FORMAT_LC5'), false);
+        return $date->setTimezone($this->getConfiguredTimezone())->format(Text::_('DATE_FORMAT_LC5'));
     }
 
     /** @param array<string, string> $variables */

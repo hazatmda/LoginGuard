@@ -62,7 +62,7 @@ $columnStorageKey = 'loginguard.logininfo.columns';
                         <th scope="col"><?php echo HTMLHelper::_('searchtools.sort', 'JGLOBAL_FIELD_ID_LABEL', 'id', $listDirn, $listOrder); ?></th>
                         <?php foreach ($this->availableColumns as $column => $label) : ?>
                             <?php if (isset($visibleColumns[$column])) : ?>
-                                <th scope="col"><?php echo HTMLHelper::_('searchtools.sort', $label, $column, $listDirn, $listOrder); ?></th>
+                                <th scope="col" data-loginguard-column-cell="<?php echo $this->escape($column); ?>"><?php echo HTMLHelper::_('searchtools.sort', $label, $column, $listDirn, $listOrder); ?></th>
                             <?php endif; ?>
                         <?php endforeach; ?>
                     </tr>
@@ -81,7 +81,7 @@ $columnStorageKey = 'loginguard.logininfo.columns';
                                 <td><?php echo (int) $item->id; ?></td>
                                 <?php foreach ($this->availableColumns as $column => $label) : ?>
                                     <?php if (isset($visibleColumns[$column])) : ?>
-                                        <td><?php echo $columnValue($item, $column); ?></td>
+                                        <td data-loginguard-column-cell="<?php echo $this->escape($column); ?>"><?php echo $columnValue($item, $column); ?></td>
                                     <?php endif; ?>
                                 <?php endforeach; ?>
                             </tr>
@@ -164,8 +164,14 @@ $columnStorageKey = 'loginguard.logininfo.columns';
         && first.every((column, index) => column === second[index]);
 
     const applyColumns = (columns) => {
+        const visible = new Set(columns);
+
         columnInputs.forEach((input) => {
-            input.checked = columns.includes(input.value);
+            input.checked = visible.has(input.value);
+        });
+
+        form.querySelectorAll('[data-loginguard-column-cell]').forEach((cell) => {
+            cell.hidden = !visible.has(cell.getAttribute('data-loginguard-column-cell'));
         });
     };
 
@@ -174,10 +180,10 @@ $columnStorageKey = 'loginguard.logininfo.columns';
 
     if (persistedColumns === null) {
         writeColumns(renderedColumns);
-    } else if (!sameColumns(persistedColumns, renderedColumns)) {
+    } else {
         applyColumns(persistedColumns);
 
-        if (sessionStore.getItem(syncFlagKey) !== '1') {
+        if (!sameColumns(persistedColumns, renderedColumns) && sessionStore.getItem(syncFlagKey) !== '1') {
             sessionStore.setItem(syncFlagKey, '1');
 
             if (typeof form.requestSubmit === 'function') {
@@ -193,7 +199,11 @@ $columnStorageKey = 'loginguard.logininfo.columns';
     sessionStore.removeItem(syncFlagKey);
 
     columnInputs.forEach((input) => {
-        input.addEventListener('change', () => writeColumns(selectedColumns()));
+        input.addEventListener('change', () => {
+            const columns = selectedColumns();
+            writeColumns(columns);
+            applyColumns(columns);
+        });
     });
 
     form.addEventListener('submit', () => {

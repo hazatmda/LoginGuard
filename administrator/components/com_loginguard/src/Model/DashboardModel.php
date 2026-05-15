@@ -4,7 +4,6 @@ namespace LoginGuard\Component\LoginGuard\Administrator\Model;
 
 defined('_JEXEC') or die;
 
-use Joomla\CMS\Date\Date;
 use Joomla\CMS\MVC\Model\BaseDatabaseModel;
 
 final class DashboardModel extends BaseDatabaseModel
@@ -166,7 +165,7 @@ final class DashboardModel extends BaseDatabaseModel
         ];
 
         $db = $this->getDatabase();
-        $now = date('Y-m-d H:i:s');
+        $now = gmdate('Y-m-d H:i:s');
         $query = $db->getQuery(true)
             ->select([
                 $db->quoteName('block_type'),
@@ -441,18 +440,18 @@ final class DashboardModel extends BaseDatabaseModel
         $range = (string) $this->getState('dashboard.timeframe', 'today');
 
         if ($range === '24h') {
-            return (new Date('-24 hours'))->toSql();
+            return gmdate('Y-m-d H:i:s', time() - 86400);
         }
 
         if ($range === '7d') {
-            return (new Date('-7 days'))->toSql();
+            return gmdate('Y-m-d H:i:s', time() - (7 * 86400));
         }
 
         if ($range === 'all') {
             return '';
         }
 
-        return (new Date('today'))->toSql();
+        return gmdate('Y-m-d 00:00:00');
     }
 
     private function countTable(string $table, string $dateColumn = ''): int

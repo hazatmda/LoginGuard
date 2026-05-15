@@ -1,0 +1,1 @@
+-- LoginGuard 0.2.19 timezone rendering and column persistence hotfix.

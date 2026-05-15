@@ -4,7 +4,6 @@ namespace LoginGuard\Component\LoginGuard\Administrator\Service;
 
 defined('_JEXEC') or die;
 
-use Joomla\CMS\Date\Date;
 use Joomla\CMS\Log\Log;
 use Joomla\Database\DatabaseInterface;
 use Joomla\Registry\Registry;
@@ -28,7 +27,7 @@ final class CleanupService
      */
     public function execute(?int $batchSize = null): array
     {
-        $startedAt = (new Date())->toSql();
+        $startedAt = gmdate('Y-m-d H:i:s');
         $batchSize = $this->normaliseBatchSize($batchSize ?? (int) $this->params->get('cleanup_batch_size', self::DEFAULT_BATCH_SIZE));
         $loginRetentionDays = max(1, (int) $this->params->get('login_retention_days', (int) $this->params->get('retention_days', self::DEFAULT_LOGIN_RETENTION_DAYS)));
         $blockedIpRetentionDays = max(1, (int) $this->params->get('blocked_ip_retention_days', self::DEFAULT_BLOCKED_IP_RETENTION_DAYS));
@@ -52,7 +51,7 @@ final class CleanupService
         $metrics['expired_blocks_deleted'] = $this->cleanupExpiredBlocks($blockedIpCutoff, $batchSize, $metrics['batches']);
         $metrics['disabled_blocks_deleted'] = $this->cleanupDisabledBlocks($blockedIpCutoff, $batchSize, $metrics['batches']);
         $metrics['total_deleted'] = $metrics['attempts_deleted'] + $metrics['expired_blocks_deleted'] + $metrics['disabled_blocks_deleted'];
-        $metrics['finished_at'] = (new Date())->toSql();
+        $metrics['finished_at'] = gmdate('Y-m-d H:i:s');
 
         $this->recordMetrics($metrics);
 
