@@ -15,6 +15,27 @@ $listDirn  = $this->escape((string) $this->state->get('list.direction'));
 $editItem = $this->editItem;
 $editing = $editItem !== null;
 $blockedUntilValue = $editing && !empty($editItem->blocked_until) ? HTMLHelper::_('date', $editItem->blocked_until, 'Y-m-d\TH:i') : '';
+$nowSql = date('Y-m-d H:i:s');
+$statusForBlock = static function (object $item) use ($nowSql): string {
+    if ((int) $item->enabled !== 1) {
+        return Text::_('COM_LOGINGUARD_BLOCKEDIPS_STATUS_DISABLED');
+    }
+
+    $blockType = (string) $item->block_type;
+    $blockedUntil = (string) $item->blocked_until;
+
+    if ($blockType === 'permanent') {
+        return Text::_('COM_LOGINGUARD_BLOCKEDIPS_STATUS_PERMANENT');
+    }
+
+    if ($blockedUntil === '') {
+        return Text::_('COM_LOGINGUARD_BLOCKEDIPS_STATUS_TEMPORARY_NO_EXPIRY');
+    }
+
+    return $blockedUntil < $nowSql
+        ? Text::_('COM_LOGINGUARD_BLOCKEDIPS_STATUS_TEMPORARY_EXPIRED')
+        : Text::_('COM_LOGINGUARD_BLOCKEDIPS_STATUS_TEMPORARY_ACTIVE');
+};
 ?>
 <div id="j-main-container" class="j-main-container">
     <form action="<?php echo Route::_('index.php?option=com_loginguard&view=blockedips'); ?>" method="post" name="blockedIpForm" id="blockedIpForm" class="card mb-4">
@@ -45,6 +66,7 @@ $blockedUntilValue = $editing && !empty($editItem->blocked_until) ? HTMLHelper::
                 <div class="col-md-2">
                     <label class="form-label" for="blockedIpUntil"><?php echo Text::_('COM_LOGINGUARD_HEADING_BLOCKED_UNTIL'); ?></label>
                     <input type="datetime-local" name="blocked_until" id="blockedIpUntil" class="form-control" value="<?php echo $this->escape($blockedUntilValue); ?>">
+                    <div class="form-text"><?php echo Text::_('COM_LOGINGUARD_BLOCKEDIPS_BLOCKED_UNTIL_HELP'); ?></div>
                 </div>
                 <div class="col-md-1">
                     <label class="form-label" for="blockedIpFailureCount"><?php echo Text::_('COM_LOGINGUARD_HEADING_FAILURE_COUNT'); ?></label>
@@ -87,6 +109,7 @@ $blockedUntilValue = $editing && !empty($editItem->blocked_until) ? HTMLHelper::
                     <th scope="col"><?php echo HTMLHelper::_('searchtools.sort', 'COM_LOGINGUARD_HEADING_IP_ADDRESS', 'ip_address', $listDirn, $listOrder); ?></th>
                     <th scope="col"><?php echo HTMLHelper::_('searchtools.sort', 'COM_LOGINGUARD_HEADING_SCOPE', 'scope', $listDirn, $listOrder); ?></th>
                     <th scope="col"><?php echo HTMLHelper::_('searchtools.sort', 'COM_LOGINGUARD_HEADING_BLOCK_TYPE', 'block_type', $listDirn, $listOrder); ?></th>
+                    <th scope="col"><?php echo Text::_('COM_LOGINGUARD_HEADING_BLOCK_STATUS'); ?></th>
                     <th scope="col"><?php echo HTMLHelper::_('searchtools.sort', 'COM_LOGINGUARD_HEADING_ENABLED', 'enabled', $listDirn, $listOrder); ?></th>
                     <th scope="col"><?php echo Text::_('COM_LOGINGUARD_HEADING_BLOCK_REASON'); ?></th>
                     <th scope="col"><?php echo HTMLHelper::_('searchtools.sort', 'COM_LOGINGUARD_HEADING_FAILURE_COUNT', 'failure_count', $listDirn, $listOrder); ?></th>
@@ -98,7 +121,7 @@ $blockedUntilValue = $editing && !empty($editItem->blocked_until) ? HTMLHelper::
             <tbody>
                 <?php if (empty($this->items)) : ?>
                     <tr>
-                        <td colspan="11" class="text-center"><?php echo Text::_('JGLOBAL_NO_MATCHING_RESULTS'); ?></td>
+                        <td colspan="12" class="text-center"><?php echo Text::_('JGLOBAL_NO_MATCHING_RESULTS'); ?></td>
                     </tr>
                 <?php else : ?>
                     <?php foreach ($this->items as $i => $item) : ?>
@@ -108,10 +131,11 @@ $blockedUntilValue = $editing && !empty($editItem->blocked_until) ? HTMLHelper::
                             <td><?php echo $this->escape((string) $item->ip_address); ?></td>
                             <td><?php echo $this->escape(Text::_('COM_LOGINGUARD_SCOPE_' . strtoupper((string) $item->scope))); ?></td>
                             <td><?php echo $this->escape(Text::_('COM_LOGINGUARD_BLOCK_TYPE_' . strtoupper((string) $item->block_type))); ?></td>
+                            <td><?php echo $this->escape($statusForBlock($item)); ?></td>
                             <td><?php echo $this->escape(Text::_((int) $item->enabled === 1 ? 'COM_LOGINGUARD_BLOCKEDIPS_ENABLED' : 'COM_LOGINGUARD_BLOCKEDIPS_DISABLED')); ?></td>
                             <td><?php echo $this->escape((string) $item->reason); ?></td>
                             <td><?php echo (int) $item->failure_count; ?></td>
-                            <td><?php echo empty($item->blocked_until) ? Text::_('COM_LOGINGUARD_BLOCKEDIPS_PERMANENT') : HTMLHelper::_('date', $item->blocked_until, Text::_('DATE_FORMAT_LC5')); ?></td>
+                            <td><?php echo empty($item->blocked_until) ? Text::_((string) $item->block_type === 'permanent' ? 'COM_LOGINGUARD_BLOCKEDIPS_PERMANENT' : 'COM_LOGINGUARD_BLOCKEDIPS_TEMPORARY_NO_EXPIRY') : HTMLHelper::_('date', $item->blocked_until, Text::_('DATE_FORMAT_LC5')); ?></td>
                             <td><?php echo HTMLHelper::_('date', $item->created, Text::_('DATE_FORMAT_LC5')); ?></td>
                             <td><a class="btn btn-sm btn-secondary" href="<?php echo Route::_('index.php?option=com_loginguard&view=blockedips&edit_id=' . (int) $item->id); ?>"><?php echo Text::_('JACTION_EDIT'); ?></a></td>
                         </tr>

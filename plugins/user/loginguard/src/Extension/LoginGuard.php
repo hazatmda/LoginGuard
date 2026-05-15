@@ -349,7 +349,14 @@ final class LoginGuard extends CMSPlugin
             ->where($db->quoteName('ip_address') . ' = ' . $db->quote($ipAddress))
             ->where($db->quoteName('enabled') . ' = 1')
             ->where($db->quoteName('scope') . ' IN (' . $this->quoteList($db, ['all', $client]) . ')')
-            ->where('(' . $db->quoteName('block_type') . ' = ' . $db->quote('permanent') . ' OR ' . $db->quoteName('blocked_until') . ' IS NULL OR ' . $db->quoteName('blocked_until') . ' >= ' . $db->quote($now) . ')')
+            ->where(
+                '('
+                . $db->quoteName('block_type') . ' = ' . $db->quote('permanent')
+                . ' OR (' . $db->quoteName('block_type') . ' = ' . $db->quote('temporary')
+                . ' AND ' . $db->quoteName('blocked_until') . ' IS NOT NULL'
+                . ' AND ' . $db->quoteName('blocked_until') . ' >= ' . $db->quote($now) . ')'
+                . ')'
+            )
             ->order($db->quoteName('created') . ' DESC');
 
         $db->setQuery($query, 0, 1);

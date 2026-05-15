@@ -390,6 +390,31 @@ required_columns = [
 required_block_columns = ['ip_address', 'scope', 'block_type', 'reason', 'failure_count', 'blocked_until', 'created', 'created_by', 'enabled']
 missing_columns = [column for column in required_columns if f'`{column}`' not in install_sql]
 missing_block_columns = [column for column in required_block_columns if f'`{column}`' not in install_sql]
+
+if "OR ' . $db->quoteName('blocked_until') . ' IS NULL" in login_guard_text:
+    print('Temporary IP blocks with NULL blocked_until must not be treated as active enforcement blocks', file=sys.stderr)
+    sys.exit(1)
+if "blocked_until') . ' IS NOT NULL" not in login_guard_text or "block_type') . ' = ' . $db->quote('temporary')" not in login_guard_text:
+    print('Enforcement must require a non-null expiry for active temporary blocks', file=sys.stderr)
+    sys.exit(1)
+blockedips_controller_text = Path('administrator/components/com_loginguard/src/Controller/BlockedipsController.php').read_text(encoding='utf-8')
+blockedips_template_text = Path('administrator/components/com_loginguard/tmpl/blockedips/default.php').read_text(encoding='utf-8')
+dashboard_model_text = Path('administrator/components/com_loginguard/src/Model/DashboardModel.php').read_text(encoding='utf-8')
+dashboard_template_text = Path('administrator/components/com_loginguard/tmpl/dashboard/default.php').read_text(encoding='utf-8')
+if 'cooldown_duration_minutes' not in blockedips_controller_text or "time() + ($cooldownMinutes * 60)" not in blockedips_controller_text:
+    print('Manual temporary blocks must receive a cooldown-based expiry when no expiry is supplied', file=sys.stderr)
+    sys.exit(1)
+if "blockType === 'permanent'" not in blockedips_controller_text or "blockedUntilSql = 'NULL'" not in blockedips_controller_text:
+    print('Manual permanent blocks must continue saving NULL blocked_until', file=sys.stderr)
+    sys.exit(1)
+for required_display_token in ['COM_LOGINGUARD_HEADING_BLOCK_STATUS', 'COM_LOGINGUARD_BLOCKEDIPS_STATUS_TEMPORARY_ACTIVE', 'COM_LOGINGUARD_BLOCKEDIPS_STATUS_TEMPORARY_EXPIRED', 'COM_LOGINGUARD_BLOCKEDIPS_STATUS_PERMANENT']:
+    if required_display_token not in blockedips_template_text + dashboard_template_text:
+        print(f'Blocked IP UI missing status display token: {required_display_token}', file=sys.stderr)
+        sys.exit(1)
+if "until !== '' && $until >= $now" not in dashboard_model_text or "!$isPermanent && !$isTemporaryActive" not in dashboard_model_text:
+    print('Dashboard telemetry must distinguish active temporary, expired temporary, and permanent blocks', file=sys.stderr)
+    sys.exit(1)
+
 if '#__loginguard_blocked_ips' not in install_sql:
     print('Install SQL missing blocked IP table', file=sys.stderr)
     sys.exit(1)

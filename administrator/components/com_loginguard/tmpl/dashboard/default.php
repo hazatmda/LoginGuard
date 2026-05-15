@@ -14,6 +14,35 @@ $telemetryLabels = [
     'blocked_login' => 'COM_LOGINGUARD_DASHBOARD_BLOCKED_LOGIN',
 ];
 
+$nowSql = date('Y-m-d H:i:s');
+$blockedIpStatus = static function (object $item) use ($nowSql): string {
+    if ((int) $item->enabled !== 1) {
+        return Text::_('COM_LOGINGUARD_BLOCKEDIPS_STATUS_DISABLED');
+    }
+
+    $blockType = (string) $item->block_type;
+    $blockedUntil = (string) $item->blocked_until;
+
+    if ($blockType === 'permanent') {
+        return Text::_('COM_LOGINGUARD_BLOCKEDIPS_STATUS_PERMANENT');
+    }
+
+    if ($blockedUntil === '') {
+        return Text::_('COM_LOGINGUARD_BLOCKEDIPS_STATUS_TEMPORARY_NO_EXPIRY');
+    }
+
+    return $blockedUntil < $nowSql
+        ? Text::_('COM_LOGINGUARD_BLOCKEDIPS_STATUS_TEMPORARY_EXPIRED')
+        : Text::_('COM_LOGINGUARD_BLOCKEDIPS_STATUS_TEMPORARY_ACTIVE');
+};
+$blockedIpUntil = static function (object $item): string {
+    if (!empty($item->blocked_until)) {
+        return HTMLHelper::_('date', $item->blocked_until, Text::_('DATE_FORMAT_LC5'));
+    }
+
+    return Text::_((string) $item->block_type === 'permanent' ? 'COM_LOGINGUARD_BLOCK_PERMANENT' : 'COM_LOGINGUARD_BLOCKEDIPS_TEMPORARY_NO_EXPIRY');
+};
+
 $failureReasonLabels = [
     'PASSWORD_INCORRECT' => 'COM_LOGINGUARD_REASON_PASSWORD_INCORRECT',
     'USERNAME_NOT_FOUND' => 'COM_LOGINGUARD_REASON_USERNAME_NOT_FOUND',
@@ -67,7 +96,7 @@ $failureReasonLabels = [
                                     <tbody>
                                         <?php if (empty($this->recentActivity)) : ?>
                                             <tr>
-                                                <td colspan="6" class="text-center"><?php echo Text::_('JGLOBAL_NO_MATCHING_RESULTS'); ?></td>
+                                                <td colspan="7" class="text-center"><?php echo Text::_('JGLOBAL_NO_MATCHING_RESULTS'); ?></td>
                                             </tr>
                                         <?php else : ?>
                                             <?php foreach ($this->recentActivity as $item) : ?>
@@ -134,6 +163,7 @@ $failureReasonLabels = [
                                             <th scope="col"><?php echo Text::_('COM_LOGINGUARD_HEADING_IP_ADDRESS'); ?></th>
                                             <th scope="col"><?php echo Text::_('COM_LOGINGUARD_HEADING_WHERE'); ?></th>
                                             <th scope="col"><?php echo Text::_('COM_LOGINGUARD_BLOCK_TYPE'); ?></th>
+                                            <th scope="col"><?php echo Text::_('COM_LOGINGUARD_HEADING_BLOCK_STATUS'); ?></th>
                                             <th scope="col"><?php echo Text::_('COM_LOGINGUARD_BLOCK_REASON'); ?></th>
                                             <th scope="col"><?php echo Text::_('COM_LOGINGUARD_BLOCK_UNTIL'); ?></th>
                                             <th scope="col"><?php echo Text::_('COM_LOGINGUARD_HEADING_DATETIME'); ?></th>
@@ -142,7 +172,7 @@ $failureReasonLabels = [
                                     <tbody>
                                         <?php if (empty($this->recentBlockedIps)) : ?>
                                             <tr>
-                                                <td colspan="6" class="text-center"><?php echo Text::_('JGLOBAL_NO_MATCHING_RESULTS'); ?></td>
+                                                <td colspan="7" class="text-center"><?php echo Text::_('JGLOBAL_NO_MATCHING_RESULTS'); ?></td>
                                             </tr>
                                         <?php else : ?>
                                             <?php foreach ($this->recentBlockedIps as $item) : ?>
@@ -150,8 +180,9 @@ $failureReasonLabels = [
                                                     <td><?php echo $this->escape((string) $item->ip_address); ?></td>
                                                     <td><?php echo $this->escape(Text::_('COM_LOGINGUARD_BLOCK_SCOPE_' . strtoupper((string) $item->scope))); ?></td>
                                                     <td><?php echo $this->escape(Text::_('COM_LOGINGUARD_BLOCK_TYPE_' . strtoupper((string) $item->block_type))); ?></td>
+                                                    <td><?php echo $this->escape($blockedIpStatus($item)); ?></td>
                                                     <td><?php echo $this->escape(Text::_('COM_LOGINGUARD_BLOCK_REASON_' . strtoupper((string) $item->reason))); ?></td>
-                                                    <td><?php echo $item->blocked_until ? HTMLHelper::_('date', $item->blocked_until, Text::_('DATE_FORMAT_LC5')) : Text::_('COM_LOGINGUARD_BLOCK_PERMANENT'); ?></td>
+                                                    <td><?php echo $blockedIpUntil($item); ?></td>
                                                     <td><?php echo HTMLHelper::_('date', $item->created, Text::_('DATE_FORMAT_LC5')); ?></td>
                                                 </tr>
                                             <?php endforeach; ?>

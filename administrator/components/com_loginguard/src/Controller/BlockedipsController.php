@@ -4,6 +4,7 @@ namespace LoginGuard\Component\LoginGuard\Administrator\Controller;
 
 defined('_JEXEC') or die;
 
+use Joomla\CMS\Component\ComponentHelper;
 use Joomla\CMS\Date\Date;
 use Joomla\CMS\Factory;
 use Joomla\CMS\Language\Text;
@@ -41,11 +42,15 @@ final class BlockedipsController extends AdminController
 
         if ($blockType === 'permanent') {
             $blockedUntilSql = 'NULL';
-        } elseif ($blockedUntil !== '') {
-            $timestamp = strtotime($blockedUntil);
-            $blockedUntilSql = $timestamp === false ? 'NULL' : $db->quote((new Date('@' . $timestamp))->toSql());
         } else {
-            $blockedUntilSql = 'NULL';
+            $timestamp = $blockedUntil !== '' ? strtotime($blockedUntil) : false;
+
+            if ($timestamp === false) {
+                $cooldownMinutes = max(1, (int) ComponentHelper::getParams('com_loginguard')->get('cooldown_duration_minutes', 30));
+                $timestamp = time() + ($cooldownMinutes * 60);
+            }
+
+            $blockedUntilSql = $db->quote((new Date('@' . $timestamp))->toSql());
         }
 
         $reason = $reason === '' ? 'manual' : substr($reason, 0, 50);

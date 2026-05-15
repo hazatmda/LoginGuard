@@ -165,17 +165,20 @@ final class DashboardModel extends BaseDatabaseModel
             $total = (int) $row->total;
             $type = (string) $row->block_type;
             $until = (string) $row->blocked_until;
-            $isExpired = $until !== '' && $until < $now && $type !== 'permanent';
+            $isPermanent = $type === 'permanent';
+            $isTemporaryActive = $type === 'temporary' && $until !== '' && $until >= $now;
 
-            if ($isExpired) {
+            if (!$isPermanent && !$isTemporaryActive) {
                 $telemetry['expired'] += $total;
                 continue;
             }
 
             $telemetry['active'] += $total;
 
-            if (array_key_exists($type, $telemetry)) {
-                $telemetry[$type] += $total;
+            if ($isPermanent) {
+                $telemetry['permanent'] += $total;
+            } elseif ($isTemporaryActive) {
+                $telemetry['temporary'] += $total;
             }
         }
 
