@@ -1,0 +1,1 @@
+-- LoginGuard 0.2.12-alpha dashboard telemetry layout refinement.

@@ -37,9 +37,6 @@ final class HtmlView extends BaseHtmlView
     protected $cleanupMetrics = [];
 
     /** @var array<int, object> */
-    protected $failedLoginTrends = [];
-
-    /** @var array<int, object> */
     protected $topCountries = [];
 
     /** @var array<string, int> */
@@ -51,10 +48,26 @@ final class HtmlView extends BaseHtmlView
     /** @var bool */
     protected $compactDashboardMode = true;
 
+    /** @var string */
+    protected $dashboardTimeframe = 'today';
+
     public function display($tpl = null): void
     {
         LoginGuardHelper::requirePermission('core.manage');
         LoginGuardHelper::requirePermission('loginguard.view');
+
+        $user = Factory::getApplication()->getIdentity();
+        $this->dashboardTimeframe = (string) $user->getParam('loginguard_dashboard_timeframe', 'today');
+
+        if (!in_array($this->dashboardTimeframe, ['today', '24h', '7d'], true)) {
+            $this->dashboardTimeframe = 'today';
+        }
+
+        $model = $this->getModel();
+
+        if ($model) {
+            $model->setState('dashboard.timeframe', $this->dashboardTimeframe);
+        }
 
         $this->telemetryCounts   = (array) $this->get('TelemetryCounts');
         $this->recentActivity    = (array) $this->get('RecentActivity');
@@ -63,11 +76,10 @@ final class HtmlView extends BaseHtmlView
         $this->blockedIpTelemetry = (array) $this->get('BlockedIpTelemetry');
         $this->recentBlockedIps  = (array) $this->get('RecentBlockedIps');
         $this->cleanupMetrics    = (array) $this->get('CleanupMetrics');
-        $this->failedLoginTrends = (array) $this->get('FailedLoginTrends');
         $this->topCountries      = (array) $this->get('TopCountries');
         $this->attackOriginSummary = (array) $this->get('AttackOriginSummary');
         $this->operationalStatus = (array) $this->get('OperationalStatus');
-        $this->compactDashboardMode = (bool) Factory::getApplication()->getIdentity()->getParam('loginguard_compact_dashboard', 1);
+        $this->compactDashboardMode = (bool) $user->getParam('loginguard_compact_dashboard', 1);
         $this->actions           = LoginGuardHelper::getActions();
 
         if (count($errors = $this->get('Errors'))) {

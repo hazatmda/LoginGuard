@@ -4,7 +4,7 @@
     <packagename>loginguard</packagename>
     <author>Hazim</author>
     <creationDate>2026-05-15</creationDate>
-    <version>0.2.11-alpha</version>
+    <version>0.2.12-alpha</version>
     <description>LoginGuard package with the user plugin, scheduled cleanup task plugin, and administrator component.</description>
     <scriptfile>script.php</scriptfile>
     <blockChildUninstall>true</blockChildUninstall>
