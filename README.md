@@ -4,20 +4,31 @@ Joomla 5 package for login attempt detection, monitoring, and auditing.
 
 ## Status
 
-Current development version: `0.2.5-alpha`.
+Current development version: `0.2.6-alpha`.
 
 ## Features planned for MVP
 
 - Detect successful Joomla login attempts
 - Detect failed Joomla login attempts
 - Store login attempt audit records
-- Capture proxy-aware IP address, name, username, status, failure reason, where, country, browser, operating system, user agent, and datetime without storing plaintext passwords
+- Capture proxy-aware IP address, name, username, status, failure reason, where, country, country code, region, city, ISP, ASN, browser, operating system, user agent, and datetime without storing plaintext passwords
 - Provide a Joomla administrator component with Dashboard telemetry, Login Information, Configuration, Tools, and About navigation
 - Send optional Joomla mail audit alerts for successful and failed login events using Joomla Global Configuration mail settings
-- Publish Joomla update server metadata for package update discovery
+- Publish Joomla update server metadata for package update discovery with direct release ZIP URLs
 - Integrate Joomla-native ACL permissions and component configuration through access.xml and com_config
 - Search, filter, sort, and paginate login attempt audit records while keeping Login Information as the full audit table
 - Generate an installable Joomla package ZIP from GitHub Actions
+
+## GeoIP Enrichment
+
+LoginGuard keeps GeoIP enrichment deterministic and offline. Enable GeoIP in the component configuration and enter one mapping per line:
+
+```text
+IP-or-CIDR=Country
+IP-or-CIDR=Country|Country Code|Region|City|ISP|ASN
+```
+
+The extended format stores `country`, `country_code`, `region`, `city`, `isp`, and `asn`. The Login Information table displays Country, City, ISP, and ASN, and CSV export includes all GeoIP fields.
 
 ## Requirements
 
@@ -50,7 +61,7 @@ bash scripts/build.sh
 Generated package:
 
 ```text
-packages/pkg_loginguard_v0.2.5-alpha.zip
+packages/pkg_loginguard_v0.2.6-alpha.zip
 ```
 
 ## Versioning Policy
@@ -68,9 +79,9 @@ Before release, these must match:
 Example:
 
 ```text
-version: 0.2.5-alpha
-tag: v0.2.5-alpha
-package: pkg_loginguard_v0.2.5-alpha.zip
+version: 0.2.6-alpha
+tag: v0.2.6-alpha
+package: pkg_loginguard_v0.2.6-alpha.zip
 ```
 
 ## License

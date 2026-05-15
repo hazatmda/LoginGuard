@@ -60,7 +60,7 @@ final class AttemptsController extends AdminController
 
         $output = fopen('php://output', 'wb');
         fwrite($output, "\xEF\xBB\xBF");
-        fputcsv($output, ['ID', 'IP Address', 'Name', 'Username', 'Status', 'Failure Reason', 'Where', 'Country', 'Browser', 'Operating System', 'User Agent', 'Datetime']);
+        fputcsv($output, ['ID', 'IP Address', 'Name', 'Username', 'Status', 'Failure Reason', 'Where', 'Country', 'Country Code', 'Region', 'City', 'ISP', 'ASN', 'Browser', 'Operating System', 'User Agent', 'Datetime']);
 
         foreach ($rows as $row) {
             $whereAt = (string) ($row['where_at'] ?: $row['client']);
@@ -74,6 +74,11 @@ final class AttemptsController extends AdminController
                 $row['reason'],
                 $whereAt,
                 $row['country'],
+                $row['country_code'],
+                $row['region'],
+                $row['city'],
+                $row['isp'],
+                $row['asn'],
                 $row['browser'],
                 $row['operating_system'],
                 $row['user_agent'],

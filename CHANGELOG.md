@@ -1,10 +1,15 @@
 # Changelog
 
-## 0.2.5-alpha
+## 0.2.6-alpha
+
+- Stabilized Joomla package update metadata, update-server integration, direct release ZIP naming, and installer/update lifecycle checks for `pkg_loginguard_v0.2.6-alpha.zip`.
+- Expanded GeoIP enrichment from country-only telemetry to country, country code, region, city, ISP, and ASN fields while preserving offline deterministic mapping.
+- Added City, ISP, and ASN to the Login Information table and CSV export while preserving enforcement, whitelist, blocked IP management, Dashboard, SearchTools, ACL, and Joomla MVC behavior.
+
 
 - Added active IP block enforcement, whitelist bypasses, temporary automatic threshold-based blocks, cooldown duration, and frontend/backend enforcement toggles.
 - Added blocked IP telemetry on the dashboard, blocked login audit records, GeoIP country-map enrichment, expanded alert variables, and blocked IP mail alerts.
-- Synchronized release metadata and package naming for `pkg_loginguard_v0.2.5-alpha.zip`.
+- Synchronized release metadata and package naming for `pkg_loginguard_v0.2.6-alpha.zip`.
 
 ## 0.2.4-alpha
 

@@ -143,7 +143,7 @@ for forbidden_text in ['enqueueMessage', 'audit_alert_clients']:
     if forbidden_text in login_guard_text:
         print(f'LoginGuard extension must send mail alerts instead of onscreen alert support: {forbidden_text}', file=sys.stderr)
         sys.exit(1)
-for template_variable in ['{username}', '{ip}', '{status}', '{failure_reason}', '{where}', '{browser}', '{os}', '{datetime}', '{site_name}']:
+for template_variable in ['{username}', '{ip}', '{status}', '{failure_reason}', '{where}', '{browser}', '{os}', '{datetime}', '{site_name}', '{country_code}', '{region}', '{city}', '{isp}', '{asn}']:
     if template_variable not in login_guard_text:
         print(f'LoginGuard extension missing alert template variable: {template_variable}', file=sys.stderr)
         sys.exit(1)
@@ -343,7 +343,7 @@ if 'raw password' in login_guard_text.lower() or 'plaintext password' in install
     sys.exit(1)
 
 attempts_template = component_template.read_text(encoding='utf-8')
-for heading in ['COM_LOGINGUARD_HEADING_FAILURE_REASON', 'COM_LOGINGUARD_HEADING_USER_AGENT', 'COM_LOGINGUARD_HEADING_WHERE', 'COM_LOGINGUARD_HEADING_DATETIME']:
+for heading in ['COM_LOGINGUARD_HEADING_FAILURE_REASON', 'COM_LOGINGUARD_HEADING_USER_AGENT', 'COM_LOGINGUARD_HEADING_WHERE', 'COM_LOGINGUARD_HEADING_DATETIME', 'COM_LOGINGUARD_HEADING_COUNTRY', 'COM_LOGINGUARD_HEADING_CITY', 'COM_LOGINGUARD_HEADING_ISP', 'COM_LOGINGUARD_HEADING_ASN']:
     if heading not in attempts_template:
         print(f'Attempts table missing required heading {heading}', file=sys.stderr)
         sys.exit(1)
@@ -377,6 +377,28 @@ if package_name not in Path('README.md').read_text(encoding='utf-8'):
     print(f'Readme missing expected package name {package_name}', file=sys.stderr)
     sys.exit(1)
 
+update_root = roots.get(update_manifest)
+if update_root is None or update_root.find('./update/downloads/downloadurl') is None:
+    print('Update stream missing direct package download URL metadata', file=sys.stderr)
+    sys.exit(1)
+download_url = (update_root.findtext('./update/downloads/downloadurl') or '').strip()
+expected_download_url = f'https://github.com/hazatmda/LoginGuard/releases/download/v{versions["VERSION"]}/{package_name}'
+if download_url != expected_download_url:
+    print(f'Update stream direct ZIP URL mismatch: {download_url}', file=sys.stderr)
+    sys.exit(1)
+if update_root.find('./update/downloads/downloadurl').attrib.get('type') != 'full' or update_root.find('./update/downloads/downloadurl').attrib.get('format') != 'zip':
+    print('Update stream download URL must be a full zip package', file=sys.stderr)
+    sys.exit(1)
+
+for geoip_token in ['detectGeoIp', 'country_code', 'region', 'city', 'isp', 'asn', "explode('|', $metadata, 6)"]:
+    if geoip_token not in login_guard_text:
+        print(f'LoginGuard extension missing GeoIP enrichment token: {geoip_token}', file=sys.stderr)
+        sys.exit(1)
+for export_token in ['Country Code', 'Region', 'City', 'ISP', 'ASN']:
+    if export_token not in attempts_controller_text:
+        print(f'CSV export missing GeoIP field: {export_token}', file=sys.stderr)
+        sys.exit(1)
+
 scriptfile = plugin_root.findtext('scriptfile')
 if scriptfile != 'script.php' or not (plugin_manifest.parent / scriptfile).is_file():
     print('Plugin installer scriptfile is not registered or missing', file=sys.stderr)
@@ -385,7 +407,7 @@ if scriptfile != 'script.php' or not (plugin_manifest.parent / scriptfile).is_fi
 required_columns = [
     'id', 'user_id', 'name', 'username', 'email', 'ip_address', 'status',
     'browser', 'operating_system', 'country', 'where_at', 'user_agent',
-    'attempt_type', 'client', 'reason', 'created',
+    'attempt_type', 'client', 'reason', 'created', 'country_code', 'region', 'city', 'isp', 'asn',
 ]
 required_block_columns = ['ip_address', 'scope', 'block_type', 'reason', 'failure_count', 'blocked_until', 'created', 'created_by', 'enabled']
 missing_columns = [column for column in required_columns if f'`{column}`' not in install_sql]

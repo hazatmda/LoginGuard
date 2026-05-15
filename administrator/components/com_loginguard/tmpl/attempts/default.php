@@ -33,6 +33,9 @@ $canDelete = $this->actions && $this->actions->get('loginguard.delete');
                     <th scope="col"><?php echo HTMLHelper::_('searchtools.sort', 'COM_LOGINGUARD_HEADING_FAILURE_REASON', 'reason', $listDirn, $listOrder); ?></th>
                     <th scope="col"><?php echo HTMLHelper::_('searchtools.sort', 'COM_LOGINGUARD_HEADING_WHERE', 'where_at', $listDirn, $listOrder); ?></th>
                     <th scope="col"><?php echo HTMLHelper::_('searchtools.sort', 'COM_LOGINGUARD_HEADING_COUNTRY', 'country', $listDirn, $listOrder); ?></th>
+                    <th scope="col"><?php echo HTMLHelper::_('searchtools.sort', 'COM_LOGINGUARD_HEADING_CITY', 'city', $listDirn, $listOrder); ?></th>
+                    <th scope="col"><?php echo HTMLHelper::_('searchtools.sort', 'COM_LOGINGUARD_HEADING_ISP', 'isp', $listDirn, $listOrder); ?></th>
+                    <th scope="col"><?php echo HTMLHelper::_('searchtools.sort', 'COM_LOGINGUARD_HEADING_ASN', 'asn', $listDirn, $listOrder); ?></th>
                     <th scope="col"><?php echo HTMLHelper::_('searchtools.sort', 'COM_LOGINGUARD_HEADING_BROWSER', 'browser', $listDirn, $listOrder); ?></th>
                     <th scope="col"><?php echo HTMLHelper::_('searchtools.sort', 'COM_LOGINGUARD_HEADING_OS', 'operating_system', $listDirn, $listOrder); ?></th>
                     <th scope="col"><?php echo HTMLHelper::_('searchtools.sort', 'COM_LOGINGUARD_HEADING_USER_AGENT', 'user_agent', $listDirn, $listOrder); ?></th>
@@ -42,7 +45,7 @@ $canDelete = $this->actions && $this->actions->get('loginguard.delete');
             <tbody>
                 <?php if (empty($this->items)) : ?>
                     <tr>
-                        <td colspan="<?php echo $canDelete ? 13 : 12; ?>" class="text-center"><?php echo Text::_('JGLOBAL_NO_MATCHING_RESULTS'); ?></td>
+                        <td colspan="<?php echo $canDelete ? 16 : 15; ?>" class="text-center"><?php echo Text::_('JGLOBAL_NO_MATCHING_RESULTS'); ?></td>
                     </tr>
                 <?php else : ?>
                     <?php foreach ($this->items as $i => $item) : ?>
@@ -58,6 +61,9 @@ $canDelete = $this->actions && $this->actions->get('loginguard.delete');
                             <td><?php echo $item->reason === '' ? '' : $this->escape(Text::_('COM_LOGINGUARD_REASON_' . strtoupper((string) $item->reason))); ?></td>
                             <td><?php echo $this->escape(Text::_('COM_LOGINGUARD_WHERE_' . strtoupper((string) ($item->where_at ?: $item->client)))); ?></td>
                             <td><?php echo $this->escape((string) $item->country); ?></td>
+                            <td><?php echo $this->escape((string) $item->city); ?></td>
+                            <td><?php echo $this->escape((string) $item->isp); ?></td>
+                            <td><?php echo $this->escape((string) $item->asn); ?></td>
                             <td><?php echo $this->escape((string) $item->browser); ?></td>
                             <td><?php echo $this->escape((string) $item->operating_system); ?></td>
                             <td class="small text-break"><?php echo $this->escape((string) $item->user_agent); ?></td>
