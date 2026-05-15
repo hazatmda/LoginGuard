@@ -1,0 +1,2 @@
+-- LoginGuard 0.2.17 migrates Joomla updater authority from pkg_loginguard to com_loginguard.
+-- No schema changes are required for this release.

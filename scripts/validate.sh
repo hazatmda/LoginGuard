@@ -135,7 +135,7 @@ if package_root.findtext('blockChildUninstall') != 'true':
     print('Package manifest must block independent child extension uninstall for lifecycle synchronization', file=sys.stderr)
     sys.exit(1)
 package_script_text = Path('pkg_loginguard/script.php').read_text(encoding='utf-8')
-for required_text in ['class Pkg_LoginguardInstallerScript', 'preflight', 'postflight', 'uninstall', 'package_id', 'synchroniseChildExtensions', 'repairUpdateSiteRegistration', 'ensureUpdateSite', 'bindUpdateSiteToExtension', 'deleteStaleUpdateSiteMappings', 'last_check_timestamp']:
+for required_text in ['class Pkg_LoginguardInstallerScript', 'preflight', 'postflight', 'uninstall', 'package_id', 'synchroniseChildExtensions', 'repairUpdateSiteRegistration', 'ensureUpdateSite', 'bindUpdateSiteToExtension', 'deleteStaleUpdateSiteMappings', 'removePackageUpdateSiteBindings', 'removeDuplicateComponentUpdateSiteBindings', 'com_loginguard', 'last_check_timestamp']:
     if required_text not in package_script_text:
         print(f'Package installer script missing lifecycle synchronization token: {required_text}', file=sys.stderr)
         sys.exit(1)
@@ -428,14 +428,17 @@ package_manifest = Path('pkg_loginguard/pkg_loginguard.xml')
 package_name = f"pkg_loginguard_v{versions['VERSION']}.zip"
 
 update_manifest = Path('updates/loginguard.xml')
-if '<updateservers>' not in package_manifest_text or 'updates/loginguard.xml' not in package_manifest_text:
-    print('Package manifest missing Joomla update server metadata', file=sys.stderr)
+if '<updateservers>' in package_manifest_text or 'updates/loginguard.xml' in package_manifest_text:
+    print('Package manifest must remain a bootstrap installer without updater authority', file=sys.stderr)
+    sys.exit(1)
+if '<updateservers>' not in component_manifest_text or 'updates/loginguard.xml' not in component_manifest_text:
+    print('Component manifest missing Joomla update server metadata', file=sys.stderr)
     sys.exit(1)
 if not update_manifest.is_file():
     print('Missing Joomla update stream metadata: updates/loginguard.xml', file=sys.stderr)
     sys.exit(1)
 update_text = update_manifest.read_text(encoding='utf-8')
-update_server_text = package_manifest_text + update_text
+update_server_text = component_manifest_text + update_text
 wrong_repo = 'hazim' + '/LoginGuard'
 if wrong_repo in update_server_text:
     print('Update metadata contains the incorrect repository URL', file=sys.stderr)
@@ -444,7 +447,7 @@ for required_url in ['https://raw.githubusercontent.com/hazatmda/LoginGuard/main
     if required_url not in update_server_text:
         print(f'Update metadata missing corrected repository URL: {required_url}', file=sys.stderr)
         sys.exit(1)
-for required_text in [f'<version>{versions["VERSION"]}</version>', package_name, '<type>package</type>', '<element>pkg_loginguard</element>']:
+for required_text in [f'<version>{versions["VERSION"]}</version>', package_name, '<type>component</type>', '<element>com_loginguard</element>']:
     if required_text not in update_text:
         print(f'Update stream missing required metadata: {required_text}', file=sys.stderr)
         sys.exit(1)

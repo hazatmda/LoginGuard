@@ -4,7 +4,7 @@
     <packagename>loginguard</packagename>
     <author>Hazim</author>
     <creationDate>2026-05-15</creationDate>
-    <version>0.2.16</version>
+    <version>0.2.17</version>
     <description>LoginGuard package with the user plugin, scheduled cleanup task plugin, and administrator component.</description>
     <scriptfile>script.php</scriptfile>
     <blockChildUninstall>true</blockChildUninstall>
@@ -14,8 +14,4 @@
         <file type="plugin" id="loginguardcleanup" group="task">plg_task_loginguardcleanup.zip</file>
         <file type="component" id="com_loginguard">com_loginguard.zip</file>
     </files>
-
-    <updateservers>
-        <server type="extension" priority="1" name="LoginGuard Updates">https://raw.githubusercontent.com/hazatmda/LoginGuard/main/updates/loginguard.xml</server>
-    </updateservers>
 </extension>
