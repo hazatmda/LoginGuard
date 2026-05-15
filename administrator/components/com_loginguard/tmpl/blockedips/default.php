@@ -77,10 +77,20 @@ $metrics = [
     ['expired', 'COM_LOGINGUARD_BLOCKEDIPS_TELEMETRY_EXPIRED', 'warning', 'COM_LOGINGUARD_BLOCKEDIPS_TELEMETRY_EXPIRED_DESC'],
 ];
 
+$sourceForBlock = static function (object $item): array {
+    $reason = strtolower(trim((string) $item->reason));
+
+    if ($reason === 'threshold_exceeded') {
+        return ['automatic', 'COM_LOGINGUARD_BLOCKEDIPS_SOURCE_AUTOMATIC', 'text-bg-info'];
+    }
+
+    return ['manual', 'COM_LOGINGUARD_BLOCKEDIPS_SOURCE_MANUAL', 'text-bg-secondary'];
+};
+
 $modalTitle = $editing ? Text::_('COM_LOGINGUARD_BLOCKEDIPS_EDIT_TITLE') : Text::_('COM_LOGINGUARD_BLOCKEDIPS_ADD_TITLE');
 ?>
 <style>
-.loginguard-blockops{--lg-soft-border:rgba(0,0,0,.08);--lg-muted:#64748b}.loginguard-blockops .card{border-color:var(--lg-soft-border)}.loginguard-blockops__hero{background:linear-gradient(135deg,rgba(13,110,253,.09),rgba(13,202,240,.08));border:1px solid var(--lg-soft-border);border-radius:.85rem;padding:1rem}.loginguard-blockops__metrics{display:grid;grid-template-columns:repeat(auto-fit,minmax(12rem,1fr));gap:.75rem}.loginguard-blockops__metric{border:1px solid var(--lg-soft-border);border-radius:.85rem;background:#fff;padding:1rem;height:100%;box-shadow:0 .4rem 1.25rem rgba(15,23,42,.04)}.loginguard-blockops__metric-label{font-size:.72rem;letter-spacing:.06em;text-transform:uppercase;color:var(--lg-muted);font-weight:700}.loginguard-blockops__metric-value{font-size:2rem;line-height:1;font-weight:800}.loginguard-blockops__metric-desc{font-size:.78rem;color:var(--lg-muted)}.loginguard-blockops__toolbar{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:.75rem}.loginguard-blockops__filters{min-width:18rem;flex:1}.loginguard-blockops__primary-cell{min-width:12rem}.loginguard-blockops__reason{max-width:22rem}.loginguard-blockops__actions{min-width:8rem}.loginguard-blockops__table th{font-size:.75rem;letter-spacing:.04em;text-transform:uppercase;color:var(--lg-muted);white-space:nowrap}.loginguard-blockops__table td{padding:.9rem .75rem}.loginguard-blockops__mobile-label{display:none}.loginguard-blockops__expiry[data-block-type="permanent"]{display:none}@media (max-width:767.98px){.loginguard-blockops__hero{padding:.85rem}.loginguard-blockops__toolbar{align-items:stretch}.loginguard-blockops__toolbar .btn,.loginguard-blockops__filters{width:100%;min-width:0}.loginguard-blockops__table thead{display:none}.loginguard-blockops__table tbody tr{display:block;border:1px solid var(--lg-soft-border);border-radius:.75rem;margin-bottom:.75rem;background:#fff}.loginguard-blockops__table td{display:flex;justify-content:space-between;gap:1rem;border:0!important;padding:.55rem .75rem}.loginguard-blockops__table td:first-child{padding-top:.85rem}.loginguard-blockops__table td:last-child{padding-bottom:.85rem}.loginguard-blockops__mobile-label{display:inline;font-size:.72rem;text-transform:uppercase;letter-spacing:.04em;color:var(--lg-muted);font-weight:700}.loginguard-blockops__value{text-align:right}.loginguard-blockops__reason{max-width:none}.loginguard-blockops__actions .btn{width:100%}}
+.loginguard-blockops{--lg-soft-border:rgba(0,0,0,.08);--lg-muted:#64748b}.loginguard-blockops .card{border-color:var(--lg-soft-border)}.loginguard-blockops__hero{background:linear-gradient(135deg,rgba(13,110,253,.09),rgba(13,202,240,.08));border:1px solid var(--lg-soft-border);border-radius:.85rem;padding:1rem}.loginguard-blockops__metrics{display:grid;grid-template-columns:repeat(auto-fit,minmax(12rem,1fr));gap:.75rem}.loginguard-blockops__metric{border:1px solid var(--lg-soft-border);border-radius:.85rem;background:#fff;padding:1rem;height:100%;box-shadow:0 .4rem 1.25rem rgba(15,23,42,.04)}.loginguard-blockops__metric-label{font-size:.72rem;letter-spacing:.06em;text-transform:uppercase;color:var(--lg-muted);font-weight:700}.loginguard-blockops__metric-value{font-size:2rem;line-height:1;font-weight:800}.loginguard-blockops__metric-desc{font-size:.78rem;color:var(--lg-muted)}.loginguard-blockops__toolbar{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:.75rem}.loginguard-blockops__filters{min-width:18rem;flex:1}.loginguard-blockops__primary-cell{min-width:12rem}.loginguard-blockops__reason{max-width:22rem}.loginguard-blockops__actions{min-width:8rem}.loginguard-blockops__table th{font-size:.75rem;letter-spacing:.04em;text-transform:uppercase;color:var(--lg-muted);white-space:nowrap}.loginguard-blockops__table td{padding:.9rem .75rem}.loginguard-blockops__mobile-label{display:none}.loginguard-blockops__source-help{border-left:.25rem solid #0dcaf0}.loginguard-blockops__expiry[data-block-type="permanent"]{display:none}@media (max-width:767.98px){.loginguard-blockops__hero{padding:.85rem}.loginguard-blockops__toolbar{align-items:stretch}.loginguard-blockops__toolbar .btn,.loginguard-blockops__filters{width:100%;min-width:0}.loginguard-blockops__table thead{display:none}.loginguard-blockops__table tbody tr{display:block;border:1px solid var(--lg-soft-border);border-radius:.75rem;margin-bottom:.75rem;background:#fff}.loginguard-blockops__table td{display:flex;justify-content:space-between;gap:1rem;border:0!important;padding:.55rem .75rem}.loginguard-blockops__table td:first-child{padding-top:.85rem}.loginguard-blockops__table td:last-child{padding-bottom:.85rem}.loginguard-blockops__mobile-label{display:inline;font-size:.72rem;text-transform:uppercase;letter-spacing:.04em;color:var(--lg-muted);font-weight:700}.loginguard-blockops__value{text-align:right}.loginguard-blockops__reason{max-width:none}.loginguard-blockops__actions .btn{width:100%}}
 </style>
 <div id="j-main-container" class="j-main-container loginguard-blockops">
     <div class="loginguard-blockops__hero mb-3">
@@ -90,6 +100,10 @@ $modalTitle = $editing ? Text::_('COM_LOGINGUARD_BLOCKEDIPS_EDIT_TITLE') : Text:
                 <p class="text-muted mb-0 small"><?php echo Text::_('COM_LOGINGUARD_BLOCKEDIPS_OPERATIONAL_DESC'); ?></p>
             </div>
             <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#loginguardBlockedIpModal"><?php echo Text::_('COM_LOGINGUARD_BLOCKEDIPS_ADD_BUTTON'); ?></button>
+        </div>
+        <div class="alert alert-info loginguard-blockops__source-help small mb-3" role="note">
+            <strong><?php echo Text::_('COM_LOGINGUARD_BLOCKEDIPS_POLICY_NOTE_TITLE'); ?></strong>
+            <?php echo Text::_('COM_LOGINGUARD_BLOCKEDIPS_POLICY_NOTE_DESC'); ?>
         </div>
         <div class="loginguard-blockops__metrics" aria-label="<?php echo Text::_('COM_LOGINGUARD_BLOCKEDIPS_TELEMETRY_LABEL'); ?>">
             <?php foreach ($metrics as $metric) : ?>
@@ -182,7 +196,7 @@ $modalTitle = $editing ? Text::_('COM_LOGINGUARD_BLOCKEDIPS_EDIT_TITLE') : Text:
                     <div class="btn-group" role="group" aria-label="<?php echo Text::_('COM_LOGINGUARD_BLOCKEDIPS_ACTIONS_LABEL'); ?>">
                         <button type="button" class="btn btn-outline-success" onclick="Joomla.submitbutton('blockedips.enable')"><?php echo Text::_('COM_LOGINGUARD_TOOLBAR_ENABLE'); ?></button>
                         <button type="button" class="btn btn-outline-secondary" onclick="Joomla.submitbutton('blockedips.disable')"><?php echo Text::_('COM_LOGINGUARD_TOOLBAR_DISABLE'); ?></button>
-                        <button type="button" class="btn btn-outline-danger" onclick="Joomla.submitbutton('blockedips.delete')"><?php echo Text::_('JTOOLBAR_DELETE'); ?></button>
+                        <button type="button" class="btn btn-outline-danger" onclick="if (confirm(<?php echo htmlspecialchars(json_encode(Text::_('JGLOBAL_CONFIRM_DELETE'), JSON_HEX_APOS | JSON_HEX_QUOT), ENT_QUOTES, 'UTF-8'); ?>)) { Joomla.submitbutton('blockedips.delete'); }"><?php echo Text::_('JTOOLBAR_DELETE'); ?></button>
                     </div>
                 </div>
             </div>
@@ -196,6 +210,7 @@ $modalTitle = $editing ? Text::_('COM_LOGINGUARD_BLOCKEDIPS_EDIT_TITLE') : Text:
                         <td class="w-1 text-center"><?php echo HTMLHelper::_('grid.checkall'); ?></td>
                         <th scope="col"><?php echo HTMLHelper::_('searchtools.sort', 'COM_LOGINGUARD_HEADING_IP_ADDRESS', 'ip_address', $listDirn, $listOrder); ?></th>
                         <th scope="col"><?php echo Text::_('COM_LOGINGUARD_HEADING_BLOCK_STATUS'); ?></th>
+                        <th scope="col"><?php echo Text::_('COM_LOGINGUARD_HEADING_BLOCK_SOURCE'); ?></th>
                         <th scope="col"><?php echo HTMLHelper::_('searchtools.sort', 'COM_LOGINGUARD_HEADING_BLOCK_TYPE', 'block_type', $listDirn, $listOrder); ?></th>
                         <th scope="col"><?php echo HTMLHelper::_('searchtools.sort', 'COM_LOGINGUARD_HEADING_SCOPE', 'scope', $listDirn, $listOrder); ?></th>
                         <th scope="col"><?php echo Text::_('COM_LOGINGUARD_HEADING_BLOCK_REASON'); ?></th>
@@ -206,15 +221,17 @@ $modalTitle = $editing ? Text::_('COM_LOGINGUARD_BLOCKEDIPS_EDIT_TITLE') : Text:
                 </thead>
                 <tbody>
                     <?php if (empty($this->items)) : ?>
-                        <tr><td colspan="9" class="text-center py-5"><strong class="d-block mb-1"><?php echo Text::_('COM_LOGINGUARD_BLOCKEDIPS_EMPTY_TITLE'); ?></strong><span class="text-muted"><?php echo Text::_('COM_LOGINGUARD_EMPTY_BLOCKED_IPS'); ?></span></td></tr>
+                        <tr><td colspan="10" class="text-center py-5"><strong class="d-block mb-1"><?php echo Text::_('COM_LOGINGUARD_BLOCKEDIPS_EMPTY_TITLE'); ?></strong><span class="text-muted"><?php echo Text::_('COM_LOGINGUARD_EMPTY_BLOCKED_IPS'); ?></span></td></tr>
                     <?php else : ?>
                         <?php foreach ($this->items as $i => $item) : ?>
                             <?php [$statusKey, $statusLabel, $statusClass] = $statusForBlock($item); ?>
                             <?php [$expirationLabel, $expirationClass] = $expirationForBlock($item); ?>
+                            <?php [$sourceKey, $sourceLabel, $sourceClass] = $sourceForBlock($item); ?>
                             <tr>
                                 <td class="text-center"><span class="loginguard-blockops__mobile-label"><?php echo Text::_('JGRID_HEADING_ID'); ?></span><?php echo HTMLHelper::_('grid.id', $i, (int) $item->id); ?></td>
                                 <td class="loginguard-blockops__primary-cell"><span class="loginguard-blockops__mobile-label"><?php echo Text::_('COM_LOGINGUARD_HEADING_IP_ADDRESS'); ?></span><span class="loginguard-blockops__value"><strong class="d-block"><?php echo $this->escape((string) $item->ip_address); ?></strong><span class="small text-muted">#<?php echo (int) $item->id; ?> · <?php echo (int) $item->failure_count; ?> <?php echo Text::_('COM_LOGINGUARD_BLOCKEDIPS_FAILURES_SHORT'); ?></span></span></td>
                                 <td><span class="loginguard-blockops__mobile-label"><?php echo Text::_('COM_LOGINGUARD_HEADING_BLOCK_STATUS'); ?></span><span class="loginguard-blockops__value"><span class="badge <?php echo $this->escape($statusClass); ?>" data-status="<?php echo $this->escape($statusKey); ?>"><?php echo $this->escape(Text::_($statusLabel)); ?></span></span></td>
+                                <td><span class="loginguard-blockops__mobile-label"><?php echo Text::_('COM_LOGINGUARD_HEADING_BLOCK_SOURCE'); ?></span><span class="loginguard-blockops__value"><span class="badge <?php echo $this->escape($sourceClass); ?>" data-source="<?php echo $this->escape($sourceKey); ?>"><?php echo $this->escape(Text::_($sourceLabel)); ?></span></span></td>
                                 <td><span class="loginguard-blockops__mobile-label"><?php echo Text::_('COM_LOGINGUARD_HEADING_BLOCK_TYPE'); ?></span><span class="loginguard-blockops__value"><?php echo $this->escape(Text::_('COM_LOGINGUARD_BLOCK_TYPE_' . strtoupper((string) $item->block_type))); ?></span></td>
                                 <td><span class="loginguard-blockops__mobile-label"><?php echo Text::_('COM_LOGINGUARD_HEADING_SCOPE'); ?></span><span class="loginguard-blockops__value"><?php echo $this->escape(Text::_('COM_LOGINGUARD_SCOPE_' . strtoupper((string) $item->scope))); ?></span></td>
                                 <td class="loginguard-blockops__reason"><span class="loginguard-blockops__mobile-label"><?php echo Text::_('COM_LOGINGUARD_HEADING_BLOCK_REASON'); ?></span><span class="loginguard-blockops__value text-break"><?php echo $this->escape((string) $item->reason); ?></span></td>
