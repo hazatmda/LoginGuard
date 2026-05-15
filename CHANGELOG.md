@@ -1,3 +1,10 @@
+## 0.2.15
+
+- Added configurable failed-login alert throttling with disabled-by-default behavior, a threshold of 10, and a 15-minute throttle window.
+- Repaired failed-login alert suppression so every failed login can send when throttling is disabled and only threshold-exceeding alerts suppress when enabled.
+- Hardened package update-site repair by refreshing the LoginGuard update site, rebinding package update-site mappings, and removing stale mappings during package lifecycle events.
+- Moved release metadata to stable version `0.2.15` and synchronized package naming for `pkg_loginguard_v0.2.15.zip`.
+
 # Changelog
 
 ## 0.2.14-alpha

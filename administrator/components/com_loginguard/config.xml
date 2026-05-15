@@ -265,6 +265,42 @@
         </field>
 
         <field
+            name="failed_alert_throttling_enabled"
+            type="radio"
+            layout="joomla.form.field.radio.switcher"
+            label="COM_LOGINGUARD_CONFIG_FAILED_ALERT_THROTTLING_ENABLED_LABEL"
+            description="COM_LOGINGUARD_CONFIG_FAILED_ALERT_THROTTLING_ENABLED_DESC"
+            default="0"
+            showon="audit_alerts_enabled:1[AND]audit_alert_failed:1"
+            filter="integer"
+        >
+            <option value="0">JNO</option>
+            <option value="1">JYES</option>
+        </field>
+        <field
+            name="failed_alert_threshold"
+            type="number"
+            label="COM_LOGINGUARD_CONFIG_FAILED_ALERT_THRESHOLD_LABEL"
+            description="COM_LOGINGUARD_CONFIG_FAILED_ALERT_THRESHOLD_DESC"
+            default="10"
+            min="1"
+            step="1"
+            showon="audit_alerts_enabled:1[AND]audit_alert_failed:1[AND]failed_alert_throttling_enabled:1"
+            filter="integer"
+        />
+        <field
+            name="failed_alert_throttle_window_minutes"
+            type="number"
+            label="COM_LOGINGUARD_CONFIG_FAILED_ALERT_THROTTLE_WINDOW_LABEL"
+            description="COM_LOGINGUARD_CONFIG_FAILED_ALERT_THROTTLE_WINDOW_DESC"
+            default="15"
+            min="1"
+            step="1"
+            showon="audit_alerts_enabled:1[AND]audit_alert_failed:1[AND]failed_alert_throttling_enabled:1"
+            filter="integer"
+        />
+
+        <field
             name="blocked_ip_alerts_enabled"
             type="radio"
             layout="joomla.form.field.radio.switcher"

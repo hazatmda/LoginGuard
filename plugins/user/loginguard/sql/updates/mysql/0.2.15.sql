@@ -1,0 +1,2 @@
+-- LoginGuard 0.2.15 operational stabilization release.
+-- No database schema changes are required for this release.
