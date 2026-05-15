@@ -24,6 +24,7 @@ cp administrator/components/com_loginguard/loginguard.xml "${COMPONENT_BUILD_DIR
 )
 
 cp pkg_loginguard/pkg_loginguard.xml "${BUILD_DIR}/pkg_loginguard.xml"
+cp pkg_loginguard/script.php "${BUILD_DIR}/script.php"
 (
     cd "${BUILD_DIR}"
     zip -r "../../${OUTPUT_DIR}/${PACKAGE_NAME}" . >/dev/null

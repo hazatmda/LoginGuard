@@ -1,0 +1,1 @@
+-- LoginGuard v0.2.7-alpha hotfix preserves the v0.2.6 schema.

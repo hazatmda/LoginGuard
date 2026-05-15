@@ -4,8 +4,10 @@
     <packagename>loginguard</packagename>
     <author>Hazim</author>
     <creationDate>2026-05-15</creationDate>
-    <version>0.2.6-alpha</version>
+    <version>0.2.7-alpha</version>
     <description>LoginGuard package with the user plugin and administrator component.</description>
+    <scriptfile>script.php</scriptfile>
+    <blockChildUninstall>true</blockChildUninstall>
 
     <files>
         <file type="plugin" id="loginguard" group="user">plg_user_loginguard.zip</file>
