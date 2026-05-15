@@ -1,0 +1,2 @@
+-- LoginGuard 0.2.10-alpha operational UI refinement release.
+-- No database schema changes are required for this release.

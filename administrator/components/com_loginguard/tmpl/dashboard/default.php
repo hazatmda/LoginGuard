@@ -85,7 +85,7 @@ $blockedIpStatus = static function (object $item) use ($nowSql): string {
         </div>
 
         <div class="row g-3 mb-3">
-            <div class="col-lg-8">
+            <div class="col-12">
                 <div class="card h-100">
                     <div class="card-body">
                         <h2 class="h4 card-title"><?php echo Text::_('COM_LOGINGUARD_DASHBOARD_OPERATIONAL_OVERVIEW'); ?></h2>
@@ -102,10 +102,27 @@ $blockedIpStatus = static function (object $item) use ($nowSql): string {
                     </div>
                 </div>
             </div>
+        </div>
+
+        <div class="row g-3 mb-3 align-items-stretch">
+            <div class="col-lg-8">
+                <div class="row g-3 h-100">
+                    <div class="col-md-6 col-xl-3"><div class="card h-100"><div class="card-body py-3"><h2 class="h6 text-muted text-uppercase"><?php echo Text::_('COM_LOGINGUARD_DASHBOARD_TOTAL_ATTEMPTS'); ?></h2><p class="display-6 mb-0"><?php echo (int) ($cleanupMetrics['total_attempts'] ?? 0); ?></p></div></div></div>
+                    <div class="col-md-6 col-xl-3"><div class="card h-100"><div class="card-body py-3"><h2 class="h6 text-muted text-uppercase"><?php echo Text::_('COM_LOGINGUARD_DASHBOARD_TOTAL_BLOCKED_IPS'); ?></h2><p class="display-6 mb-0"><?php echo (int) ($cleanupMetrics['total_blocked_ips'] ?? 0); ?></p></div></div></div>
+                    <div class="col-md-6 col-xl-3"><div class="card h-100"><div class="card-body py-3"><h2 class="h6 text-muted text-uppercase"><?php echo Text::_('COM_LOGINGUARD_DASHBOARD_ACTIVE_BLOCKED_IPS'); ?></h2><p class="display-6 mb-0"><?php echo (int) ($this->blockedIpTelemetry['active'] ?? 0); ?></p></div></div></div>
+                    <div class="col-md-6 col-xl-3"><div class="card h-100"><div class="card-body py-3"><h2 class="h6 text-muted text-uppercase"><?php echo Text::_('COM_LOGINGUARD_DASHBOARD_OPERATIONAL_HEALTH'); ?></h2><p class="mb-1 fw-semibold"><?php echo $this->escape($cleanupStatus); ?></p><p class="text-muted small mb-0"><?php echo $this->escape($retentionPolicy); ?></p></div></div></div>
+                </div>
+            </div>
             <div class="col-lg-4">
                 <div class="card h-100">
                     <div class="card-body">
                         <h2 class="h5 card-title"><?php echo Text::_('COM_LOGINGUARD_DASHBOARD_QUICK_ACTIONS'); ?></h2>
+                        <dl class="row small mb-3">
+                            <dt class="col-5"><?php echo Text::_('COM_LOGINGUARD_DASHBOARD_LAST_CLEANUP'); ?></dt><dd class="col-7 text-end"><?php echo $lastCleanup !== '' ? HTMLHelper::_('date', $lastCleanup, Text::_('DATE_FORMAT_LC5')) : Text::_('COM_LOGINGUARD_DASHBOARD_LAST_CLEANUP_NEVER'); ?></dd>
+                            <dt class="col-5"><?php echo Text::_('COM_LOGINGUARD_DASHBOARD_NEXT_CLEANUP'); ?></dt><dd class="col-7 text-end"><?php echo $nextCleanupWindow !== '' ? $this->escape($nextCleanupWindow) : Text::_('COM_LOGINGUARD_DASHBOARD_NEXT_CLEANUP_UNAVAILABLE_SHORT'); ?></dd>
+                            <dt class="col-5"><?php echo Text::_('COM_LOGINGUARD_DASHBOARD_SCHEDULER_STATUS'); ?></dt><dd class="col-7 text-end"><span class="badge <?php echo (int) ($operationalStatus['scheduler_enabled'] ?? 0) === 1 ? 'bg-success' : 'bg-warning text-dark'; ?>"><?php echo Text::_((int) ($operationalStatus['scheduler_enabled'] ?? 0) === 1 ? 'COM_LOGINGUARD_DASHBOARD_SCHEDULER_RUNNING' : 'COM_LOGINGUARD_DASHBOARD_SCHEDULER_NOT_RUNNING'); ?></span></dd>
+                            <dt class="col-5"><?php echo Text::_('COM_LOGINGUARD_DASHBOARD_GEOIP_STATUS'); ?></dt><dd class="col-7 text-end"><span class="badge <?php echo (int) ($operationalStatus['geoip_enabled'] ?? 0) === 1 && (int) ($operationalStatus['geoip_configured'] ?? 0) === 0 ? 'bg-warning text-dark' : 'bg-success'; ?>"><?php echo Text::_((int) ($operationalStatus['geoip_enabled'] ?? 0) === 1 ? ((int) ($operationalStatus['geoip_configured'] ?? 0) === 1 ? 'COM_LOGINGUARD_DASHBOARD_GEOIP_READY' : 'COM_LOGINGUARD_DASHBOARD_GEOIP_DEGRADED') : 'COM_LOGINGUARD_DASHBOARD_GEOIP_DISABLED'); ?></span></dd>
+                        </dl>
                         <div class="d-grid gap-2">
                             <?php foreach ($quickActions as $action) : ?>
                                 <a class="btn btn-<?php echo $this->escape($action[2]); ?>" href="<?php echo Route::_($action[1]); ?>"><?php echo Text::_($action[0]); ?></a>
@@ -120,13 +137,6 @@ $blockedIpStatus = static function (object $item) use ($nowSql): string {
                     </div>
                 </div>
             </div>
-        </div>
-
-        <div class="row g-3 mb-3">
-            <div class="col-md-6 col-xl-3"><div class="card h-100"><div class="card-body"><h2 class="h5"><?php echo Text::_('COM_LOGINGUARD_DASHBOARD_TOTAL_ATTEMPTS'); ?></h2><p class="display-6 mb-0"><?php echo (int) ($cleanupMetrics['total_attempts'] ?? 0); ?></p></div></div></div>
-            <div class="col-md-6 col-xl-3"><div class="card h-100"><div class="card-body"><h2 class="h5"><?php echo Text::_('COM_LOGINGUARD_DASHBOARD_TOTAL_BLOCKED_IPS'); ?></h2><p class="display-6 mb-0"><?php echo (int) ($cleanupMetrics['total_blocked_ips'] ?? 0); ?></p></div></div></div>
-            <div class="col-md-6 col-xl-3"><div class="card h-100"><div class="card-body"><h2 class="h5"><?php echo Text::_('COM_LOGINGUARD_DASHBOARD_ACTIVE_BLOCKED_IPS'); ?></h2><p class="display-6 mb-0"><?php echo (int) ($this->blockedIpTelemetry['active'] ?? 0); ?></p></div></div></div>
-            <div class="col-md-6 col-xl-3"><div class="card h-100"><div class="card-body"><h2 class="h5"><?php echo Text::_('COM_LOGINGUARD_DASHBOARD_OPERATIONAL_HEALTH'); ?></h2><p class="mb-1"><?php echo $this->escape($cleanupStatus); ?></p><p class="text-muted mb-0"><?php echo $this->escape($retentionPolicy); ?></p></div></div></div>
         </div>
 
         <div class="row g-3 mb-3">

@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.2.10-alpha
+
+- Refined dashboard hierarchy with balanced operational overview, summary telemetry, and enriched Quick Actions scheduler/GeoIP context.
+- Redesigned Blocked IPs operations around telemetry-first summary cards, compact Search Tools alignment, a collapsed add/edit workflow, status badges, expiration countdowns, and improved empty-state guidance.
+- Synchronized release metadata and package naming for `pkg_loginguard_v0.2.10-alpha.zip`.
+
 ## 0.2.9-alpha
 
 - Modernized the Dashboard into an operational security overview with protection status, enforcement/scheduler health, cleanup visibility, quick actions, attack trends, top attacking IPs, backend/frontend summaries, and country telemetry.
