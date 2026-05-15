@@ -26,6 +26,7 @@ $columnValue = function (object $item, string $column): string {
     };
 };
 $columnCount = count($this->visibleColumns) + 1 + ($canDelete ? 1 : 0);
+$columnStorageKey = 'loginguard.logininfo.columns';
 ?>
 <form action="<?php echo Route::_('index.php?option=com_loginguard&view=attempts'); ?>" method="post" name="adminForm" id="adminForm">
     <div id="j-main-container" class="j-main-container">
@@ -40,7 +41,7 @@ $columnCount = count($this->visibleColumns) + 1 + ($canDelete ? 1 : 0);
                     <?php foreach ($this->availableColumns as $column => $label) : ?>
                         <div class="col-sm-6 col-lg-3">
                             <div class="form-check">
-                                <input class="form-check-input" type="checkbox" name="visible_columns[]" value="<?php echo $this->escape($column); ?>" id="column-<?php echo $this->escape($column); ?>"<?php echo isset($visibleColumns[$column]) ? ' checked' : ''; ?>>
+                                <input class="form-check-input" type="checkbox" name="visible_columns[]" value="<?php echo $this->escape($column); ?>" id="column-<?php echo $this->escape($column); ?>" data-loginguard-column="<?php echo $this->escape($column); ?>"<?php echo isset($visibleColumns[$column]) ? ' checked' : ''; ?>>
                                 <label class="form-check-label" for="column-<?php echo $this->escape($column); ?>"><?php echo Text::_($label); ?></label>
                             </div>
                         </div>
@@ -97,3 +98,106 @@ $columnCount = count($this->visibleColumns) + 1 + ($canDelete ? 1 : 0);
         <?php echo HTMLHelper::_('form.token'); ?>
     </div>
 </form>
+<script>
+(() => {
+    'use strict';
+
+    const storageKey = <?php echo json_encode($columnStorageKey); ?>;
+    const syncFlagKey = storageKey + '.syncing';
+    const form = document.getElementById('adminForm');
+    let localStore = null;
+    let sessionStore = null;
+
+    try {
+        localStore = window.localStorage;
+        sessionStore = window.sessionStorage;
+    } catch (error) {
+        return;
+    }
+
+    if (!form || !localStore || !sessionStore) {
+        return;
+    }
+
+    const columnInputs = Array.from(form.querySelectorAll('[data-loginguard-column]'));
+    const allowedColumns = columnInputs.map((input) => input.value);
+
+    const normaliseColumns = (columns) => {
+        if (!Array.isArray(columns)) {
+            return null;
+        }
+
+        const seen = new Set();
+
+        return columns.filter((column) => {
+            if (!allowedColumns.includes(column) || seen.has(column)) {
+                return false;
+            }
+
+            seen.add(column);
+
+            return true;
+        });
+    };
+
+    const readColumns = () => {
+        try {
+            return normaliseColumns(JSON.parse(localStore.getItem(storageKey) || 'null'));
+        } catch (error) {
+            return null;
+        }
+    };
+
+    const writeColumns = (columns) => {
+        try {
+            localStore.setItem(storageKey, JSON.stringify(columns));
+        } catch (error) {
+            // Ignore private browsing or locked-down storage failures; the form still submits normally.
+        }
+    };
+
+    const selectedColumns = () => columnInputs
+        .filter((input) => input.checked)
+        .map((input) => input.value);
+
+    const sameColumns = (first, second) => first.length === second.length
+        && first.every((column, index) => column === second[index]);
+
+    const applyColumns = (columns) => {
+        columnInputs.forEach((input) => {
+            input.checked = columns.includes(input.value);
+        });
+    };
+
+    const persistedColumns = readColumns();
+    const renderedColumns = selectedColumns();
+
+    if (persistedColumns === null) {
+        writeColumns(renderedColumns);
+    } else if (!sameColumns(persistedColumns, renderedColumns)) {
+        applyColumns(persistedColumns);
+
+        if (sessionStore.getItem(syncFlagKey) !== '1') {
+            sessionStore.setItem(syncFlagKey, '1');
+
+            if (typeof form.requestSubmit === 'function') {
+                form.requestSubmit();
+            } else {
+                form.submit();
+            }
+
+            return;
+        }
+    }
+
+    sessionStore.removeItem(syncFlagKey);
+
+    columnInputs.forEach((input) => {
+        input.addEventListener('change', () => writeColumns(selectedColumns()));
+    });
+
+    form.addEventListener('submit', () => {
+        writeColumns(selectedColumns());
+    });
+})();
+</script>
