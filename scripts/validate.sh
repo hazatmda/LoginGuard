@@ -89,6 +89,10 @@ if mismatched:
     print(f'Version mismatch: {details}', file=sys.stderr)
     sys.exit(1)
 
+if '-' in versions['VERSION']:
+    print(f'Canonical release version must be a stable semantic version without prerelease suffix: {versions["VERSION"]}', file=sys.stderr)
+    sys.exit(1)
+
 plugin_manifest = Path('plugins/user/loginguard/loginguard.xml')
 plugin_root = roots.get(plugin_manifest)
 if plugin_root is None:
@@ -131,7 +135,7 @@ if package_root.findtext('blockChildUninstall') != 'true':
     print('Package manifest must block independent child extension uninstall for lifecycle synchronization', file=sys.stderr)
     sys.exit(1)
 package_script_text = Path('pkg_loginguard/script.php').read_text(encoding='utf-8')
-for required_text in ['class Pkg_LoginguardInstallerScript', 'preflight', 'postflight', 'uninstall', 'package_id', 'synchroniseChildExtensions']:
+for required_text in ['class Pkg_LoginguardInstallerScript', 'preflight', 'postflight', 'uninstall', 'package_id', 'synchroniseChildExtensions', 'repairUpdateSiteRegistration', 'ensureUpdateSite', 'bindUpdateSiteToExtension', 'deleteStaleUpdateSiteMappings', 'last_check_timestamp']:
     if required_text not in package_script_text:
         print(f'Package installer script missing lifecycle synchronization token: {required_text}', file=sys.stderr)
         sys.exit(1)
@@ -162,7 +166,7 @@ login_guard_text = login_guard.read_text(encoding='utf-8')
 if 'IpResolver::resolve()' not in login_guard_text:
     print('Login logging must use IpResolver::resolve()', file=sys.stderr)
     sys.exit(1)
-for required_text in ["ComponentHelper::getParams('com_loginguard')", 'Factory::getMailer()', 'audit_alerts_enabled', 'audit_alert_success', 'audit_alert_failed', 'audit_alert_recipients', 'audit_alert_success_subject', 'audit_alert_success_body', 'audit_alert_failed_subject', 'audit_alert_failed_body', 'isFailedAlertThrottled', 'normaliseAlertRecipients']:
+for required_text in ["ComponentHelper::getParams('com_loginguard')", 'Factory::getMailer()', 'audit_alerts_enabled', 'audit_alert_success', 'audit_alert_failed', 'audit_alert_recipients', 'audit_alert_success_subject', 'audit_alert_success_body', 'audit_alert_failed_subject', 'audit_alert_failed_body', 'isFailedAlertThrottled', 'normaliseAlertRecipients', 'failed_alert_throttling_enabled', 'failed_alert_threshold', 'failed_alert_throttle_window_minutes']:
     if required_text not in login_guard_text:
         print(f'LoginGuard extension missing audit alert support: {required_text}', file=sys.stderr)
         sys.exit(1)
@@ -306,13 +310,22 @@ if config_root is None:
     print('Missing config.xml for com_config integration', file=sys.stderr)
     sys.exit(1)
 config_fields = {field.attrib.get('name') for field in config_root.findall('.//field')}
-required_config_fields = {'trusted_proxies', 'retention_days', 'automatic_cleanup_enabled', 'login_retention_days', 'blocked_ip_retention_days', 'cleanup_batch_size', 'cleanup_execution_logging', 'logging_level', 'geoip_enabled', 'export_requires_permission', 'enforcement_enabled', 'frontend_enforcement_enabled', 'backend_enforcement_enabled', 'automatic_blocking_enabled', 'failed_attempt_threshold', 'threshold_window_minutes', 'cooldown_duration_minutes', 'automatic_block_scope', 'whitelisted_ips', 'geoip_country_map', 'audit_alerts_enabled', 'audit_alert_success', 'audit_alert_failed', 'audit_alert_recipients', 'audit_alert_success_subject', 'audit_alert_success_body', 'audit_alert_failed_subject', 'audit_alert_failed_body', 'blocked_ip_alerts_enabled', 'blocked_ip_alert_subject', 'blocked_ip_alert_body', 'rules'}
+required_config_fields = {'trusted_proxies', 'retention_days', 'automatic_cleanup_enabled', 'login_retention_days', 'blocked_ip_retention_days', 'cleanup_batch_size', 'cleanup_execution_logging', 'logging_level', 'geoip_enabled', 'export_requires_permission', 'enforcement_enabled', 'frontend_enforcement_enabled', 'backend_enforcement_enabled', 'automatic_blocking_enabled', 'failed_attempt_threshold', 'threshold_window_minutes', 'cooldown_duration_minutes', 'automatic_block_scope', 'whitelisted_ips', 'geoip_country_map', 'audit_alerts_enabled', 'audit_alert_success', 'audit_alert_failed', 'failed_alert_throttling_enabled', 'failed_alert_threshold', 'failed_alert_throttle_window_minutes', 'audit_alert_recipients', 'audit_alert_success_subject', 'audit_alert_success_body', 'audit_alert_failed_subject', 'audit_alert_failed_body', 'blocked_ip_alerts_enabled', 'blocked_ip_alert_subject', 'blocked_ip_alert_body', 'rules'}
 forbidden_config_fields = {'lockout_duration'}
 if not required_config_fields.issubset(config_fields):
     print(f'config.xml missing fields: {sorted(required_config_fields - config_fields)}', file=sys.stderr)
     sys.exit(1)
 if forbidden_config_fields & config_fields:
     print(f'config.xml keeps non-functional enforcement fields: {sorted(forbidden_config_fields & config_fields)}', file=sys.stderr)
+    sys.exit(1)
+if config_root.find(".//field[@name='failed_alert_throttling_enabled']").attrib.get('default') != '0':
+    print('Failed-login alert throttling must be disabled by default', file=sys.stderr)
+    sys.exit(1)
+if config_root.find(".//field[@name='failed_alert_threshold']").attrib.get('default') != '10':
+    print('Failed-login alert threshold must default to 10', file=sys.stderr)
+    sys.exit(1)
+if config_root.find(".//field[@name='failed_alert_throttle_window_minutes']").attrib.get('default') != '15':
+    print('Failed-login alert throttle window must default to 15 minutes', file=sys.stderr)
     sys.exit(1)
 
 for view in ['Dashboard', 'Attempts', 'About']:

@@ -612,13 +612,21 @@ final class LoginGuard extends CMSPlugin
     /** @param array<string, mixed> $record */
     private function isFailedAlertThrottled(array $record, DatabaseDriver $db): bool
     {
+        $params = ComponentHelper::getParams('com_loginguard');
+
+        if (!$params->get('failed_alert_throttling_enabled', 0)) {
+            return false;
+        }
+
         $ipAddress = (string) ($record['ip_address'] ?? '');
 
         if ($ipAddress === '' || $ipAddress === 'unknown') {
             return false;
         }
 
-        $threshold = (new Date('-15 minutes'))->toSql();
+        $threshold = max(1, (int) $params->get('failed_alert_threshold', 10));
+        $windowMinutes = max(1, (int) $params->get('failed_alert_throttle_window_minutes', 15));
+        $since = (new Date('-' . $windowMinutes . ' minutes'))->toSql();
 
         try {
             $query = $db->getQuery(true)
@@ -626,11 +634,11 @@ final class LoginGuard extends CMSPlugin
                 ->from($db->quoteName('#__loginguard_attempts'))
                 ->where($db->quoteName('status') . ' = ' . $db->quote('FAILED_LOGIN'))
                 ->where($db->quoteName('ip_address') . ' = ' . $db->quote($ipAddress))
-                ->where($db->quoteName('created') . ' >= ' . $db->quote($threshold));
+                ->where($db->quoteName('created') . ' >= ' . $db->quote($since));
 
             $db->setQuery($query);
 
-            return (int) $db->loadResult() > 1;
+            return (int) $db->loadResult() > $threshold;
         } catch (Throwable $exception) {
             return false;
         }

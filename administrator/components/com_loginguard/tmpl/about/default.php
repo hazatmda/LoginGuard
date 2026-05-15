@@ -10,10 +10,10 @@ $details = [
     'COM_LOGINGUARD_ABOUT_ORGANIZATION' => 'Unit Infrastruktur dan Keselamatan Digital, Bahagian Digital dan Teknologi Maklumat (BDTM)',
     'COM_LOGINGUARD_ABOUT_REPOSITORY' => 'https://github.com/hazatmda/LoginGuard',
     'COM_LOGINGUARD_ABOUT_ISSUES' => 'https://github.com/hazatmda/LoginGuard/issues',
-    'COM_LOGINGUARD_ABOUT_VERSION_LABEL' => '0.2.14-alpha',
+    'COM_LOGINGUARD_ABOUT_VERSION_LABEL' => '0.2.15',
     'COM_LOGINGUARD_ABOUT_JOOMLA_COMPATIBILITY' => 'Joomla 4.4+ / 5.x administrator MVC',
     'COM_LOGINGUARD_ABOUT_PHP_COMPATIBILITY' => 'PHP 8.1+',
-    'COM_LOGINGUARD_ABOUT_RELEASE_CHANNEL' => 'Alpha operational security dashboard release',
+    'COM_LOGINGUARD_ABOUT_RELEASE_CHANNEL' => 'Stable operational security dashboard release',
 ];
 ?>
 <form action="<?php echo Route::_('index.php?option=com_loginguard&view=about'); ?>" method="post" name="adminForm" id="adminForm">
