@@ -4,6 +4,7 @@ namespace LoginGuard\Component\LoginGuard\Administrator\Model;
 
 defined('_JEXEC') or die;
 
+use Joomla\CMS\Date\Date;
 use Joomla\CMS\MVC\Model\BaseDatabaseModel;
 
 final class DashboardModel extends BaseDatabaseModel
@@ -19,6 +20,8 @@ final class DashboardModel extends BaseDatabaseModel
             'frontend_failed' => 0,
             'backend_failed' => 0,
             'blocked_login' => 0,
+            'success_login' => 0,
+            'failed_login' => 0,
         ];
 
         $db = $this->getDatabase();
@@ -30,19 +33,28 @@ final class DashboardModel extends BaseDatabaseModel
                 'COUNT(*) AS ' . $db->quoteName('total'),
             ])
             ->from($db->quoteName('#__loginguard_attempts'))
-            ->where($originExpression . ' IN (' . $this->quoteList(['frontend', 'backend']) . ')')
-            ->where($db->quoteName('status') . ' IN (' . $this->quoteList(['SUCCESS_LOGIN', 'FAILED_LOGIN', 'BLOCKED_LOGIN']) . ')')
-            ->group([$originExpression, $db->quoteName('status')]);
+            ->where($db->quoteName('status') . ' IN (' . $this->quoteList(['SUCCESS_LOGIN', 'FAILED_LOGIN', 'BLOCKED_LOGIN']) . ')');
+
+        $this->applyAttemptTimeframe($query);
+
+        $query->group([$originExpression, $db->quoteName('status')]);
 
         $db->setQuery($query);
 
         foreach ($db->loadObjectList() ?: [] as $row) {
             $origin = (string) $row->origin;
             $status = (string) $row->status;
+            $total = (int) $row->total;
             $key = $status === 'BLOCKED_LOGIN' ? 'blocked_login' : $origin . '_' . ($status === 'SUCCESS_LOGIN' ? 'success' : 'failed');
 
             if (array_key_exists($key, $counts)) {
-                $counts[$key] = (int) $row->total;
+                $counts[$key] += $total;
+            }
+
+            if ($status === 'SUCCESS_LOGIN') {
+                $counts['success_login'] += $total;
+            } elseif ($status === 'FAILED_LOGIN') {
+                $counts['failed_login'] += $total;
             }
         }
 
@@ -95,8 +107,11 @@ final class DashboardModel extends BaseDatabaseModel
             ])
             ->from($db->quoteName('#__loginguard_attempts'))
             ->where($db->quoteName('status') . ' IN (' . $this->quoteList(['FAILED_LOGIN', 'BLOCKED_LOGIN']) . ')')
-            ->where($db->quoteName('reason') . ' IN (' . $this->quoteList(array_keys($reasons)) . ')')
-            ->group($db->quoteName('reason'))
+            ->where($db->quoteName('reason') . ' IN (' . $this->quoteList(array_keys($reasons)) . ')');
+
+        $this->applyAttemptTimeframe($query);
+
+        $query->group($db->quoteName('reason'))
             ->order($db->quoteName('total') . ' DESC');
 
         $db->setQuery($query);
@@ -125,8 +140,11 @@ final class DashboardModel extends BaseDatabaseModel
             ])
             ->from($db->quoteName('#__loginguard_attempts'))
             ->where($db->quoteName('status') . ' = ' . $db->quote('FAILED_LOGIN'))
-            ->where($db->quoteName('ip_address') . ' <> ' . $db->quote(''))
-            ->group($db->quoteName('ip_address'))
+            ->where($db->quoteName('ip_address') . ' <> ' . $db->quote(''));
+
+        $this->applyAttemptTimeframe($query);
+
+        $query->group($db->quoteName('ip_address'))
             ->order($db->quoteName('total') . ' DESC');
 
         $db->setQuery($query, 0, 10);
@@ -214,27 +232,6 @@ final class DashboardModel extends BaseDatabaseModel
     /**
      * @return array<int, object>
      */
-    public function getFailedLoginTrends(): array
-    {
-        $db = $this->getDatabase();
-        $query = $db->getQuery(true)
-            ->select([
-                'DATE(' . $db->quoteName('created') . ') AS ' . $db->quoteName('day'),
-                'COUNT(*) AS ' . $db->quoteName('total'),
-            ])
-            ->from($db->quoteName('#__loginguard_attempts'))
-            ->where($db->quoteName('status') . ' IN (' . $this->quoteList(['FAILED_LOGIN', 'BLOCKED_LOGIN']) . ')')
-            ->group('DATE(' . $db->quoteName('created') . ')')
-            ->order($db->quoteName('day') . ' DESC');
-
-        $db->setQuery($query, 0, 7);
-
-        return array_reverse($db->loadObjectList() ?: []);
-    }
-
-    /**
-     * @return array<int, object>
-     */
     public function getTopCountries(): array
     {
         $db = $this->getDatabase();
@@ -244,8 +241,11 @@ final class DashboardModel extends BaseDatabaseModel
                 'COUNT(*) AS ' . $db->quoteName('total'),
             ])
             ->from($db->quoteName('#__loginguard_attempts'))
-            ->where($db->quoteName('status') . ' IN (' . $this->quoteList(['FAILED_LOGIN', 'BLOCKED_LOGIN']) . ')')
-            ->group('COALESCE(NULLIF(' . $db->quoteName('country') . ', ' . $db->quote('') . '), ' . $db->quote('Unknown') . ')')
+            ->where($db->quoteName('status') . ' IN (' . $this->quoteList(['FAILED_LOGIN', 'BLOCKED_LOGIN']) . ')');
+
+        $this->applyAttemptTimeframe($query);
+
+        $query->group('COALESCE(NULLIF(' . $db->quoteName('country') . ', ' . $db->quote('') . '), ' . $db->quote('Unknown') . ')')
             ->order($db->quoteName('total') . ' DESC');
 
         $db->setQuery($query, 0, 5);
@@ -267,8 +267,11 @@ final class DashboardModel extends BaseDatabaseModel
                 'COUNT(*) AS ' . $db->quoteName('total'),
             ])
             ->from($db->quoteName('#__loginguard_attempts'))
-            ->where($db->quoteName('status') . ' IN (' . $this->quoteList(['FAILED_LOGIN', 'BLOCKED_LOGIN']) . ')')
-            ->group($originExpression);
+            ->where($db->quoteName('status') . ' IN (' . $this->quoteList(['FAILED_LOGIN', 'BLOCKED_LOGIN']) . ')');
+
+        $this->applyAttemptTimeframe($query);
+
+        $query->group($originExpression);
 
         $db->setQuery($query);
 
@@ -350,7 +353,7 @@ final class DashboardModel extends BaseDatabaseModel
         $db = $this->getDatabase();
         $params = \Joomla\CMS\Component\ComponentHelper::getParams('com_loginguard');
         $metrics = [
-            'total_attempts' => $this->countTable('#__loginguard_attempts'),
+            'total_attempts' => $this->countTable('#__loginguard_attempts', 'created'),
             'total_blocked_ips' => $this->countTable('#__loginguard_blocked_ips'),
             'last_cleanup_execution' => '',
             'last_attempts_deleted' => 0,
@@ -391,12 +394,53 @@ final class DashboardModel extends BaseDatabaseModel
         return $metrics;
     }
 
-    private function countTable(string $table): int
+
+    /**
+     * Apply the selected dashboard timeframe to login-attempt queries.
+     *
+     * @param   \Joomla\Database\DatabaseQuery  $query  Query to update.
+     */
+    private function applyAttemptTimeframe($query): void
+    {
+        $start = $this->getTimeframeStart();
+
+        if ($start === '') {
+            return;
+        }
+
+        $db = $this->getDatabase();
+        $query->where($db->quoteName('created') . ' >= ' . $db->quote($start));
+    }
+
+    private function getTimeframeStart(): string
+    {
+        $range = (string) $this->getState('dashboard.timeframe', 'today');
+
+        if ($range === '24h') {
+            return (new Date('-24 hours'))->toSql();
+        }
+
+        if ($range === '7d') {
+            return (new Date('-7 days'))->toSql();
+        }
+
+        return (new Date('today'))->toSql();
+    }
+
+    private function countTable(string $table, string $dateColumn = ''): int
     {
         $db = $this->getDatabase();
         $query = $db->getQuery(true)
             ->select('COUNT(*)')
             ->from($db->quoteName($table));
+
+        if ($dateColumn !== '') {
+            $start = $this->getTimeframeStart();
+
+            if ($start !== '') {
+                $query->where($db->quoteName($dateColumn) . ' >= ' . $db->quote($start));
+            }
+        }
 
         $db->setQuery($query);
 

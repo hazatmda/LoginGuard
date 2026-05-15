@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.2.12-alpha
+
+- Refined the administrator dashboard telemetry layout with a top KPI strip, per-administrator timeframe selector, compact operational health chips, and reduced dashboard spacing.
+- Removed the Failed Login Trends widget while preserving SearchTools, CSV export, ACL, cleanup scheduler, retention automation, update detection, and installer/update lifecycle behavior.
+- Synchronized release metadata and package naming for `pkg_loginguard_v0.2.12-alpha.zip`.
+
 ## 0.2.11-alpha
 
 - Redesigned the Dashboard into a compact SOC-style operational layout with denser telemetry strips, compressed metric cards, and reduced vertical whitespace.
