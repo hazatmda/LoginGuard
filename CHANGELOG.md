@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.2.11-alpha
+
+- Redesigned the Dashboard into a compact SOC-style operational layout with denser telemetry strips, compressed metric cards, and reduced vertical whitespace.
+- Split Quick Actions into operational status chips and compact administrator actions while moving high-priority attack trend, origin, country, and IP telemetry higher on the page.
+- Added a persisted per-administrator Compact Dashboard Mode preference and synchronized release metadata/package naming for `pkg_loginguard_v0.2.11-alpha.zip`.
+
 ## 0.2.10-alpha
 
 - Refined dashboard hierarchy with balanced operational overview, summary telemetry, and enriched Quick Actions scheduler/GeoIP context.

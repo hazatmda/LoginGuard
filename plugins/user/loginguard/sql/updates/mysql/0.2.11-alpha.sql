@@ -1,0 +1,2 @@
+-- LoginGuard 0.2.11-alpha compact SOC dashboard density release.
+-- No database schema changes are required for this release.
