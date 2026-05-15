@@ -212,6 +212,137 @@ final class DashboardModel extends BaseDatabaseModel
 
 
     /**
+     * @return array<int, object>
+     */
+    public function getFailedLoginTrends(): array
+    {
+        $db = $this->getDatabase();
+        $query = $db->getQuery(true)
+            ->select([
+                'DATE(' . $db->quoteName('created') . ') AS ' . $db->quoteName('day'),
+                'COUNT(*) AS ' . $db->quoteName('total'),
+            ])
+            ->from($db->quoteName('#__loginguard_attempts'))
+            ->where($db->quoteName('status') . ' IN (' . $this->quoteList(['FAILED_LOGIN', 'BLOCKED_LOGIN']) . ')')
+            ->group('DATE(' . $db->quoteName('created') . ')')
+            ->order($db->quoteName('day') . ' DESC');
+
+        $db->setQuery($query, 0, 7);
+
+        return array_reverse($db->loadObjectList() ?: []);
+    }
+
+    /**
+     * @return array<int, object>
+     */
+    public function getTopCountries(): array
+    {
+        $db = $this->getDatabase();
+        $query = $db->getQuery(true)
+            ->select([
+                'COALESCE(NULLIF(' . $db->quoteName('country') . ', ' . $db->quote('') . '), ' . $db->quote('Unknown') . ') AS ' . $db->quoteName('country'),
+                'COUNT(*) AS ' . $db->quoteName('total'),
+            ])
+            ->from($db->quoteName('#__loginguard_attempts'))
+            ->where($db->quoteName('status') . ' IN (' . $this->quoteList(['FAILED_LOGIN', 'BLOCKED_LOGIN']) . ')')
+            ->group('COALESCE(NULLIF(' . $db->quoteName('country') . ', ' . $db->quote('') . '), ' . $db->quote('Unknown') . ')')
+            ->order($db->quoteName('total') . ' DESC');
+
+        $db->setQuery($query, 0, 5);
+
+        return $db->loadObjectList() ?: [];
+    }
+
+    /**
+     * @return array<string, int>
+     */
+    public function getAttackOriginSummary(): array
+    {
+        $summary = ['frontend' => 0, 'backend' => 0, 'other' => 0];
+        $db = $this->getDatabase();
+        $originExpression = 'LOWER(COALESCE(NULLIF(' . $db->quoteName('where_at') . ', ' . $db->quote('') . '), ' . $db->quoteName('client') . '))';
+        $query = $db->getQuery(true)
+            ->select([
+                $originExpression . ' AS ' . $db->quoteName('origin'),
+                'COUNT(*) AS ' . $db->quoteName('total'),
+            ])
+            ->from($db->quoteName('#__loginguard_attempts'))
+            ->where($db->quoteName('status') . ' IN (' . $this->quoteList(['FAILED_LOGIN', 'BLOCKED_LOGIN']) . ')')
+            ->group($originExpression);
+
+        $db->setQuery($query);
+
+        foreach ($db->loadObjectList() ?: [] as $row) {
+            $origin = (string) $row->origin;
+            $key = array_key_exists($origin, $summary) ? $origin : 'other';
+            $summary[$key] += (int) $row->total;
+        }
+
+        return $summary;
+    }
+
+    /**
+     * @return array<string, int|string>
+     */
+    public function getOperationalStatus(): array
+    {
+        $db = $this->getDatabase();
+        $params = \Joomla\CMS\Component\ComponentHelper::getParams('com_loginguard');
+        $automaticCleanup = (int) $params->get('automatic_cleanup_enabled', 0);
+        $enforcement = (int) $params->get('enforcement_enabled', 0);
+        $geoipEnabled = (int) $params->get('geoip_enabled', 0);
+        $geoipMap = trim((string) $params->get('geoip_country_map', ''));
+        $lastCleanup = '';
+
+        $query = $db->getQuery(true)
+            ->select($db->quoteName('finished_at'))
+            ->from($db->quoteName('#__loginguard_cleanup_runs'))
+            ->order($db->quoteName('finished_at') . ' DESC');
+        $db->setQuery($query, 0, 1);
+        $lastCleanup = (string) $db->loadResult();
+
+        $schedulerEnabled = 0;
+        $query = $db->getQuery(true)
+            ->select($db->quoteName('enabled'))
+            ->from($db->quoteName('#__extensions'))
+            ->where($db->quoteName('type') . ' = ' . $db->quote('plugin'))
+            ->where($db->quoteName('folder') . ' = ' . $db->quote('task'))
+            ->where($db->quoteName('element') . ' = ' . $db->quote('loginguardcleanup'));
+        $db->setQuery($query, 0, 1);
+        $schedulerEnabled = (int) $db->loadResult();
+
+        $status = 'active';
+
+        if ($geoipEnabled === 1 && $geoipMap === '') {
+            $status = 'geoip_degraded';
+        }
+
+        if ($automaticCleanup === 1 && $lastCleanup === '') {
+            $status = 'cleanup_failure';
+        }
+
+        if ($automaticCleanup === 1 && $schedulerEnabled !== 1) {
+            $status = 'scheduler_not_running';
+        }
+
+        if ($enforcement !== 1) {
+            $status = 'enforcement_disabled';
+        }
+
+        return [
+            'status' => $status,
+            'enforcement_enabled' => $enforcement,
+            'automatic_cleanup_enabled' => $automaticCleanup,
+            'scheduler_enabled' => $schedulerEnabled,
+            'geoip_enabled' => $geoipEnabled,
+            'geoip_configured' => $geoipMap !== '' ? 1 : 0,
+            'last_cleanup_execution' => $lastCleanup,
+            'next_cleanup_window' => $automaticCleanup === 1 && $schedulerEnabled === 1 ? 'Joomla task scheduler cadence' : '',
+        ];
+    }
+
+
+    /**
      * @return array<string, int|string>
      */
     public function getCleanupMetrics(): array

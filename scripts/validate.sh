@@ -273,10 +273,17 @@ expected_submenus = [
     ('COM_LOGINGUARD_SUBMENU_DASHBOARD', {'view': 'dashboard'}),
     ('COM_LOGINGUARD_SUBMENU_LOGIN_INFORMATION', {'view': 'attempts'}),
     ('COM_LOGINGUARD_SUBMENU_CONFIGURATION', {'link': 'option=com_config&view=component&component=com_loginguard'}),
-    ('COM_LOGINGUARD_SUBMENU_TOOLS', {'view': 'tools'}),
     ('COM_LOGINGUARD_SUBMENU_ABOUT', {'view': 'about'}),
 ]
 submenu_items = [((item.text or '').strip(), item.attrib) for item in submenu_root.findall('menu')]
+
+if 'COM_LOGINGUARD_SUBMENU_TOOLS' in component_manifest_text or 'view=tools' in component_manifest_text:
+    print('Component manifest must not register the removed Tools submenu/view', file=sys.stderr)
+    sys.exit(1)
+for removed_tools_path in [Path('administrator/components/com_loginguard/src/View/Tools'), Path('administrator/components/com_loginguard/tmpl/tools')]:
+    if removed_tools_path.exists():
+        print(f'Removed Tools view path still exists: {removed_tools_path}', file=sys.stderr)
+        sys.exit(1)
 for label, required_attrs in expected_submenus:
     if not any(item_label == label and all(attrs.get(name) == value for name, value in required_attrs.items()) for item_label, attrs in submenu_items):
         print(f'Component manifest missing administrator submenu item: {label} {required_attrs}', file=sys.stderr)
@@ -308,7 +315,7 @@ if forbidden_config_fields & config_fields:
     print(f'config.xml keeps non-functional enforcement fields: {sorted(forbidden_config_fields & config_fields)}', file=sys.stderr)
     sys.exit(1)
 
-for view in ['Dashboard', 'Attempts', 'Tools', 'About']:
+for view in ['Dashboard', 'Attempts', 'About']:
     view_file = Path(f'administrator/components/com_loginguard/src/View/{view}/HtmlView.php')
     if not view_file.is_file():
         print(f'Missing submenu view {view}', file=sys.stderr)
@@ -367,8 +374,8 @@ if any(origin in dashboard_template_text for origin in ["'api' =>", "'cli' =>"])
 helper_text = Path('administrator/components/com_loginguard/src/Helper/LoginGuardHelper.php').read_text(encoding='utf-8')
 internal_sidebar_paths = [
     Path('administrator/components/com_loginguard/src/Helper/LoginGuardHelper.php'),
-    *(Path(f'administrator/components/com_loginguard/src/View/{view}/HtmlView.php') for view in ['Dashboard', 'Attempts', 'Tools', 'About']),
-    *(Path(f'administrator/components/com_loginguard/tmpl/{view}/default.php') for view in ['dashboard', 'attempts', 'tools', 'about']),
+    *(Path(f'administrator/components/com_loginguard/src/View/{view}/HtmlView.php') for view in ['Dashboard', 'Attempts', 'About']),
+    *(Path(f'administrator/components/com_loginguard/tmpl/{view}/default.php') for view in ['dashboard', 'attempts', 'about']),
 ]
 for internal_sidebar_path in internal_sidebar_paths:
     internal_sidebar_text = internal_sidebar_path.read_text(encoding='utf-8')
@@ -400,7 +407,7 @@ if 'raw password' in login_guard_text.lower() or 'plaintext password' in install
 
 attempts_template = component_template.read_text(encoding='utf-8')
 for heading in ['COM_LOGINGUARD_HEADING_FAILURE_REASON', 'COM_LOGINGUARD_HEADING_USER_AGENT', 'COM_LOGINGUARD_HEADING_WHERE', 'COM_LOGINGUARD_HEADING_DATETIME', 'COM_LOGINGUARD_HEADING_COUNTRY', 'COM_LOGINGUARD_HEADING_CITY', 'COM_LOGINGUARD_HEADING_ISP', 'COM_LOGINGUARD_HEADING_ASN']:
-    if heading not in attempts_template:
+    if heading not in attempts_template and heading not in view_text:
         print(f'Attempts table missing required heading {heading}', file=sys.stderr)
         sys.exit(1)
 
