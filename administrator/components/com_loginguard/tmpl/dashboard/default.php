@@ -10,11 +10,8 @@ HTMLHelper::_('behavior.core');
 
 $operationalStatus = $this->operationalStatus ?? [];
 $cleanupMetrics = $this->cleanupMetrics ?? [];
-$compactMode = (bool) ($this->compactDashboardMode ?? true);
 $timeframe = (string) ($this->dashboardTimeframe ?? 'today');
-$densityClass = $compactMode ? 'loginguard-dashboard--compact' : 'loginguard-dashboard--comfortable';
-$cardPaddingClass = $compactMode ? 'p-2' : 'p-3';
-$tableClass = $compactMode ? 'table table-sm table-striped table-hover align-middle mb-0' : 'table table-striped table-hover align-middle mb-0';
+$tableClass = 'table table-sm table-striped table-hover align-middle mb-0';
 
 $statusMap = [
     'active' => ['success', 'COM_LOGINGUARD_STATUS_BANNER_PROTECTION_ACTIVE', 'COM_LOGINGUARD_STATUS_BANNER_PROTECTION_ACTIVE_DESC'],
@@ -91,10 +88,10 @@ $blockedIpStatus = static function (object $item) use ($nowSql): string {
 };
 ?>
 <style>
-.loginguard-dashboard{--lg-card-border:rgba(0,0,0,.08);--lg-dashboard-gap:.75rem}.loginguard-dashboard .card{border-color:var(--lg-card-border);box-shadow:none}.loginguard-dashboard .card-body{padding:1rem}.loginguard-dashboard--compact .card-body{padding:.65rem}.loginguard-dashboard--compact .card-title{margin-bottom:.45rem}.loginguard-kpi-strip{display:grid;grid-template-columns:1fr;gap:var(--lg-dashboard-gap);align-items:stretch}.loginguard-metric{border-left:.22rem solid var(--bs-info);min-height:4.55rem}.loginguard-metric .card-body{display:flex;flex-direction:column;justify-content:space-between;min-height:100%}.loginguard-metric--success{border-left-color:var(--bs-success)}.loginguard-metric--warning{border-left-color:var(--bs-warning)}.loginguard-metric--danger{border-left-color:var(--bs-danger)}.loginguard-metric__label{font-size:.69rem;letter-spacing:.055em}.loginguard-metric__value{font-size:1.8rem;line-height:1;font-weight:700}.loginguard-dashboard--compact .loginguard-metric__value{font-size:1.45rem}.loginguard-chip{font-size:.78rem}.loginguard-dashboard--compact .list-group-item{padding-top:.3rem;padding-bottom:.3rem}.loginguard-compact-list .list-group-item{border-left:0;border-right:0}.loginguard-action-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(8rem,1fr));gap:.5rem}.loginguard-dashboard--compact .table>:not(caption)>*>*{padding:.35rem .45rem}@media (min-width:576px){.loginguard-kpi-strip{grid-template-columns:repeat(2,minmax(0,1fr))}}@media (min-width:992px){.loginguard-kpi-strip{grid-template-columns:repeat(4,minmax(0,1fr))}}@media (min-width:1400px){.loginguard-kpi-strip{grid-template-columns:repeat(7,minmax(0,1fr))}}
+.loginguard-dashboard{--lg-card-border:rgba(0,0,0,.08);--lg-dashboard-gap:.75rem}.loginguard-dashboard .card{border-color:var(--lg-card-border);box-shadow:none}.loginguard-dashboard .card-body{padding:1rem}.loginguard-kpi-strip{display:grid;grid-template-columns:1fr;gap:var(--lg-dashboard-gap);align-items:stretch}.loginguard-metric{border-left:.22rem solid var(--bs-info);min-height:4.55rem;text-align:center}.loginguard-metric .card-body{display:flex;flex-direction:column;justify-content:center;align-items:center;gap:.5rem;min-height:100%}.loginguard-metric--success{border-left-color:var(--bs-success)}.loginguard-metric--warning{border-left-color:var(--bs-warning)}.loginguard-metric--danger{border-left-color:var(--bs-danger)}.loginguard-metric__label{font-size:.69rem;letter-spacing:.055em}.loginguard-metric__value{font-size:1.8rem;line-height:1;font-weight:700}.loginguard-chip{font-size:.78rem}.loginguard-list .list-group-item{border-left:0;border-right:0}.loginguard-action-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(8rem,1fr));gap:.5rem}@media (min-width:576px){.loginguard-kpi-strip{grid-template-columns:repeat(2,minmax(0,1fr))}}@media (min-width:992px){.loginguard-kpi-strip{grid-template-columns:repeat(4,minmax(0,1fr))}}@media (min-width:1400px){.loginguard-kpi-strip{grid-template-columns:repeat(7,minmax(0,1fr))}}
 </style>
 <form action="<?php echo Route::_('index.php?option=com_loginguard&view=dashboard'); ?>" method="post" name="adminForm" id="adminForm">
-    <div id="j-main-container" class="j-main-container loginguard-dashboard <?php echo $densityClass; ?>">
+    <div id="j-main-container" class="j-main-container loginguard-dashboard">
         <div class="d-flex flex-column flex-xl-row justify-content-between align-items-xl-center gap-2 mb-2">
             <div>
                 <h2 class="h4 mb-0"><?php echo Text::_('COM_LOGINGUARD_DASHBOARD_TITLE'); ?></h2>
@@ -108,16 +105,12 @@ $blockedIpStatus = static function (object $item) use ($nowSql): string {
                         </button>
                     <?php endforeach; ?>
                 </div>
-                <div class="btn-group btn-group-sm" role="group" aria-label="<?php echo Text::_('COM_LOGINGUARD_DASHBOARD_COMPACT_MODE'); ?>">
-                    <button type="submit" class="btn <?php echo $compactMode ? 'btn-secondary' : 'btn-outline-secondary'; ?>" name="task" value="dashboard.setCompactDensity"><?php echo Text::_('COM_LOGINGUARD_DASHBOARD_COMPACT_MODE'); ?></button>
-                    <button type="submit" class="btn <?php echo $compactMode ? 'btn-outline-secondary' : 'btn-secondary'; ?>" name="task" value="dashboard.setComfortableDensity"><?php echo Text::_('COM_LOGINGUARD_DASHBOARD_COMFORTABLE_MODE'); ?></button>
-                </div>
             </div>
         </div>
 
         <div class="loginguard-kpi-strip mb-3" aria-label="<?php echo Text::_('COM_LOGINGUARD_DASHBOARD_TOTALS'); ?>">
             <?php foreach ($kpiCards as $item) : ?>
-                <div class="card h-100 loginguard-metric loginguard-metric--<?php echo $this->escape($item[2]); ?>"><div class="card-body <?php echo $cardPaddingClass; ?>">
+                <div class="card h-100 loginguard-metric loginguard-metric--<?php echo $this->escape($item[2]); ?>"><div class="card-body">
                     <div class="text-muted text-uppercase loginguard-metric__label"><?php echo Text::_($item[1]); ?></div>
                     <div class="loginguard-metric__value"><?php echo (int) ($this->telemetryCounts[$item[0]] ?? 0); ?></div>
                 </div></div>
@@ -168,7 +161,7 @@ $blockedIpStatus = static function (object $item) use ($nowSql): string {
             <div class="col-xl-4">
                 <div class="card h-100"><div class="card-body">
                     <h2 class="h5 card-title"><?php echo Text::_('COM_LOGINGUARD_DASHBOARD_BLOCKED_IP_TELEMETRY'); ?></h2>
-                    <ul class="list-group list-group-flush loginguard-compact-list">
+                    <ul class="list-group list-group-flush loginguard-list">
                         <?php foreach (['active' => 'warning', 'temporary' => 'info', 'permanent' => 'danger', 'expired' => 'secondary'] as $metric => $tone) : ?>
                             <li class="list-group-item d-flex justify-content-between px-0"><span><?php echo Text::_('COM_LOGINGUARD_BLOCK_METRIC_' . strtoupper($metric)); ?></span><span class="badge bg-<?php echo $this->escape($tone); ?><?php echo $tone === 'warning' || $tone === 'info' ? ' text-dark' : ''; ?> rounded-pill"><?php echo (int) ($this->blockedIpTelemetry[$metric] ?? 0); ?></span></li>
                         <?php endforeach; ?>
@@ -182,7 +175,7 @@ $blockedIpStatus = static function (object $item) use ($nowSql): string {
                 <div class="card h-100"><div class="card-body">
                     <h2 class="h5 card-title"><?php echo Text::_('COM_LOGINGUARD_DASHBOARD_TOP_COUNTRIES'); ?></h2>
                     <?php if (empty($this->topCountries)) : ?><p class="text-muted mb-0 small"><?php echo Text::_('COM_LOGINGUARD_EMPTY_TOP_COUNTRIES'); ?></p><?php else : ?>
-                    <ul class="list-group list-group-flush loginguard-compact-list">
+                    <ul class="list-group list-group-flush loginguard-list">
                         <?php foreach ($this->topCountries as $item) : ?>
                             <li class="list-group-item d-flex justify-content-between px-0"><span class="text-truncate pe-2"><?php echo $this->escape((string) $item->country); ?></span><span class="badge bg-primary rounded-pill"><?php echo (int) $item->total; ?></span></li>
                         <?php endforeach; ?>
@@ -194,7 +187,7 @@ $blockedIpStatus = static function (object $item) use ($nowSql): string {
                 <div class="card h-100"><div class="card-body">
                     <h2 class="h5 card-title"><?php echo Text::_('COM_LOGINGUARD_DASHBOARD_TOP_IPS'); ?></h2>
                     <?php if (empty($this->topFailedIps)) : ?><p class="text-muted mb-0 small"><?php echo Text::_('COM_LOGINGUARD_EMPTY_TOP_IPS'); ?></p><?php else : ?>
-                    <ul class="list-group list-group-flush loginguard-compact-list">
+                    <ul class="list-group list-group-flush loginguard-list">
                         <?php foreach ($this->topFailedIps as $item) : ?>
                             <li class="list-group-item d-flex justify-content-between px-0"><span class="text-truncate pe-2"><?php echo $this->escape((string) $item->ip_address); ?></span><span class="badge bg-danger rounded-pill"><?php echo (int) $item->total; ?></span></li>
                         <?php endforeach; ?>
@@ -205,7 +198,7 @@ $blockedIpStatus = static function (object $item) use ($nowSql): string {
             <div class="col-xl-4">
                 <div class="card h-100"><div class="card-body">
                     <h2 class="h5 card-title"><?php echo Text::_('COM_LOGINGUARD_DASHBOARD_TOP_FAILURE_REASONS'); ?></h2>
-                    <ul class="list-group list-group-flush loginguard-compact-list">
+                    <ul class="list-group list-group-flush loginguard-list">
                         <?php foreach ($failureReasonLabels as $reason => $label) : ?>
                             <li class="list-group-item d-flex justify-content-between px-0"><span class="text-truncate pe-2"><?php echo Text::_($label); ?></span><span class="badge bg-secondary rounded-pill"><?php echo (int) ($this->topFailureReasons[$reason] ?? 0); ?></span></li>
                         <?php endforeach; ?>

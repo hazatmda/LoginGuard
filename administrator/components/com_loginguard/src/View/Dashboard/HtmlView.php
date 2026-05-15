@@ -45,9 +45,6 @@ final class HtmlView extends BaseHtmlView
     /** @var array<string, int|string> */
     protected $operationalStatus = [];
 
-    /** @var bool */
-    protected $compactDashboardMode = true;
-
     /** @var string */
     protected $dashboardTimeframe = 'today';
 
@@ -79,7 +76,6 @@ final class HtmlView extends BaseHtmlView
         $this->topCountries      = (array) $this->get('TopCountries');
         $this->attackOriginSummary = (array) $this->get('AttackOriginSummary');
         $this->operationalStatus = (array) $this->get('OperationalStatus');
-        $this->compactDashboardMode = (bool) $user->getParam('loginguard_compact_dashboard', 1);
         $this->actions           = LoginGuardHelper::getActions();
 
         if (count($errors = $this->get('Errors'))) {

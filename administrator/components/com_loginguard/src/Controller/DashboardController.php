@@ -50,16 +50,6 @@ final class DashboardController extends BaseController
         $this->setDashboardTimeframe('all');
     }
 
-    public function setCompactDensity(): void
-    {
-        $this->setDashboardDensity(1);
-    }
-
-    public function setComfortableDensity(): void
-    {
-        $this->setDashboardDensity(0);
-    }
-
 
     private function setDashboardTimeframe(string $timeframe): void
     {
@@ -79,21 +69,4 @@ final class DashboardController extends BaseController
         $this->setRedirect('index.php?option=com_loginguard&view=dashboard');
     }
 
-    private function setDashboardDensity(int $compactMode): void
-    {
-        LoginGuardHelper::requirePermission('core.manage');
-        LoginGuardHelper::requirePermission('loginguard.view');
-        $this->checkToken();
-
-        $user = Factory::getApplication()->getIdentity();
-        $user->setParam('loginguard_compact_dashboard', $compactMode);
-        $user->save(true);
-
-        $message = $compactMode === 1
-            ? 'COM_LOGINGUARD_DASHBOARD_COMPACT_MODE_SAVED'
-            : 'COM_LOGINGUARD_DASHBOARD_COMFORTABLE_MODE_SAVED';
-
-        $this->setMessage(Text::_($message));
-        $this->setRedirect('index.php?option=com_loginguard&view=dashboard');
-    }
 }

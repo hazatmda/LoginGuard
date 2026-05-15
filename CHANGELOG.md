@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.2.14-alpha
+
+- Refined LoginGuard audit emails with uppercase subjects, professional status/reason labels, HTML layouts with severity color accents, plain-text fallbacks, normalized labels, and the Login Guard MDA generated footer.
+- Centered dashboard KPI card labels and values while removing manual Compact Dashboard Mode/Comfortable Mode density controls and related preference handling.
+- Synchronized release metadata and package naming for `pkg_loginguard_v0.2.14-alpha.zip`.
+
 ## 0.2.13-alpha
 
 - Reworked dashboard KPI cards into a responsive seven-card strip that stacks cleanly on small screens, balances on medium screens, and expands to one horizontal row on large screens.

@@ -548,14 +548,14 @@ final class LoginGuard extends CMSPlugin
         $isSuccess = $status === 'SUCCESS_LOGIN';
         $subjectTemplate = (string) $params->get(
             $isSuccess ? 'audit_alert_success_subject' : 'audit_alert_failed_subject',
-            $isSuccess ? 'LoginGuard: successful login for {username}' : 'LoginGuard: failed login for {username}'
+            $isSuccess ? '[LOGIN GUARD] SUCCESSFUL BACKEND LOGIN' : '[LOGIN GUARD] FAILED LOGIN ATTEMPT'
         );
         $bodyTemplate = (string) $params->get(
             $isSuccess ? 'audit_alert_success_body' : 'audit_alert_failed_body',
             $this->getDefaultAlertBodyTemplate()
         );
 
-        $this->sendMail($recipients, $subjectTemplate, $bodyTemplate, $this->buildAlertTemplateVariables($record));
+        $this->sendMail($recipients, $subjectTemplate, $bodyTemplate, $this->buildAlertTemplateVariables($record), $status);
     }
 
     /** @param array<string, mixed> $record */
@@ -583,24 +583,26 @@ final class LoginGuard extends CMSPlugin
         $variables['failure_count'] = (string) ($block->failure_count ?? ($record['failure_count'] ?? ''));
         $variables['block_reason'] = (string) ($block->reason ?? 'threshold_exceeded');
 
-        $subjectTemplate = (string) $params->get('blocked_ip_alert_subject', 'LoginGuard: blocked IP {ip}');
+        $subjectTemplate = (string) $params->get('blocked_ip_alert_subject', '[LOGIN GUARD] BLOCKED LOGIN ATTEMPT');
         $bodyTemplate = (string) $params->get('blocked_ip_alert_body', $this->getDefaultBlockedIpAlertBodyTemplate());
 
-        $this->sendMail($recipients, $subjectTemplate, $bodyTemplate, $variables);
+        $this->sendMail($recipients, $subjectTemplate, $bodyTemplate, $variables, 'BLOCKED_LOGIN');
     }
 
     /** @param list<string> $recipients @param array<string, string> $variables */
-    private function sendMail(array $recipients, string $subjectTemplate, string $bodyTemplate, array $variables): void
+    private function sendMail(array $recipients, string $subjectTemplate, string $bodyTemplate, array $variables, string $status): void
     {
-        $subject = $this->replaceAlertTemplateVariables($subjectTemplate, $variables);
-        $body = $this->replaceAlertTemplateVariables($bodyTemplate, $variables);
+        $subject = strtoupper($this->replaceAlertTemplateVariables($subjectTemplate, $variables));
+        $plainBody = $this->withAlertFooter($this->replaceAlertTemplateVariables($bodyTemplate, $variables));
+        $htmlBody = $this->buildAlertHtmlBody($subject, $plainBody, $variables, $status);
 
         try {
             $mailer = Factory::getMailer();
             $mailer->addRecipient($recipients);
             $mailer->setSubject($subject);
-            $mailer->setBody($body);
-            $mailer->isHtml(false);
+            $mailer->setBody($htmlBody);
+            $mailer->AltBody = $plainBody;
+            $mailer->isHtml(true);
             $mailer->Send();
         } catch (Throwable $exception) {
             // Audit mail must never block the Joomla login flow.
@@ -661,9 +663,9 @@ final class LoginGuard extends CMSPlugin
         return [
             'username' => (string) ($record['username'] ?? 'unknown'),
             'ip' => (string) ($record['ip_address'] ?? 'unknown'),
-            'status' => $status,
-            'failure_reason' => $failureReason,
-            'where' => (string) ($record['where_at'] ?? 'frontend'),
+            'status' => $this->formatAlertStatus($status),
+            'failure_reason' => $this->formatAlertFailureReason($failureReason),
+            'where' => $this->formatAlertWhere((string) ($record['where_at'] ?? 'frontend')),
             'browser' => (string) ($record['browser'] ?? 'unknown'),
             'os' => (string) ($record['operating_system'] ?? 'unknown'),
             'datetime' => (string) ($record['created'] ?? (new Date())->toSql()),
@@ -695,12 +697,107 @@ final class LoginGuard extends CMSPlugin
 
     private function getDefaultAlertBodyTemplate(): string
     {
-        return "LoginGuard recorded a {status} event on {site_name}.\n\nUsername: {username}\nFull name: {full_name}\nName: {name}\nEmail: {email}\nIP: {ip}\nCountry: {country}\nCountry code: {country_code}\nRegion: {region}\nCity: {city}\nISP: {isp}\nASN: {asn}\nWhere: {where}\nBrowser: {browser}\nOS: {os}\nUser agent: {user_agent}\nFailure reason: {failure_reason}\nDate/time: {datetime}";
+        return "LoginGuard recorded a {status} event on {site_name}.\n\nFull Name: {full_name}\nUsername: {username}\nEmail: {email}\nIP Address: {ip}\nWhere: {where}\nBrowser: {browser}\nOperating System: {os}\nFailure Reason: {failure_reason}\nCountry: {country}\nCountry Code: {country_code}\nRegion: {region}\nCity: {city}\nISP: {isp}\nASN: {asn}\nUser Agent: {user_agent}\nDate/Time: {datetime}\n\nGenerated automatically by Login Guard MDA.";
     }
 
     private function getDefaultBlockedIpAlertBodyTemplate(): string
     {
-        return "LoginGuard blocked IP {ip} on {site_name}.\n\nWhere: {where}\nBlock type: {block_type}\nBlock reason: {block_reason}\nBlocked until: {block_until}\nFailure count: {failure_count}\nCountry: {country}\nCountry code: {country_code}\nRegion: {region}\nCity: {city}\nISP: {isp}\nASN: {asn}\nDate/time: {datetime}";
+        return "LoginGuard recorded a {status} event on {site_name}.\n\nFull Name: {full_name}\nUsername: {username}\nEmail: {email}\nIP Address: {ip}\nWhere: {where}\nBrowser: {browser}\nOperating System: {os}\nFailure Reason: {failure_reason}\nBlock Type: {block_type}\nBlock Reason: {block_reason}\nBlocked Until: {block_until}\nFailure Count: {failure_count}\nCountry: {country}\nCountry Code: {country_code}\nRegion: {region}\nCity: {city}\nISP: {isp}\nASN: {asn}\nUser Agent: {user_agent}\nDate/Time: {datetime}\n\nGenerated automatically by Login Guard MDA.";
+    }
+
+    private function withAlertFooter(string $body): string
+    {
+        $footer = 'Generated automatically by Login Guard MDA.';
+
+        if (str_contains($body, $footer)) {
+            return $body;
+        }
+
+        return rtrim($body) . "\n\n" . $footer;
+    }
+
+    /** @param array<string, string> $variables */
+    private function buildAlertHtmlBody(string $subject, string $plainBody, array $variables, string $status): string
+    {
+        $accentColor = match ($status) {
+            'SUCCESS_LOGIN' => '#1f8f45',
+            'BLOCKED_LOGIN' => '#b45309',
+            default => '#c62828',
+        };
+        $rows = [
+            'Full Name' => $variables['full_name'] ?? '',
+            'Username' => $variables['username'] ?? '',
+            'Email' => $variables['email'] ?? '',
+            'IP Address' => $variables['ip'] ?? '',
+            'Status' => $variables['status'] ?? '',
+            'Failure Reason' => $variables['failure_reason'] ?? '',
+            'Where' => $variables['where'] ?? '',
+            'Browser' => $variables['browser'] ?? '',
+            'Operating System' => $variables['os'] ?? '',
+            'Country' => $variables['country'] ?? '',
+            'Country Code' => $variables['country_code'] ?? '',
+            'Region' => $variables['region'] ?? '',
+            'City' => $variables['city'] ?? '',
+            'ISP' => $variables['isp'] ?? '',
+            'ASN' => $variables['asn'] ?? '',
+            'User Agent' => $variables['user_agent'] ?? '',
+            'Date/Time' => $variables['datetime'] ?? '',
+        ];
+        $htmlRows = '';
+
+        foreach ($rows as $label => $value) {
+            if ($value === '') {
+                continue;
+            }
+
+            $htmlRows .= '<tr><th style="padding:8px 12px;text-align:left;color:#475569;border-bottom:1px solid #e2e8f0;width:34%;font-weight:600;">' . htmlspecialchars($label, ENT_QUOTES, 'UTF-8') . '</th><td style="padding:8px 12px;color:#0f172a;border-bottom:1px solid #e2e8f0;">' . nl2br(htmlspecialchars($value, ENT_QUOTES, 'UTF-8')) . '</td></tr>';
+        }
+
+        return '<!doctype html><html><body style="margin:0;padding:0;background:#f8fafc;font-family:Arial,Helvetica,sans-serif;color:#0f172a;">'
+            . '<div style="max-width:680px;margin:0 auto;padding:24px 16px;">'
+            . '<div style="background:#ffffff;border:1px solid #e2e8f0;border-radius:10px;overflow:hidden;">'
+            . '<div style="height:8px;background:' . $accentColor . ';"></div>'
+            . '<div style="padding:24px;">'
+            . '<h1 style="margin:0 0 16px;font-size:20px;line-height:1.3;color:#0f172a;">' . htmlspecialchars($subject, ENT_QUOTES, 'UTF-8') . '</h1>'
+            . '<table role="presentation" cellspacing="0" cellpadding="0" style="width:100%;border-collapse:collapse;margin:0 0 20px;">' . $htmlRows . '</table>'
+            . '<div style="white-space:pre-wrap;font-size:14px;line-height:1.5;color:#334155;background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:14px;">' . htmlspecialchars($plainBody, ENT_QUOTES, 'UTF-8') . '</div>'
+            . '<p style="margin:20px 0 0;font-size:12px;color:#64748b;text-align:center;">Generated automatically by Login Guard MDA.</p>'
+            . '</div></div></div></body></html>';
+    }
+
+    private function formatAlertStatus(string $status): string
+    {
+        return match ($status) {
+            'SUCCESS_LOGIN' => 'SUCCESS LOGIN',
+            'FAILED_LOGIN' => 'FAILED LOGIN',
+            'BLOCKED_LOGIN' => 'BLOCKED LOGIN',
+            default => str_replace('_', ' ', strtoupper($status)),
+        };
+    }
+
+    private function formatAlertFailureReason(string $reason): string
+    {
+        return match ($reason) {
+            'PASSWORD_INCORRECT' => 'Incorrect Password',
+            'USERNAME_NOT_FOUND' => 'User Not Found',
+            'ACCOUNT_DISABLED' => 'Account Disabled',
+            'ACCOUNT_BLOCKED' => 'Account Blocked',
+            'IP_BLOCKED' => 'IP Address Blocked',
+            'INVALID_CREDENTIALS' => 'Invalid Credentials',
+            '' => '',
+            default => ucwords(strtolower(str_replace('_', ' ', $reason))),
+        };
+    }
+
+    private function formatAlertWhere(string $where): string
+    {
+        return match (strtolower($where)) {
+            'backend', 'administrator' => 'Backend',
+            'frontend', 'site' => 'Frontend',
+            'api' => 'API',
+            'cli' => 'CLI',
+            default => ucwords(strtolower(str_replace('_', ' ', $where))),
+        };
     }
 
     /** @return array<string, mixed> */
