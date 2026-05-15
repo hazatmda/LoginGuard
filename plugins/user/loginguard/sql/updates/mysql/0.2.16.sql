@@ -1,0 +1,2 @@
+-- LoginGuard 0.2.16 structured email renderer and automatic GeoIP detection release.
+-- Schema is unchanged; this migration marks the stable package upgrade lifecycle.
