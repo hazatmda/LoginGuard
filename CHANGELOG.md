@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.2.20
+- Preserve raw submitted username telemetry and stop replacing empty or missing usernames with `unknown`.
+- Store empty or missing usernames as `NULL` while preserving literal usernames such as `unknown`.
+- Render nullable usernames as `NULL (empty)` in administrator UI and mail alerts while keeping CSV exports raw.
+- Synchronized release metadata and package naming for `pkg_loginguard_v0.2.20.zip`.
+
 ## 0.2.19
 
 - Fixed LoginGuard timestamp rendering so emails, Login Information, dashboard, Blocked IP views, and CSV exports share one UTC-storage to Joomla-configured-timezone display path.

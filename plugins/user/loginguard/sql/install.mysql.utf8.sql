@@ -2,7 +2,7 @@ CREATE TABLE IF NOT EXISTS `#__loginguard_attempts` (
   `id` int unsigned NOT NULL AUTO_INCREMENT,
   `user_id` int NOT NULL DEFAULT 0,
   `name` varchar(255) NOT NULL DEFAULT '',
-  `username` varchar(255) NOT NULL DEFAULT '',
+  `username` varchar(255) NULL DEFAULT NULL,
   `email` varchar(255) NOT NULL DEFAULT '',
   `ip_address` varchar(255) NOT NULL DEFAULT '',
   `status` varchar(20) NOT NULL DEFAULT 'FAILED_LOGIN',
