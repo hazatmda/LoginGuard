@@ -403,6 +403,34 @@ for permission in required_actions:
         sys.exit(1)
 
 install_sql = (plugin_manifest.parent / 'sql/install.mysql.utf8.sql').read_text(encoding='utf-8')
+username_migration = plugin_manifest.parent / 'sql/updates/mysql' / f"{versions['VERSION']}.sql"
+username_migration_text = username_migration.read_text(encoding='utf-8') if username_migration.is_file() else ''
+dashboard_template_text = Path('administrator/components/com_loginguard/tmpl/dashboard/default.php').read_text(encoding='utf-8')
+attempts_template = component_template.read_text(encoding='utf-8')
+username_storage_tokens = [
+    "'username' => $this->normaliseTelemetryUsername($attempt['username'] ?? null)",
+    "$values[] = 'NULL'",
+    'normaliseTelemetryUsername',
+]
+for token in username_storage_tokens:
+    if token not in login_guard_text:
+        print(f'Username telemetry storage must preserve raw values and write missing/empty usernames as NULL: {token}', file=sys.stderr)
+        sys.exit(1)
+if "'username' => $this->readPayloadValue($payload, 'username', 'unknown')" in login_guard_text or "'username' => (string) ($record['username'] ?? 'unknown')" in login_guard_text:
+    print('Username telemetry must not fall back to synthetic unknown values', file=sys.stderr)
+    sys.exit(1)
+if '`username` varchar(255) NULL DEFAULT NULL' not in install_sql:
+    print('Install SQL must allow NULL username values', file=sys.stderr)
+    sys.exit(1)
+if 'MODIFY `username` varchar(255) NULL DEFAULT NULL' not in username_migration_text or "SET `username` = NULL" not in username_migration_text:
+    print('Current migration must convert empty usernames to nullable username storage', file=sys.stderr)
+    sys.exit(1)
+if 'LoginGuardHelper::formatNullableUsername($item->username ?? null)' not in attempts_template + dashboard_template_text:
+    print('Administrator UI must render NULL usernames as NULL (empty)', file=sys.stderr)
+    sys.exit(1)
+if 'formatNullableUsername($record' not in login_guard_text:
+    print('Mail alert rendering must format NULL usernames in the presentation layer', file=sys.stderr)
+    sys.exit(1)
 if '#__loginguard_cleanup_runs' not in install_sql:
     print('Install SQL missing cleanup metrics table', file=sys.stderr)
     sys.exit(1)
@@ -418,7 +446,6 @@ if 'raw password' in login_guard_text.lower() or 'plaintext password' in install
     print('Potential plaintext password storage detected', file=sys.stderr)
     sys.exit(1)
 
-attempts_template = component_template.read_text(encoding='utf-8')
 for heading in ['COM_LOGINGUARD_HEADING_FAILURE_REASON', 'COM_LOGINGUARD_HEADING_USER_AGENT', 'COM_LOGINGUARD_HEADING_WHERE', 'COM_LOGINGUARD_HEADING_DATETIME', 'COM_LOGINGUARD_HEADING_COUNTRY', 'COM_LOGINGUARD_HEADING_CITY', 'COM_LOGINGUARD_HEADING_ISP', 'COM_LOGINGUARD_HEADING_ASN']:
     if heading not in attempts_template and heading not in view_text:
         print(f'Attempts table missing required heading {heading}', file=sys.stderr)

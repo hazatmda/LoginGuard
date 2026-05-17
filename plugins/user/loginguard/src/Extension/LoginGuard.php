@@ -97,7 +97,7 @@ final class LoginGuard extends CMSPlugin
 
             $record = $this->buildAttemptRecord([
                 'name' => $this->readPayloadValue($payload, 'name', ''),
-                'username' => $this->readPayloadValue($payload, 'username', 'unknown'),
+                'username' => $this->readPayloadValue($payload, 'username', null),
                 'email' => $this->readPayloadValue($payload, 'email', ''),
                 'user_id' => 0,
                 'status' => 'BLOCKED_LOGIN',
@@ -166,7 +166,7 @@ final class LoginGuard extends CMSPlugin
 
         $this->storeAttempt([
             'name' => $this->readPayloadValue($user, 'name', ''),
-            'username' => $this->readPayloadValue($user, 'username', $this->readPayloadValue($payload, 'username', 'unknown')),
+            'username' => $this->readPayloadValue($user, 'username', $this->readPayloadValue($payload, 'username', null)),
             'email' => $this->readPayloadValue($user, 'email', $this->readPayloadValue($payload, 'email', '')),
             'user_id' => (int) $this->readPayloadValue($user, 'id', 0),
             'status' => 'SUCCESS_LOGIN',
@@ -185,7 +185,7 @@ final class LoginGuard extends CMSPlugin
 
         $this->storeAttempt([
             'name' => $this->readPayloadValue($payload, 'name', ''),
-            'username' => $this->readPayloadValue($payload, 'username', 'unknown'),
+            'username' => $this->readPayloadValue($payload, 'username', null),
             'email' => $this->readPayloadValue($payload, 'email', ''),
             'user_id' => 0,
             'status' => 'FAILED_LOGIN',
@@ -244,7 +244,7 @@ final class LoginGuard extends CMSPlugin
         $geoip     = $this->detectGeoIp($ipAddress);
 
         return [
-            'username' => $this->cleanString((string) ($attempt['username'] ?? 'unknown'), 'unknown'),
+            'username' => $this->normaliseTelemetryUsername($attempt['username'] ?? null),
             'user_id' => (int) ($attempt['user_id'] ?? 0),
             'name' => $this->cleanString((string) ($attempt['name'] ?? '')),
             'email' => $this->cleanString((string) ($attempt['email'] ?? '')),
@@ -274,7 +274,13 @@ final class LoginGuard extends CMSPlugin
         $values  = [];
 
         foreach ($record as $column => $value) {
-            $values[] = $column === 'user_id' ? (string) (int) $value : $db->quote((string) $value);
+            if ($column === 'user_id') {
+                $values[] = (string) (int) $value;
+            } elseif ($value === null) {
+                $values[] = 'NULL';
+            } else {
+                $values[] = $db->quote((string) $value);
+            }
         }
 
         $query = $db->getQuery(true)
@@ -314,6 +320,11 @@ final class LoginGuard extends CMSPlugin
                 if (!isset($existing[$column])) {
                     $db->setQuery($sql)->execute();
                 }
+            }
+
+            if (isset($existing['username'])) {
+                $db->setQuery("UPDATE `#__loginguard_attempts` SET `username` = NULL WHERE `username` = ''")->execute();
+                $db->setQuery("ALTER TABLE `#__loginguard_attempts` MODIFY `username` varchar(255) NULL DEFAULT NULL")->execute();
             }
         } catch (Throwable $exception) {
             // Schema reconciliation must never block a Joomla login.
@@ -668,7 +679,7 @@ final class LoginGuard extends CMSPlugin
         $failureReason = $status === 'FAILED_LOGIN' || $status === 'BLOCKED_LOGIN' ? (string) ($record['reason'] ?? '') : '';
 
         return [
-            'username' => (string) ($record['username'] ?? 'unknown'),
+            'username' => $this->formatNullableUsername($record['username'] ?? null),
             'ip' => (string) ($record['ip_address'] ?? 'unknown'),
             'status' => $this->formatAlertStatus($status),
             'failure_reason' => $this->formatAlertFailureReason($failureReason),
@@ -1284,6 +1295,23 @@ final class LoginGuard extends CMSPlugin
         }
 
         return $this->emptyGeoIpTelemetry();
+    }
+
+
+    private function normaliseTelemetryUsername($value): ?string
+    {
+        if ($value === null) {
+            return null;
+        }
+
+        $value = (string) $value;
+
+        return $value === '' ? null : $value;
+    }
+
+    private function formatNullableUsername($value): string
+    {
+        return $value === null || (is_string($value) && $value === '') ? 'NULL (empty)' : (string) $value;
     }
 
     private function cleanString(string $value, string $fallback = ''): string

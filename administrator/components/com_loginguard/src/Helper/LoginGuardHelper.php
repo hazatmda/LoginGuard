@@ -57,6 +57,12 @@ final class LoginGuardHelper
         return $date->setTimezone(self::getConfiguredTimezone())->format($format ?: Text::_('DATE_FORMAT_LC5'));
     }
 
+
+    public static function formatNullableUsername($value): string
+    {
+        return $value === null || (is_string($value) && $value === '') ? Text::_('COM_LOGINGUARD_USERNAME_NULL_EMPTY') : (string) $value;
+    }
+
     public static function formatConfiguredDateTimeInput(?string $value): string
     {
         return self::formatConfiguredDateTime($value, 'Y-m-d\\TH:i');

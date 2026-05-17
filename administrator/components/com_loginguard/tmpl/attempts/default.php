@@ -21,6 +21,7 @@ $columnValue = function (object $item, string $column): string {
         'reason' => (string) $item->reason === '' ? '' : $this->escape(Text::_('COM_LOGINGUARD_REASON_' . strtoupper((string) $item->reason))),
         'where_at' => $this->escape(Text::_('COM_LOGINGUARD_WHERE_' . strtoupper((string) ($item->where_at ?: $item->client)))),
         'created' => LoginGuardHelper::formatConfiguredDateTime((string) $item->created),
+        'username' => $this->escape(LoginGuardHelper::formatNullableUsername($item->username ?? null)),
         'user_agent' => '<span class="small text-break">' . $this->escape((string) $item->user_agent) . '</span>',
         default => $this->escape((string) ($item->{$column} ?? '')),
     };
