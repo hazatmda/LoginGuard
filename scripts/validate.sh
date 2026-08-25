@@ -3,6 +3,8 @@ set -euo pipefail
 
 find plugins administrator pkg_loginguard -name "*.php" -exec php -l {} \;
 
+php scripts/checks/mfa_provider_instantiation.php
+
 php <<'PHP'
 <?php
 define('_JEXEC', 1);
@@ -139,6 +141,20 @@ for token in [
 ]:
     if token not in login_guard:
         raise SystemExit(f'Core LoginGuard missing hardening token: {token}')
+
+# An expired manual temporary block must release its active key before the
+# threshold-triggered automatic INSERT IGNORE is attempted.
+expiry_start = login_guard.index('// Release the uniqueness key from every expired row')
+insert_start = login_guard.index('INSERT IGNORE INTO', expiry_start)
+expiry_end = login_guard.index('$db->setQuery($expireQuery)->execute()', expiry_start)
+if expiry_end > insert_start:
+    raise SystemExit('Expired-block release must execute before automatic block insertion')
+expiry_query = login_guard[expiry_start:expiry_end]
+for token in ["'enabled'", "'block_type'", "'temporary'", "'blocked_until'", "'active_key'"]:
+    if token not in expiry_query:
+        raise SystemExit(f'Expired-block release regression check missing {token}')
+if "'source'" in expiry_query:
+    raise SystemExit('Expired manual temporary blocks must be released before automatic blocking')
 
 mfa_plugin = Path('plugins/system/loginguardmfa/src/Extension/LoginGuardMfa.php').read_text(encoding='utf-8')
 for token in [

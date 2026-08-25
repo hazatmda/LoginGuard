@@ -419,7 +419,7 @@ final class LoginGuard extends CMSPlugin
 
             $now = gmdate('Y-m-d H:i:s');
 
-            // Release the uniqueness key from expired automatic rows before creating a new active block.
+            // Release the uniqueness key from every expired row before creating a new active block.
             $expireQuery = $db->getQuery(true)
                 ->update($db->quoteName('#__loginguard_blocked_ips'))
                 ->set($db->quoteName('enabled') . ' = 0')
@@ -428,7 +428,6 @@ final class LoginGuard extends CMSPlugin
                 ->set($db->quoteName('disabled_by') . ' = 0')
                 ->where($db->quoteName('ip_address') . ' = ' . $db->quote($ipAddress))
                 ->where($db->quoteName('scope') . ' = ' . $db->quote($scope))
-                ->where($db->quoteName('source') . ' = ' . $db->quote('automatic'))
                 ->where($db->quoteName('enabled') . ' = 1')
                 ->where($db->quoteName('block_type') . ' = ' . $db->quote('temporary'))
                 ->where($db->quoteName('blocked_until') . ' IS NOT NULL')
