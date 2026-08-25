@@ -72,6 +72,15 @@ final class LoginGuardMfa extends CMSPlugin implements SubscriberInterface
     {
         try {
             if (!$this->isMfaAuditingEnabled()) {
+                // Auditing may be disabled while a captive flow which LoginGuard
+                // already owns is in progress. Complete only that exact row and
+                // deliver the general success notification deferred by the user
+                // plugin; do not create an MFA row or run MFA policy/alerts.
+                $user = $this->getApplication()->getIdentity();
+                if ($user && !$user->guest && (int) $user->id > 0
+                    && $this->finalisePendingLogin((int) $user->id, '')) {
+                    $this->sendFinalSuccessAlert($user, $this->buildContext(), '');
+                }
                 return;
             }
 
@@ -212,9 +221,11 @@ final class LoginGuardMfa extends CMSPlugin implements SubscriberInterface
                 ->update($db->quoteName('#__loginguard_attempts'))
                 ->set($db->quoteName('status') . ' = ' . $db->quote('SUCCESS_LOGIN'))
                 ->set($db->quoteName('attempt_type') . ' = ' . $db->quote('login'))
-                ->set($db->quoteName('mfa_method') . ' = ' . $db->quote($method))
                 ->set($db->quoteName('reason') . ' = ' . $db->quote('MFA_COMPLETED'))
                 ->where($db->quoteName('id') . ' = ' . (string) $id);
+            if ($method !== '') {
+                $update->set($db->quoteName('mfa_method') . ' = ' . $db->quote($method));
+            }
             $db->setQuery($update)->execute();
             $session->clear($sessionKey);
             return true;

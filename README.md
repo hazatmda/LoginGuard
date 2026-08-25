@@ -18,6 +18,7 @@ Current development version: `0.2.22`.
 - Apply manual and threshold-based IP enforcement with whitelist support
 - Use separate configurable MFA-failure blocking thresholds
 - Send optional Joomla mail alerts for login, block, and MFA security events
+- Send an administrator-triggered, fixed diagnostic email to saved alert recipients without creating security telemetry
 - Run scheduled bounded retention cleanup
 - Export complete audit data with spreadsheet-formula protection applied only at export time
 - Record administrator block-management and audit-export actions
@@ -106,6 +107,18 @@ version: 0.2.22
 tag: v0.2.22
 package: pkg_loginguard_v0.2.22.zip
 ```
+
+### Stable release sequence
+
+1. Obtain a clean PR review and green GitHub CI validation on PHP 8.1, 8.2, 8.3, and 8.4.
+2. Merge v0.2.22 to `main`.
+3. Create and publish a GitHub Release with the exact tag `v0.2.22`, targeting the merged `main` commit.
+4. The release workflow verifies that the tag is exactly `v${VERSION}`, rebuilds, checks, and attaches only `pkg_loginguard_v0.2.22.zip`.
+5. Verify that the release asset URL in `updates/loginguard.xml` is available for Joomla downloads.
+
+The release job intentionally fails before upload if the release tag, canonical
+version, update-stream URLs, or exact package asset do not agree. Only that job
+has `contents: write`; ordinary validation and build jobs remain read-only.
 
 ## Security principles
 
