@@ -1,35 +1,18 @@
 <?xml version="1.0" encoding="utf-8"?>
 <form>
     <fields name="filter">
-        <field
-            name="search"
-            type="text"
-            inputmode="search"
-            label="COM_LOGINGUARD_FILTER_SEARCH_LABEL"
-            description="COM_LOGINGUARD_FILTER_SEARCH_DESC"
-            hint="COM_LOGINGUARD_SEARCH_PLACEHOLDER"
-        />
-        <field
-            name="status"
-            type="list"
-            label="COM_LOGINGUARD_FILTER_STATUS"
-            onchange="this.form.submit();"
-            default=""
-            validate="options"
-        >
+        <field name="search" type="text" inputmode="search" label="COM_LOGINGUARD_FILTER_SEARCH_LABEL" description="COM_LOGINGUARD_FILTER_SEARCH_DESC" hint="COM_LOGINGUARD_SEARCH_PLACEHOLDER" />
+        <field name="status" type="list" label="COM_LOGINGUARD_FILTER_STATUS" onchange="this.form.submit();" default="" validate="options">
             <option value="">JOPTION_SELECT_STATUS</option>
             <option value="SUCCESS_LOGIN">COM_LOGINGUARD_STATUS_SUCCESS_LOGIN</option>
             <option value="FAILED_LOGIN">COM_LOGINGUARD_STATUS_FAILED_LOGIN</option>
             <option value="BLOCKED_LOGIN">COM_LOGINGUARD_STATUS_BLOCKED_LOGIN</option>
+            <option value="MFA_PENDING">COM_LOGINGUARD_STATUS_MFA_PENDING</option>
+            <option value="MFA_FAILED">COM_LOGINGUARD_STATUS_MFA_FAILED</option>
+            <option value="MFA_SUCCESS">COM_LOGINGUARD_STATUS_MFA_SUCCESS</option>
+            <option value="MFA_TRY_LIMIT">COM_LOGINGUARD_STATUS_MFA_TRY_LIMIT</option>
         </field>
-        <field
-            name="where_at"
-            type="list"
-            label="COM_LOGINGUARD_FILTER_WHERE"
-            onchange="this.form.submit();"
-            default=""
-            validate="options"
-        >
+        <field name="where_at" type="list" label="COM_LOGINGUARD_FILTER_WHERE" onchange="this.form.submit();" default="" validate="options">
             <option value="">COM_LOGINGUARD_FILTER_WHERE</option>
             <option value="frontend">COM_LOGINGUARD_WHERE_FRONTEND</option>
             <option value="backend">COM_LOGINGUARD_WHERE_BACKEND</option>
@@ -38,46 +21,22 @@
         </field>
     </fields>
     <fields name="list">
-        <field
-            name="fullordering"
-            type="list"
-            label="JGLOBAL_SORT_BY"
-            onchange="this.form.submit();"
-            default="created DESC"
-            validate="options"
-        >
+        <field name="fullordering" type="list" label="JGLOBAL_SORT_BY" onchange="this.form.submit();" default="created DESC" validate="options">
             <option value="">JGLOBAL_SORT_BY</option>
-            <option value="id ASC">JGRID_HEADING_ID_ASC</option>
-            <option value="id DESC">JGRID_HEADING_ID_DESC</option>
-            <option value="ip_address ASC">COM_LOGINGUARD_HEADING_IP_ADDRESS_ASC</option>
-            <option value="ip_address DESC">COM_LOGINGUARD_HEADING_IP_ADDRESS_DESC</option>
-            <option value="name ASC">COM_LOGINGUARD_HEADING_NAME_ASC</option>
-            <option value="name DESC">COM_LOGINGUARD_HEADING_NAME_DESC</option>
-            <option value="username ASC">COM_LOGINGUARD_HEADING_USERNAME_ASC</option>
-            <option value="username DESC">COM_LOGINGUARD_HEADING_USERNAME_DESC</option>
-            <option value="status ASC">COM_LOGINGUARD_HEADING_STATUS_ASC</option>
-            <option value="status DESC">COM_LOGINGUARD_HEADING_STATUS_DESC</option>
-            <option value="reason ASC">COM_LOGINGUARD_HEADING_FAILURE_REASON_ASC</option>
-            <option value="reason DESC">COM_LOGINGUARD_HEADING_FAILURE_REASON_DESC</option>
-            <option value="where_at ASC">COM_LOGINGUARD_HEADING_WHERE_ASC</option>
-            <option value="where_at DESC">COM_LOGINGUARD_HEADING_WHERE_DESC</option>
-            <option value="country ASC">COM_LOGINGUARD_HEADING_COUNTRY_ASC</option>
-            <option value="country DESC">COM_LOGINGUARD_HEADING_COUNTRY_DESC</option>
-            <option value="browser ASC">COM_LOGINGUARD_HEADING_BROWSER_ASC</option>
-            <option value="browser DESC">COM_LOGINGUARD_HEADING_BROWSER_DESC</option>
-            <option value="operating_system ASC">COM_LOGINGUARD_HEADING_OS_ASC</option>
-            <option value="operating_system DESC">COM_LOGINGUARD_HEADING_OS_DESC</option>
-            <option value="user_agent ASC">COM_LOGINGUARD_HEADING_USER_AGENT_ASC</option>
-            <option value="user_agent DESC">COM_LOGINGUARD_HEADING_USER_AGENT_DESC</option>
-            <option value="created ASC">COM_LOGINGUARD_HEADING_DATETIME_ASC</option>
-            <option value="created DESC">COM_LOGINGUARD_HEADING_DATETIME_DESC</option>
+            <option value="id ASC">JGRID_HEADING_ID_ASC</option><option value="id DESC">JGRID_HEADING_ID_DESC</option>
+            <option value="ip_address ASC">COM_LOGINGUARD_HEADING_IP_ADDRESS_ASC</option><option value="ip_address DESC">COM_LOGINGUARD_HEADING_IP_ADDRESS_DESC</option>
+            <option value="name ASC">COM_LOGINGUARD_HEADING_NAME_ASC</option><option value="name DESC">COM_LOGINGUARD_HEADING_NAME_DESC</option>
+            <option value="username ASC">COM_LOGINGUARD_HEADING_USERNAME_ASC</option><option value="username DESC">COM_LOGINGUARD_HEADING_USERNAME_DESC</option>
+            <option value="status ASC">COM_LOGINGUARD_HEADING_STATUS_ASC</option><option value="status DESC">COM_LOGINGUARD_HEADING_STATUS_DESC</option>
+            <option value="reason ASC">COM_LOGINGUARD_HEADING_FAILURE_REASON_ASC</option><option value="reason DESC">COM_LOGINGUARD_HEADING_FAILURE_REASON_DESC</option>
+            <option value="where_at ASC">COM_LOGINGUARD_HEADING_WHERE_ASC</option><option value="where_at DESC">COM_LOGINGUARD_HEADING_WHERE_DESC</option>
+            <option value="mfa_method ASC">COM_LOGINGUARD_HEADING_MFA_METHOD_ASC</option><option value="mfa_method DESC">COM_LOGINGUARD_HEADING_MFA_METHOD_DESC</option>
+            <option value="country ASC">COM_LOGINGUARD_HEADING_COUNTRY_ASC</option><option value="country DESC">COM_LOGINGUARD_HEADING_COUNTRY_DESC</option>
+            <option value="browser ASC">COM_LOGINGUARD_HEADING_BROWSER_ASC</option><option value="browser DESC">COM_LOGINGUARD_HEADING_BROWSER_DESC</option>
+            <option value="operating_system ASC">COM_LOGINGUARD_HEADING_OS_ASC</option><option value="operating_system DESC">COM_LOGINGUARD_HEADING_OS_DESC</option>
+            <option value="user_agent ASC">COM_LOGINGUARD_HEADING_USER_AGENT_ASC</option><option value="user_agent DESC">COM_LOGINGUARD_HEADING_USER_AGENT_DESC</option>
+            <option value="created ASC">COM_LOGINGUARD_HEADING_DATETIME_ASC</option><option value="created DESC">COM_LOGINGUARD_HEADING_DATETIME_DESC</option>
         </field>
-        <field
-            name="limit"
-            type="limitbox"
-            label="JGLOBAL_LIST_LIMIT"
-            default="25"
-            onchange="this.form.submit();"
-        />
+        <field name="limit" type="limitbox" label="JGLOBAL_LIST_LIMIT" default="25" onchange="this.form.submit();" />
     </fields>
 </form>
