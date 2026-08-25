@@ -4,7 +4,7 @@ Joomla 5 package for login attempt detection, MFA-aware auditing, IP enforcement
 
 ## Status
 
-Current development version: `0.2.21`.
+Current development version: `0.2.22`.
 
 ## Core capabilities
 
@@ -85,7 +85,7 @@ bash scripts/build.sh
 Generated package:
 
 ```text
-packages/pkg_loginguard_v0.2.21.zip
+packages/pkg_loginguard_v0.2.22.zip
 ```
 
 ## Versioning policy
@@ -102,9 +102,9 @@ Before release, these must match:
 - release notes
 
 ```text
-version: 0.2.21
-tag: v0.2.21
-package: pkg_loginguard_v0.2.21.zip
+version: 0.2.22
+tag: v0.2.22
+package: pkg_loginguard_v0.2.22.zip
 ```
 
 ## Security principles

@@ -203,7 +203,8 @@ final class LoginGuard extends CMSPlugin
             $record = $this->buildAttemptRecord($attempt, $ipAddress, $client);
 
             $attemptId = $this->insertAttemptRecord($record, $db);
-            if ($record['status'] === 'SUCCESS_LOGIN' && $attemptId > 0 && (int) $record['user_id'] > 0) {
+            $mfaAuditingEnabled = (bool) ComponentHelper::getParams('com_loginguard')->get('mfa_auditing_enabled', 1);
+            if ($mfaAuditingEnabled && $record['status'] === 'SUCCESS_LOGIN' && $attemptId > 0 && (int) $record['user_id'] > 0) {
                 // Carry the exact primary attempt into this Joomla session so a
                 // concurrent captive flow can never claim another login row.
                 $this->getApplication()->getSession()->set(
@@ -484,7 +485,10 @@ final class LoginGuard extends CMSPlugin
         }
 
         $status = (string) ($record['status'] ?? '');
-        if ($status === 'SUCCESS_LOGIN' && $this->hasCaptiveMfa((int) ($record['user_id'] ?? 0), $db)) {
+        if ($params->get('mfa_auditing_enabled', 1)
+            && $status === 'SUCCESS_LOGIN'
+            && $this->hasCaptiveMfa((int) ($record['user_id'] ?? 0), $db)
+        ) {
             // Captive MFA is not a successful login until Joomla validates the second factor.
             // The MFA system plugin sends the single final success alert after MFA_SUCCESS.
             return;

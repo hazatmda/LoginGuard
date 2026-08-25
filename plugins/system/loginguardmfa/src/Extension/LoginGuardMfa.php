@@ -35,6 +35,10 @@ final class LoginGuardMfa extends CMSPlugin implements SubscriberInterface
     public function onCaptiveShown(Event $event): void
     {
         try {
+            if (!$this->isMfaAuditingEnabled()) {
+                return;
+            }
+
             $user = $this->getApplication()->getIdentity();
             if (!$user || $user->guest || (int) $user->id <= 0) {
                 return;
@@ -67,6 +71,10 @@ final class LoginGuardMfa extends CMSPlugin implements SubscriberInterface
     public function onMfaSuccess(Event $event): void
     {
         try {
+            if (!$this->isMfaAuditingEnabled()) {
+                return;
+            }
+
             $user = $this->getApplication()->getIdentity();
             if (!$user || $user->guest || (int) $user->id <= 0) {
                 return;
@@ -87,6 +95,10 @@ final class LoginGuardMfa extends CMSPlugin implements SubscriberInterface
     private function recordMfaEvent(string $status, string $reason, bool $countForBlocking): void
     {
         try {
+            if (!$this->isMfaAuditingEnabled()) {
+                return;
+            }
+
             $user = $this->getApplication()->getIdentity();
             if (!$user || $user->guest || (int) $user->id <= 0) {
                 return;
@@ -105,6 +117,13 @@ final class LoginGuardMfa extends CMSPlugin implements SubscriberInterface
         } catch (Throwable $exception) {
             $this->recordFailure('mfa', $exception);
         }
+    }
+
+    private function isMfaAuditingEnabled(): bool
+    {
+        // This component switch controls only LoginGuard's observers. Joomla's
+        // captive MFA flow is never modified or short-circuited by this plugin.
+        return (bool) ComponentHelper::getParams('com_loginguard')->get('mfa_auditing_enabled', 1);
     }
 
     /** @return array{ip_address:string,user_agent:string,browser:string,operating_system:string,where_at:string} */
