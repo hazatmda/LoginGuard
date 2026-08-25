@@ -1,5 +1,26 @@
 # Changelog
 
+## 0.2.21
+
+- Changed client-IP resolution to trust only the web-server/PHP `REMOTE_ADDR`; LoginGuard no longer trusts request-supplied Cloudflare or forwarded-IP headers.
+- Removed schema reconciliation and DDL from the authentication request path; schema changes are now delivered through install/update SQL only.
+- Added Joomla captive MFA auditing for `MFA_PENDING`, `MFA_FAILED`, `MFA_SUCCESS`, and `MFA_TRY_LIMIT` without reading or storing MFA codes.
+- Finalized `SUCCESS_LOGIN` only after captive MFA completion when MFA is required, while preserving normal successful-login behavior for users without captive MFA.
+- Added separate MFA failure threshold/window/cooldown policy and optional MFA failure/threshold email alerts.
+- Added composite login-attempt indexes for IP/status/time and user/status/time queries.
+- Added atomic/idempotent active automatic-block creation with a unique active key and safe recycling of expired automatic blocks.
+- Added blocked-IP provenance and lifecycle metadata (`source`, update/disable metadata) and changed normal delete behavior to soft-disable/history retention.
+- Added administrator audit records for block-management actions, login-audit deletion, and CSV export operations.
+- Added CSV spreadsheet-formula protection at export time while preserving raw stored telemetry.
+- Added bounded attacker-controlled telemetry lengths including a 2048-character User-Agent limit.
+- Added Joomla failure logging plus runtime health/degraded-state storage for database/audit, enforcement, automatic blocking, MFA, mail, GeoIP, and cleanup operations.
+- Added dashboard MFA telemetry and runtime health visibility.
+- Removed unused/misleading runtime configuration fields for trusted proxies, logging level, and export-permission toggling; ACL export permission remains mandatory.
+- Hardened cleanup to retain soft-disabled block history until its configured retention window expires.
+- Added the `plg_system_loginguardmfa` package child plugin and automatic package-lifecycle enablement.
+- Hardened GitHub Actions permissions, added PHP 8.1–8.4 validation, and expanded repository validation for the v0.2.21 security invariants.
+- Aligned documented support to Joomla 5.2+ and PHP 8.1+ and synchronized package/update metadata for `pkg_loginguard_v0.2.21.zip`.
+
 ## 0.2.20
 - Preserve raw submitted username telemetry and stop replacing empty or missing usernames with `unknown`.
 - Store empty or missing usernames as `NULL` while preserving literal usernames such as `unknown`.

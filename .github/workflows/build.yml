@@ -6,6 +6,7 @@ on:
       - main
       - develop
       - feature/**
+      - codex/**
     tags:
       - 'v*'
   pull_request:
@@ -14,35 +15,64 @@ on:
       - published
 
 jobs:
-  validate-and-build:
+  validate:
     runs-on: ubuntu-latest
-
     permissions:
-      contents: write
-
+      contents: read
+    strategy:
+      fail-fast: false
+      matrix:
+        php-version: ['8.1', '8.2', '8.3', '8.4']
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: ${{ matrix.php-version }}
+      - name: Validate repository
+        run: bash scripts/validate.sh
 
+  build:
+    needs: validate
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
       - name: Setup PHP
         uses: shivammathur/setup-php@v2
         with:
           php-version: '8.2'
-
-      - name: Validate PHP syntax
+      - name: Validate repository
         run: bash scripts/validate.sh
-
       - name: Build Joomla package
         run: bash scripts/build.sh
-
       - name: Upload package artifact
         uses: actions/upload-artifact@v4
         with:
           name: LoginGuard-package
           path: packages/*.zip
 
+  publish-release:
+    if: github.event_name == 'release'
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.2'
+      - name: Validate repository
+        run: bash scripts/validate.sh
+      - name: Build Joomla package
+        run: bash scripts/build.sh
       - name: Attach package to GitHub Release
-        if: github.event_name == 'release'
         uses: softprops/action-gh-release@v2
         with:
           files: packages/*.zip

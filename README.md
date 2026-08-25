@@ -1,28 +1,56 @@
 # LoginGuard
 
-Joomla 5 package for login attempt detection, monitoring, and auditing.
+Joomla 5 package for login attempt detection, MFA-aware auditing, IP enforcement, monitoring, and security operations.
 
 ## Status
 
-Current development version: `0.2.20`.
+Current development version: `0.2.21`.
 
-## Features planned for MVP
+## Core capabilities
 
-- Detect successful Joomla login attempts
-- Detect failed Joomla login attempts
-- Store login attempt audit records
-- Capture proxy-aware IP address, name, username, status, failure reason, where, country, country code, region, city, ISP, ASN, browser, operating system, user agent, and datetime without storing plaintext passwords
-- Provide a Joomla administrator component with Dashboard telemetry, Login Information, Configuration, Blocked IPs, and About navigation
-- Send optional Joomla mail audit alerts for successful and failed login events using Joomla Global Configuration mail settings
-- Publish Joomla update server metadata from the component lifecycle for automatic update discovery with direct package ZIP URLs
-- Integrate Joomla-native ACL permissions and component configuration through access.xml and com_config
-- Search, filter, sort, and paginate login attempt audit records while keeping Login Information as the full audit table
-- Run scheduled retention cleanup in bounded batches for old login attempts and stale blocked-IP records
-- Generate an installable Joomla package ZIP from GitHub Actions
+- Record successful Joomla login attempts
+- Record failed username/password login attempts
+- Record blocked login attempts
+- Audit Joomla captive Multi-factor Authentication outcomes without storing MFA codes
+- Reclassify primary-auth success as `MFA_PENDING` when captive MFA is required and finalize `SUCCESS_LOGIN` only after MFA succeeds
+- Capture server-established `REMOTE_ADDR`, name, username, status, failure reason, location metadata, browser, operating system, user agent, and UTC datetime without storing plaintext passwords
+- Provide Dashboard telemetry, Login Information, Configuration, Blocked IPs, and About views
+- Apply manual and threshold-based IP enforcement with whitelist support
+- Use separate configurable MFA-failure blocking thresholds
+- Send optional Joomla mail alerts for login, block, and MFA security events
+- Run scheduled bounded retention cleanup
+- Export complete audit data with spreadsheet-formula protection applied only at export time
+- Record administrator block-management and audit-export actions
+- Surface runtime health/degraded states for database, enforcement, MFA, mail, GeoIP, and cleanup operations
+- Publish Joomla update-server metadata from the component lifecycle
+- Integrate Joomla-native ACL permissions
+- Generate an installable package ZIP from GitHub Actions
 
-## GeoIP Enrichment
+## Client IP policy
 
-LoginGuard automatically enriches login telemetry when a local GeoIP capability is available. No administrator GeoIP setup is required: the plugin detects PHP GeoIP functions, common local MaxMind database locations, and legacy offline maps from upgraded installations. If no local provider is available, LoginGuard gracefully stores empty location fields while preserving proxy-aware IP resolution and the login audit flow. The Login Information table displays Country, City, ISP, and ASN, and CSV export includes all GeoIP fields.
+LoginGuard trusts only the client address already established by the web server / PHP in `REMOTE_ADDR`. It does **not** trust request-supplied `CF-Connecting-IP`, `X-Forwarded-For`, or `X-Real-IP` headers.
+
+If Joomla is behind Cloudflare, a reverse proxy, or a load balancer, configure that trusted proxy at the web-server layer so `REMOTE_ADDR` is rewritten to the verified public client IP before Joomla runs.
+
+## MFA auditing
+
+LoginGuard listens to Joomla captive MFA events. It records MFA state and method metadata, but never records the MFA code itself.
+
+Typical sequence:
+
+```text
+SUCCESS primary authentication
+        -> MFA_PENDING
+        -> MFA_FAILED / MFA_TRY_LIMIT (when applicable)
+        -> MFA_SUCCESS
+        -> SUCCESS_LOGIN finalized
+```
+
+Users without a captive MFA requirement continue to be recorded as `SUCCESS_LOGIN` normally.
+
+## GeoIP enrichment
+
+LoginGuard automatically enriches login telemetry when a local GeoIP capability is available. No remote lookup is required during authentication. The plugin detects PHP GeoIP functions, common local MaxMind database locations, and legacy offline maps from upgraded installations. If no local provider is available, LoginGuard stores empty location fields while preserving the audit flow.
 
 ## Requirements
 
@@ -30,23 +58,24 @@ LoginGuard automatically enriches login telemetry when a local GeoIP capability 
 - PHP 8.1+
 - MySQL/MariaDB supported by Joomla 5
 
-## Repository Structure
+## Repository structure
 
 ```text
-.github/workflows/build.yml               GitHub Actions validation and package artifact workflow
-administrator/components/com_loginguard/  Joomla administrator component source
-pkg_loginguard/                           Joomla package manifest source
-plugins/user/loginguard/                  Joomla user plugin source
-plugins/task/loginguardcleanup/            Joomla Scheduler cleanup task plugin source
-scripts/build.sh                          Local package build script
-scripts/validate.sh                       Local validation script
-packages/                                 Generated ZIP output directory, ignored by Git
-updates/                                  Joomla extension update stream metadata
-VERSION                                   Canonical project version
-CHANGELOG.md                              Release notes
+.github/workflows/build.yml                 validation and package workflow
+administrator/components/com_loginguard/    administrator component
+pkg_loginguard/                             package manifest / lifecycle script
+plugins/user/loginguard/                    login audit and enforcement plugin
+plugins/system/loginguardmfa/               Joomla captive MFA audit plugin
+plugins/task/loginguardcleanup/              scheduled retention cleanup plugin
+scripts/build.sh                            package build script
+scripts/validate.sh                         repository validation script
+packages/                                   generated ZIP output, ignored by Git
+updates/                                    Joomla extension update stream
+VERSION                                     canonical version
+CHANGELOG.md                                release notes
 ```
 
-## Build Package Locally
+## Build package locally
 
 ```bash
 bash scripts/validate.sh
@@ -56,28 +85,34 @@ bash scripts/build.sh
 Generated package:
 
 ```text
-packages/pkg_loginguard_v0.2.20.zip
+packages/pkg_loginguard_v0.2.21.zip
 ```
 
-## Versioning Policy
+## Versioning policy
 
 Before release, these must match:
 
 - `VERSION`
-- plugin manifest `<version>`
-- component manifest `<version>`
-- package manifest `<version>`
+- plugin manifests
+- component manifest
+- package manifest
+- update stream
 - package filename
 - release tag
 - release notes
 
-Example:
-
 ```text
-version: 0.2.20
-tag: v0.2.20
-package: pkg_loginguard_v0.2.20.zip
+version: 0.2.21
+tag: v0.2.21
+package: pkg_loginguard_v0.2.21.zip
 ```
+
+## Security principles
+
+- Never store passwords or MFA codes.
+- Keep source telemetry in the database; sanitise only presentation/export contexts where required.
+- Keep LoginGuard internal failures fail-open for Joomla authentication to avoid site lockout, while making failures observable through Joomla logs and dashboard health.
+- Perform schema changes during install/update migrations, never in the login request path.
 
 ## License
 

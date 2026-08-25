@@ -2,13 +2,13 @@
 <updates>
     <update>
         <name>LoginGuard</name>
-        <description>LoginGuard package with the user plugin, scheduled cleanup task plugin, and administrator component.</description>
+        <description>LoginGuard security, reliability, MFA auditing, cleanup, and administrator monitoring package.</description>
         <element>com_loginguard</element>
         <type>component</type>
-        <version>0.2.20</version>
-        <infourl title="LoginGuard">https://github.com/hazatmda/LoginGuard/releases/tag/v0.2.20</infourl>
+        <version>0.2.21</version>
+        <infourl title="LoginGuard">https://github.com/hazatmda/LoginGuard/releases/tag/v0.2.21</infourl>
         <downloads>
-            <downloadurl type="full" format="zip">https://github.com/hazatmda/LoginGuard/releases/download/v0.2.20/pkg_loginguard_v0.2.20.zip</downloadurl>
+            <downloadurl type="full" format="zip">https://github.com/hazatmda/LoginGuard/releases/download/v0.2.21/pkg_loginguard_v0.2.21.zip</downloadurl>
         </downloads>
         <maintainer>Hazim</maintainer>
         <maintainerurl>https://github.com/hazatmda/LoginGuard</maintainerurl>

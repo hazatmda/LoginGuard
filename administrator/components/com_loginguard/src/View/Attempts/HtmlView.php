@@ -12,40 +12,25 @@ use LoginGuard\Component\LoginGuard\Administrator\Helper\LoginGuardHelper;
 
 final class HtmlView extends BaseHtmlView
 {
-    /** @var array<int, object> */
     protected $items = [];
-
-    /** @var object */
     protected $pagination;
-
-    /** @var object */
     protected $state;
-
-    /** @var object|null */
     public $filterForm;
-
-    /** @var array<string, mixed> */
     public $activeFilters = [];
-
-    /** @var object */
     public $actions;
-
-    /** @var array<string, string> */
     public $availableColumns = [];
-
-    /** @var array<int, string> */
     public $visibleColumns = [];
 
     public function display($tpl = null): void
     {
         LoginGuardHelper::requirePermission('loginguard.view');
 
-        $this->items         = $this->get('Items');
-        $this->pagination    = $this->get('Pagination');
-        $this->state         = $this->get('State');
-        $this->filterForm    = $this->get('FilterForm');
+        $this->items = $this->get('Items');
+        $this->pagination = $this->get('Pagination');
+        $this->state = $this->get('State');
+        $this->filterForm = $this->get('FilterForm');
         $this->activeFilters = $this->get('ActiveFilters');
-        $this->actions       = LoginGuardHelper::getActions();
+        $this->actions = LoginGuardHelper::getActions();
         $this->availableColumns = $this->getAvailableColumns();
         $this->visibleColumns = $this->getVisibleColumns();
 
@@ -54,15 +39,12 @@ final class HtmlView extends BaseHtmlView
         }
 
         ToolbarHelper::title('LoginGuard: Login Information', 'shield-alt');
-
         if ($this->actions->get('loginguard.export')) {
             ToolbarHelper::custom('attempts.export', 'download', '', 'COM_LOGINGUARD_TOOLBAR_EXPORT', false);
         }
-
         if ($this->actions->get('loginguard.delete')) {
             ToolbarHelper::deleteList('JGLOBAL_CONFIRM_DELETE', 'attempts.delete', 'JTOOLBAR_DELETE');
         }
-
         if ($this->actions->get('core.admin')) {
             ToolbarHelper::preferences('com_loginguard');
         }
@@ -70,9 +52,7 @@ final class HtmlView extends BaseHtmlView
         parent::display($tpl);
     }
 
-    /**
-     * @return array<string, string>
-     */
+    /** @return array<string, string> */
     private function getAvailableColumns(): array
     {
         return [
@@ -82,6 +62,8 @@ final class HtmlView extends BaseHtmlView
             'status' => 'COM_LOGINGUARD_HEADING_STATUS',
             'reason' => 'COM_LOGINGUARD_HEADING_FAILURE_REASON',
             'where_at' => 'COM_LOGINGUARD_HEADING_WHERE',
+            'attempt_type' => 'COM_LOGINGUARD_HEADING_ATTEMPT_TYPE',
+            'mfa_method' => 'COM_LOGINGUARD_HEADING_MFA_METHOD',
             'country' => 'COM_LOGINGUARD_HEADING_COUNTRY',
             'city' => 'COM_LOGINGUARD_HEADING_CITY',
             'isp' => 'COM_LOGINGUARD_HEADING_ISP',
@@ -93,9 +75,7 @@ final class HtmlView extends BaseHtmlView
         ];
     }
 
-    /**
-     * @return array<int, string>
-     */
+    /** @return array<int, string> */
     private function getVisibleColumns(): array
     {
         $app = Factory::getApplication();
@@ -105,12 +85,10 @@ final class HtmlView extends BaseHtmlView
         if (is_array($requested)) {
             $columns = array_values(array_intersect($requested, $default));
             $app->setUserState('com_loginguard.attempts.visible_columns', $columns);
-
             return $columns;
         }
 
         $columns = $app->getUserState('com_loginguard.attempts.visible_columns', $default);
-
         return array_values(array_intersect(is_array($columns) ? $columns : $default, $default));
     }
 }
