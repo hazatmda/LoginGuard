@@ -5,6 +5,7 @@ namespace Joomla\Plugin\System\LoginGuardMfa\Extension;
 defined('_JEXEC') or die;
 
 use Joomla\CMS\Component\ComponentHelper;
+use Joomla\CMS\Factory;
 use Joomla\CMS\Log\Log;
 use Joomla\CMS\Plugin\CMSPlugin;
 use Joomla\Database\DatabaseAwareTrait;
@@ -34,7 +35,6 @@ final class LoginGuardMfa extends CMSPlugin implements SubscriberInterface
     {
         try {
             $user = $this->getApplication()->getIdentity();
-
             if (!$user || $user->guest || (int) $user->id <= 0) {
                 return;
             }
@@ -67,7 +67,6 @@ final class LoginGuardMfa extends CMSPlugin implements SubscriberInterface
     {
         try {
             $user = $this->getApplication()->getIdentity();
-
             if (!$user || $user->guest || (int) $user->id <= 0) {
                 return;
             }
@@ -76,6 +75,7 @@ final class LoginGuardMfa extends CMSPlugin implements SubscriberInterface
             $method = $this->getMfaMethod((int) $user->id);
             $this->insertAttempt($user, $context, 'MFA_SUCCESS', 'MFA_COMPLETED', $method);
             $this->finalisePendingLogin((int) $user->id, $context['ip_address'], $method, $user, $context);
+            $this->sendFinalSuccessAlert($user, $context, $method);
             $this->recordHealth('mfa', 'healthy', 'Last MFA validation completed successfully.');
         } catch (Throwable $exception) {
             $this->recordFailure('mfa', $exception);
@@ -86,7 +86,6 @@ final class LoginGuardMfa extends CMSPlugin implements SubscriberInterface
     {
         try {
             $user = $this->getApplication()->getIdentity();
-
             if (!$user || $user->guest || (int) $user->id <= 0) {
                 return;
             }
@@ -110,10 +109,7 @@ final class LoginGuardMfa extends CMSPlugin implements SubscriberInterface
     private function buildContext(): array
     {
         $server = $_SERVER;
-        $ip = isset($server['REMOTE_ADDR']) && is_scalar($server['REMOTE_ADDR'])
-            ? trim((string) $server['REMOTE_ADDR'])
-            : '';
-
+        $ip = isset($server['REMOTE_ADDR']) && is_scalar($server['REMOTE_ADDR']) ? trim((string) $server['REMOTE_ADDR']) : '';
         if ($ip === '' || filter_var($ip, FILTER_VALIDATE_IP) === false) {
             $ip = 'unknown';
         }
@@ -134,7 +130,6 @@ final class LoginGuardMfa extends CMSPlugin implements SubscriberInterface
     private function getMfaMethod(int $userId): string
     {
         $recordId = $this->getApplication()->getInput()->getInt('record_id', 0);
-
         if ($recordId <= 0) {
             return '';
         }
@@ -145,7 +140,6 @@ final class LoginGuardMfa extends CMSPlugin implements SubscriberInterface
             ->from($db->quoteName('#__user_mfa'))
             ->where($db->quoteName('id') . ' = ' . (string) $recordId)
             ->where($db->quoteName('user_id') . ' = ' . (string) $userId);
-
         $db->setQuery($query, 0, 1);
 
         return $this->truncate((string) $db->loadResult(), 100);
@@ -161,15 +155,12 @@ final class LoginGuardMfa extends CMSPlugin implements SubscriberInterface
             ->where($db->quoteName('user_id') . ' = ' . (string) $userId)
             ->where($db->quoteName('status') . ' = ' . $db->quote('SUCCESS_LOGIN'))
             ->where($db->quoteName('created') . ' >= ' . $db->quote($since));
-
         if ($ipAddress !== 'unknown') {
             $query->where($db->quoteName('ip_address') . ' = ' . $db->quote($ipAddress));
         }
-
         $query->order($db->quoteName('created') . ' DESC');
         $db->setQuery($query, 0, 1);
         $id = (int) $db->loadResult();
-
         if ($id <= 0) {
             return;
         }
@@ -181,7 +172,6 @@ final class LoginGuardMfa extends CMSPlugin implements SubscriberInterface
             ->set($db->quoteName('mfa_method') . ' = ' . $db->quote($method))
             ->set($db->quoteName('reason') . ' = ' . $db->quote('MFA_REQUIRED'))
             ->where($db->quoteName('id') . ' = ' . (string) $id);
-
         $db->setQuery($update)->execute();
     }
 
@@ -195,11 +185,9 @@ final class LoginGuardMfa extends CMSPlugin implements SubscriberInterface
             ->where($db->quoteName('user_id') . ' = ' . (string) $userId)
             ->where($db->quoteName('status') . ' = ' . $db->quote('MFA_PENDING'))
             ->where($db->quoteName('created') . ' >= ' . $db->quote($since));
-
         if ($ipAddress !== 'unknown') {
             $query->where($db->quoteName('ip_address') . ' = ' . $db->quote($ipAddress));
         }
-
         $query->order($db->quoteName('created') . ' DESC');
         $db->setQuery($query, 0, 1);
         $id = (int) $db->loadResult();
@@ -213,11 +201,9 @@ final class LoginGuardMfa extends CMSPlugin implements SubscriberInterface
                 ->set($db->quoteName('reason') . ' = ' . $db->quote('MFA_COMPLETED'))
                 ->where($db->quoteName('id') . ' = ' . (string) $id);
             $db->setQuery($update)->execute();
-
             return;
         }
 
-        // Defensive fallback for unusual Joomla flows where the pending row was not observed.
         $this->insertAttempt($user, $context, 'SUCCESS_LOGIN', 'MFA_COMPLETED', $method, 'login');
     }
 
@@ -240,12 +226,8 @@ final class LoginGuardMfa extends CMSPlugin implements SubscriberInterface
             $db->quote($this->truncate($context['browser'], 100)),
             $db->quote($this->truncate($context['operating_system'], 100)),
             $db->quote(''), $db->quote(''), $db->quote(''), $db->quote(''), $db->quote(''), $db->quote(''),
-            $db->quote($context['where_at']),
-            $db->quote($context['user_agent']),
-            $db->quote($attemptType),
-            $db->quote($this->truncate($method, 100)),
-            $db->quote($context['where_at']),
-            $db->quote($reason),
+            $db->quote($context['where_at']), $db->quote($context['user_agent']), $db->quote($attemptType),
+            $db->quote($this->truncate($method, 100)), $db->quote($context['where_at']), $db->quote($reason),
             $db->quote(gmdate('Y-m-d H:i:s')),
         ];
 
@@ -263,16 +245,13 @@ final class LoginGuardMfa extends CMSPlugin implements SubscriberInterface
         }
 
         $params = ComponentHelper::getParams('com_loginguard');
-
         if (!(int) $params->get('enforcement_enabled', 0) || !(int) $params->get('mfa_automatic_blocking_enabled', 0)) {
             return;
         }
-
         if (($client === 'backend' && !(int) $params->get('backend_enforcement_enabled', 1))
             || ($client === 'frontend' && !(int) $params->get('frontend_enforcement_enabled', 1))) {
             return;
         }
-
         if ($this->isWhitelistedIp($ipAddress, (string) $params->get('whitelisted_ips', ''))) {
             return;
         }
@@ -290,28 +269,42 @@ final class LoginGuardMfa extends CMSPlugin implements SubscriberInterface
             ->where($db->quoteName('created') . ' >= ' . $db->quote($since));
         $db->setQuery($query);
         $failureCount = (int) $db->loadResult();
-
         if ($failureCount < $threshold) {
             return;
         }
 
         $scope = (string) $params->get('automatic_block_scope', 'all');
-        if (!in_array($scope, ['all', 'frontend', 'backend'], true)) {
-            $scope = 'all';
-        }
+        $scope = in_array($scope, ['all', 'frontend', 'backend'], true) ? $scope : 'all';
+        $now = gmdate('Y-m-d H:i:s');
+
+        // Expired rows are history and must not retain the unique active key.
+        $expire = $db->getQuery(true)
+            ->update($db->quoteName('#__loginguard_blocked_ips'))
+            ->set($db->quoteName('enabled') . ' = 0')
+            ->set($db->quoteName('active_key') . ' = NULL')
+            ->set($db->quoteName('disabled_at') . ' = ' . $db->quote($now))
+            ->set($db->quoteName('disabled_by') . ' = 0')
+            ->where($db->quoteName('ip_address') . ' = ' . $db->quote($ipAddress))
+            ->where($db->quoteName('scope') . ' = ' . $db->quote($scope))
+            ->where($db->quoteName('enabled') . ' = 1')
+            ->where($db->quoteName('block_type') . ' = ' . $db->quote('temporary'))
+            ->where($db->quoteName('blocked_until') . ' IS NOT NULL')
+            ->where($db->quoteName('blocked_until') . ' < ' . $db->quote($now));
+        $db->setQuery($expire)->execute();
 
         $blockedUntil = gmdate('Y-m-d H:i:s', time() + ($cooldownMinutes * 60));
-        $now = gmdate('Y-m-d H:i:s');
         $activeKey = hash('sha256', $ipAddress . '|' . $scope);
+        $columns = [
+            'ip_address', 'scope', 'block_type', 'reason', 'source', 'active_key', 'failure_count',
+            'blocked_until', 'created', 'created_by', 'updated', 'updated_by', 'disabled_at', 'disabled_by', 'enabled',
+        ];
+        $values = [
+            $db->quote($ipAddress), $db->quote($scope), $db->quote('temporary'), $db->quote('mfa_threshold_exceeded'),
+            $db->quote('automatic'), $db->quote($activeKey), (string) $failureCount, $db->quote($blockedUntil),
+            $db->quote($now), '0', 'NULL', '0', 'NULL', '0', '1',
+        ];
         $sql = 'INSERT IGNORE INTO ' . $db->quoteName('#__loginguard_blocked_ips')
-            . ' (' . implode(',', array_map([$db, 'quoteName'], [
-                'ip_address', 'scope', 'block_type', 'reason', 'source', 'active_key', 'failure_count',
-                'blocked_until', 'created', 'created_by', 'updated', 'updated_by', 'disabled_at', 'disabled_by', 'enabled',
-            ])) . ') VALUES (' . implode(',', [
-                $db->quote($ipAddress), $db->quote($scope), $db->quote('temporary'), $db->quote('mfa_threshold_exceeded'),
-                $db->quote('automatic'), $db->quote($activeKey), (string) $failureCount, $db->quote($blockedUntil),
-                $db->quote($now), '0', 'NULL', '0', 'NULL', '0', '1',
-            ]) . ')';
+            . ' (' . implode(',', array_map([$db, 'quoteName'], $columns)) . ') VALUES (' . implode(',', $values) . ')';
         $db->setQuery($sql)->execute();
 
         if ($db->getAffectedRows() > 0) {
@@ -322,45 +315,54 @@ final class LoginGuardMfa extends CMSPlugin implements SubscriberInterface
     private function sendMfaFailureAlert($user, array $context, string $status, string $reason, string $method): void
     {
         $params = ComponentHelper::getParams('com_loginguard');
-
         if (!(int) $params->get('audit_alerts_enabled', 0) || !(int) $params->get('mfa_alert_failed', 0)) {
             return;
         }
 
-        $this->sendAlert(
-            '[LOGIN GUARD] MFA VERIFICATION FAILED',
-            [
-                'Username' => (string) ($user->username ?? ''),
-                'IP Address' => $context['ip_address'],
-                'Where' => ucfirst($context['where_at']),
-                'MFA Method' => $method !== '' ? $method : 'Unknown',
-                'Result' => str_replace('_', ' ', $status),
-                'Reason' => str_replace('_', ' ', $reason),
-                'Date/Time (UTC)' => gmdate('Y-m-d H:i:s'),
-            ],
-            (string) $params->get('audit_alert_recipients', '')
-        );
+        $this->sendAlert('[LOGIN GUARD] MFA VERIFICATION FAILED', [
+            'Username' => (string) ($user->username ?? ''),
+            'IP Address' => $context['ip_address'],
+            'Where' => ucfirst($context['where_at']),
+            'MFA Method' => $method !== '' ? $method : 'Unknown',
+            'Result' => str_replace('_', ' ', $status),
+            'Reason' => str_replace('_', ' ', $reason),
+            'Date/Time (UTC)' => gmdate('Y-m-d H:i:s'),
+        ], (string) $params->get('audit_alert_recipients', ''));
     }
 
     private function sendMfaThresholdAlert(string $ipAddress, string $client, int $failureCount, string $blockedUntil): void
     {
         $params = ComponentHelper::getParams('com_loginguard');
-
         if (!(int) $params->get('audit_alerts_enabled', 0) || !(int) $params->get('mfa_alert_threshold', 1)) {
             return;
         }
 
-        $this->sendAlert(
-            '[LOGIN GUARD] MFA FAILURE THRESHOLD BLOCK',
-            [
-                'IP Address' => $ipAddress,
-                'Where' => ucfirst($client),
-                'MFA Failures' => (string) $failureCount,
-                'Blocked Until (UTC)' => $blockedUntil,
-                'Date/Time (UTC)' => gmdate('Y-m-d H:i:s'),
-            ],
-            (string) $params->get('audit_alert_recipients', '')
-        );
+        $this->sendAlert('[LOGIN GUARD] MFA FAILURE THRESHOLD BLOCK', [
+            'IP Address' => $ipAddress,
+            'Where' => ucfirst($client),
+            'MFA Failures' => (string) $failureCount,
+            'Blocked Until (UTC)' => $blockedUntil,
+            'Date/Time (UTC)' => gmdate('Y-m-d H:i:s'),
+        ], (string) $params->get('audit_alert_recipients', ''));
+    }
+
+    private function sendFinalSuccessAlert($user, array $context, string $method): void
+    {
+        $params = ComponentHelper::getParams('com_loginguard');
+        if (!(int) $params->get('audit_alerts_enabled', 0) || !(int) $params->get('audit_alert_success', 0)) {
+            return;
+        }
+
+        $this->sendAlert('[LOGIN GUARD] SUCCESSFUL LOGIN - MFA VERIFIED', [
+            'Full Name' => (string) ($user->name ?? ''),
+            'Username' => (string) ($user->username ?? ''),
+            'Email' => (string) ($user->email ?? ''),
+            'IP Address' => $context['ip_address'],
+            'Where' => ucfirst($context['where_at']),
+            'MFA Method' => $method !== '' ? $method : 'Unknown',
+            'Status' => 'SUCCESS LOGIN',
+            'Date/Time (UTC)' => gmdate('Y-m-d H:i:s'),
+        ], (string) $params->get('audit_alert_recipients', ''));
     }
 
     /** @param array<string, string> $rows */
@@ -368,7 +370,6 @@ final class LoginGuardMfa extends CMSPlugin implements SubscriberInterface
     {
         $recipients = preg_split('/[\s,;]+/', $recipientConfig, -1, PREG_SPLIT_NO_EMPTY) ?: [];
         $recipients = array_values(array_unique(array_filter(array_map('trim', $recipients), static fn ($email) => filter_var($email, FILTER_VALIDATE_EMAIL))));
-
         if ($recipients === []) {
             return;
         }
@@ -383,23 +384,22 @@ final class LoginGuardMfa extends CMSPlugin implements SubscriberInterface
         }
 
         try {
-            $mailer = $this->getApplication()->getMailer();
-        } catch (Throwable) {
-            $mailer = \Joomla\CMS\Factory::getMailer();
+            $mailer = Factory::getMailer();
+            $mailer->addRecipient($recipients);
+            $mailer->setSubject($subject);
+            $mailer->setBody('<h2>' . htmlspecialchars($subject, ENT_QUOTES, 'UTF-8') . '</h2><table>' . $htmlRows . '</table><p>Generated automatically by Login Guard MDA.</p>');
+            $mailer->AltBody = implode("\n", $plainRows) . "\n\nGenerated automatically by Login Guard MDA.";
+            $mailer->isHtml(true);
+            $mailer->Send();
+            $this->recordHealth('mail', 'healthy', 'Last MFA-aware LoginGuard alert was sent successfully.');
+        } catch (Throwable $exception) {
+            $this->recordFailure('mail', $exception);
         }
-
-        $mailer->addRecipient($recipients);
-        $mailer->setSubject($subject);
-        $mailer->setBody('<h2>' . htmlspecialchars($subject, ENT_QUOTES, 'UTF-8') . '</h2><table>' . $htmlRows . '</table><p>Generated automatically by Login Guard MDA.</p>');
-        $mailer->AltBody = implode("\n", $plainRows) . "\n\nGenerated automatically by Login Guard MDA.";
-        $mailer->isHtml(true);
-        $mailer->Send();
     }
 
     private function isWhitelistedIp(string $ipAddress, string $configured): bool
     {
         $rules = preg_split('/[\r\n,;\s]+/', $configured, -1, PREG_SPLIT_NO_EMPTY) ?: [];
-
         foreach ($rules as $rule) {
             $rule = trim($rule);
             if ($rule === $ipAddress) {
@@ -412,15 +412,11 @@ final class LoginGuardMfa extends CMSPlugin implements SubscriberInterface
             [$network, $bitsRaw] = array_pad(explode('/', $rule, 2), 2, '');
             $ipBinary = @inet_pton($ipAddress);
             $networkBinary = @inet_pton($network);
-
-            if ($ipBinary === false || $networkBinary === false || strlen($ipBinary) !== strlen($networkBinary)) {
+            if ($ipBinary === false || $networkBinary === false || strlen($ipBinary) !== strlen($networkBinary) || $bitsRaw === '' || !ctype_digit($bitsRaw)) {
                 continue;
             }
 
             $maxBits = strlen($ipBinary) * 8;
-            if ($bitsRaw === '' || !ctype_digit($bitsRaw)) {
-                continue;
-            }
             $bits = (int) $bitsRaw;
             if ($bits < 0 || $bits > $maxBits) {
                 continue;
@@ -439,7 +435,6 @@ final class LoginGuardMfa extends CMSPlugin implements SubscriberInterface
                 return true;
             }
         }
-
         return false;
     }
 
@@ -450,10 +445,8 @@ final class LoginGuardMfa extends CMSPlugin implements SubscriberInterface
             $sql = 'INSERT INTO ' . $db->quoteName('#__loginguard_health')
                 . ' (' . implode(',', array_map([$db, 'quoteName'], ['health_key', 'status', 'message', 'updated'])) . ')'
                 . ' VALUES (' . implode(',', [
-                    $db->quote($this->truncate($key, 64)),
-                    $db->quote($this->truncate($status, 20)),
-                    $db->quote($this->truncate($message, 2000)),
-                    $db->quote(gmdate('Y-m-d H:i:s')),
+                    $db->quote($this->truncate($key, 64)), $db->quote($this->truncate($status, 20)),
+                    $db->quote($this->truncate($message, 2000)), $db->quote(gmdate('Y-m-d H:i:s')),
                 ]) . ') ON DUPLICATE KEY UPDATE '
                 . $db->quoteName('status') . '=VALUES(' . $db->quoteName('status') . '),'
                 . $db->quoteName('message') . '=VALUES(' . $db->quoteName('message') . '),'
@@ -466,7 +459,7 @@ final class LoginGuardMfa extends CMSPlugin implements SubscriberInterface
 
     private function recordFailure(string $category, Throwable $exception): void
     {
-        Log::add('LoginGuard ' . $category . ' failure: ' . $exception->getMessage(), Log::ERROR, 'com_loginguard.' . $category);
+        Log::add('LoginGuard ' . $category . ' failure: ' . $this->truncate($exception->getMessage(), 2000), Log::ERROR, 'com_loginguard.' . $category);
         $this->recordHealth($category, 'degraded', $exception->getMessage());
     }
 
@@ -499,7 +492,6 @@ final class LoginGuardMfa extends CMSPlugin implements SubscriberInterface
         if (function_exists('mb_substr')) {
             return mb_substr($value, 0, $maxLength, 'UTF-8');
         }
-
         return substr($value, 0, $maxLength);
     }
 }
