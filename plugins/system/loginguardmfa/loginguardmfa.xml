@@ -3,7 +3,7 @@
     <name>plg_system_loginguardmfa</name>
     <author>Hazim</author>
     <creationDate>2026-08-25</creationDate>
-    <version>0.2.21</version>
+    <version>0.2.22</version>
     <description>LoginGuard Joomla MFA captive-flow auditing and MFA attack detection.</description>
 
     <namespace path="src">Joomla\Plugin\System\LoginGuardMfa</namespace>

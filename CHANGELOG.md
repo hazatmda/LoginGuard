@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.2.22
+
+- Added the default-on **Enable MFA Auditing** master switch for LoginGuard MFA lifecycle auditing, MFA-specific automatic blocking, and MFA alerts without changing Joomla MFA itself.
+- Preserved immediate normal successful-login auditing and alerts when LoginGuard MFA auditing is disabled, including for Joomla users who have MFA configured.
+- Gated MFA policy and alert controls behind the master switch and expanded regression validation for MFA/non-MFA users in both switch states and credential/code non-access.
+- Finalized session-owned MFA attempts already in flight when auditing is switched off, without creating new MFA audit, blocking, or MFA-alert side effects.
+- Added a protected administrator Send Test Email action using saved normalized recipients, fixed diagnostic data, the LoginGuard notification layout, and mail-health reporting.
+- Hardened release publishing around canonical `VERSION`, the exact matching tag, updater URLs, and versioned package asset.
+- Synchronized release metadata and package naming for `pkg_loginguard_v0.2.22.zip`.
+
 ## 0.2.21
 
 - Changed client-IP resolution to trust only the web-server/PHP `REMOTE_ADDR`; LoginGuard no longer trusts request-supplied Cloudflare or forwarded-IP headers.

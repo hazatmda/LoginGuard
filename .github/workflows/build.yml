@@ -26,6 +26,8 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+      - name: Load canonical version
+        run: echo "VERSION=$(cat VERSION)" >> "$GITHUB_ENV"
       - name: Setup PHP
         uses: shivammathur/setup-php@v2
         with:
@@ -41,6 +43,8 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+      - name: Load canonical version
+        run: echo "VERSION=$(cat VERSION)" >> "$GITHUB_ENV"
       - name: Setup PHP
         uses: shivammathur/setup-php@v2
         with:
@@ -53,10 +57,10 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: LoginGuard-package
-          path: packages/*.zip
+          path: packages/pkg_loginguard_v${{ env.VERSION }}.zip
 
   publish-release:
-    if: github.event_name == 'release'
+    if: github.event_name == 'release' && github.event.action == 'published'
     needs: build
     runs-on: ubuntu-latest
     permissions:
@@ -64,6 +68,16 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.release.tag_name }}
+      - name: Validate release tag
+        run: |
+          VERSION="$(cat VERSION)"
+          test "${{ github.event.release.tag_name }}" = "v${VERSION}" || {
+            echo "Release tag must equal v${VERSION}" >&2
+            exit 1
+          }
+          echo "VERSION=${VERSION}" >> "$GITHUB_ENV"
       - name: Setup PHP
         uses: shivammathur/setup-php@v2
         with:
@@ -72,7 +86,11 @@ jobs:
         run: bash scripts/validate.sh
       - name: Build Joomla package
         run: bash scripts/build.sh
+      - name: Verify exact release package
+        run: |
+          VERSION="$(cat VERSION)"
+          test -f "packages/pkg_loginguard_v${VERSION}.zip"
       - name: Attach package to GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          files: packages/*.zip
+          files: packages/pkg_loginguard_v${{ env.VERSION }}.zip
