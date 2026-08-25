@@ -32,6 +32,7 @@ final class LoginGuard extends CMSPlugin
     private const MAX_CITY = 100;
     private const MAX_ISP = 255;
     private const MAX_ASN = 50;
+    private const MFA_ATTEMPT_SESSION_KEY = 'plg_system_loginguardmfa.pending_attempt.';
 
     /**
      * Enforce LoginGuard IP blocking before Joomla creates an authenticated session.
@@ -201,7 +202,15 @@ final class LoginGuard extends CMSPlugin
             $client = $this->detectWhere();
             $record = $this->buildAttemptRecord($attempt, $ipAddress, $client);
 
-            $this->insertAttemptRecord($record, $db);
+            $attemptId = $this->insertAttemptRecord($record, $db);
+            if ($record['status'] === 'SUCCESS_LOGIN' && $attemptId > 0 && (int) $record['user_id'] > 0) {
+                // Carry the exact primary attempt into this Joomla session so a
+                // concurrent captive flow can never claim another login row.
+                $this->getApplication()->getSession()->set(
+                    self::MFA_ATTEMPT_SESSION_KEY . (int) $record['user_id'],
+                    $attemptId
+                );
+            }
             $this->recordHealth($db, 'database', 'healthy', 'Login audit write completed.');
             $this->maybeAutoBlockIp($record, $db);
             $this->sendAuditAlert($record, $db);
@@ -256,7 +265,7 @@ final class LoginGuard extends CMSPlugin
     }
 
     /** @param array<string, mixed> $record */
-    private function insertAttemptRecord(array $record, DatabaseDriver $db): void
+    private function insertAttemptRecord(array $record, DatabaseDriver $db): int
     {
         $columns = array_keys($record);
         $values = [];
@@ -277,6 +286,8 @@ final class LoginGuard extends CMSPlugin
             ->values(implode(',', $values));
 
         $db->setQuery($query)->execute();
+
+        return (int) $db->insertid();
     }
 
     private function isEnforcementEnabled(string $client, $params): bool

@@ -179,15 +179,62 @@ for forbidden in ["get('code'", 'get("code"', '$code =', '$mfaCode', '$mfa_code'
     if forbidden in mfa_plugin:
         raise SystemExit(f'MFA audit plugin must never read/store MFA codes: {forbidden}')
 
-# Captive MFA owns one primary attempt for the lifetime of the session flow. A
-# refresh must return instead of selecting another historical successful login.
-for token in ['ATTEMPT_SESSION_KEY', 'get($sessionKey, 0)', 'set($sessionKey, $id)', 'clear($sessionKey)']:
+# The primary login path must bind its newly inserted attempt to the Joomla
+# session. Captive MFA may only reclassify and finalise that exact row.
+for token in ['MFA_ATTEMPT_SESSION_KEY', '$attemptId = $this->insertAttemptRecord', 'insertid()', 'set(', '$attemptId']:
+    if token not in login_guard:
+        raise SystemExit(f'Primary pending-attempt association missing: {token}')
+for token in ['ATTEMPT_SESSION_KEY', 'get($sessionKey, 0)', 'clear($sessionKey)']:
     if token not in mfa_plugin:
         raise SystemExit(f'MFA pending-attempt association missing: {token}')
-refresh_guard = mfa_plugin.index('if ((int) $session->get($sessionKey, 0) > 0)')
-success_lookup = mfa_plugin.index("->where($db->quoteName('status') . ' = ' . $db->quote('SUCCESS_LOGIN'))", refresh_guard)
-if refresh_guard > success_lookup:
-    raise SystemExit('Captive refresh guard must run before searching historical successful logins')
+pending_start = mfa_plugin.index('private function markPrimarySuccessPending')
+pending_end = mfa_plugin.index('private function finalisePendingLogin', pending_start)
+pending_code = mfa_plugin[pending_start:pending_end]
+for token in [
+    '$id = (int) $session->get($sessionKey, 0)',
+    "->where($db->quoteName('id') . ' = ' . (string) $id)",
+    "->where($db->quoteName('user_id') . ' = ' . (string) $userId)",
+    "->where($db->quoteName('status') . ' = ' . $db->quote('SUCCESS_LOGIN'))",
+]:
+    if token not in pending_code:
+        raise SystemExit(f'Exact captive-attempt reclassification missing: {token}')
+for forbidden in ["gmdate('Y-m-d H:i:s', time() - 600)", "order($db->quoteName('created')"]:
+    if forbidden in pending_code:
+        raise SystemExit(f'Captive flow must not infer a primary attempt: {forbidden}')
+
+# Regression model: concurrent sessions retain independent attempt ownership;
+# refreshes are idempotent and abandoning one flow cannot affect the other.
+attempts = {101: 'SUCCESS_LOGIN', 102: 'SUCCESS_LOGIN'}
+sessions = {'first': 101, 'second': 102}
+def show_captive(session):
+    attempt_id = sessions.get(session, 0)
+    if attempts.get(attempt_id) == 'SUCCESS_LOGIN':
+        attempts[attempt_id] = 'MFA_PENDING'
+def complete_captive(session):
+    attempt_id = sessions.get(session, 0)
+    if attempts.get(attempt_id) == 'MFA_PENDING':
+        attempts[attempt_id] = 'SUCCESS_LOGIN'
+        sessions.pop(session, None)
+show_captive('first')
+show_captive('second')
+show_captive('first')
+if attempts != {101: 'MFA_PENDING', 102: 'MFA_PENDING'}:
+    raise SystemExit('Concurrent captive flows or captive refresh are not isolated')
+complete_captive('second')
+if attempts != {101: 'MFA_PENDING', 102: 'SUCCESS_LOGIN'}:
+    raise SystemExit('A captive flow finalised an attempt owned by another session')
+sessions.pop('first')
+if attempts[102] != 'SUCCESS_LOGIN' or attempts[101] != 'MFA_PENDING':
+    raise SystemExit('Abandoning one captive flow changed another flow')
+
+# Normal single-session MFA still transitions pending to final exactly once.
+attempts = {201: 'SUCCESS_LOGIN'}
+sessions = {'single': 201}
+show_captive('single')
+complete_captive('single')
+complete_captive('single')
+if attempts != {201: 'SUCCESS_LOGIN'} or 'single' in sessions:
+    raise SystemExit('Single-session captive MFA finalisation is not idempotent')
 
 for token in ['hasCaptiveMfa(', "#__user_mfa", "status === 'SUCCESS_LOGIN'", 'The MFA system plugin sends the single final success alert']:
     if token not in login_guard:

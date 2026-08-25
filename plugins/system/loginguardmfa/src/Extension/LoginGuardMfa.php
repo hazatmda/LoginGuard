@@ -42,7 +42,7 @@ final class LoginGuardMfa extends CMSPlugin implements SubscriberInterface
 
             $context = $this->buildContext();
             $method = $this->getMfaMethod((int) $user->id);
-            $this->markPrimarySuccessPending((int) $user->id, $context['ip_address'], $method);
+            $this->markPrimarySuccessPending((int) $user->id, $method);
             $this->recordHealth('mfa', 'healthy', 'MFA captive auditing is operational.');
         } catch (Throwable $exception) {
             $this->recordFailure('mfa', $exception);
@@ -147,42 +147,26 @@ final class LoginGuardMfa extends CMSPlugin implements SubscriberInterface
         return $this->truncate((string) $db->loadResult(), 100);
     }
 
-    private function markPrimarySuccessPending(int $userId, string $ipAddress, string $method): void
+    private function markPrimarySuccessPending(int $userId, string $method): void
     {
         $session = $this->getApplication()->getSession();
         $sessionKey = self::ATTEMPT_SESSION_KEY . $userId;
-        if ((int) $session->get($sessionKey, 0) > 0) {
-            // A captive-page refresh belongs to the attempt already associated with this flow.
-            return;
-        }
-
-        $db = $this->getDatabase();
-        $since = gmdate('Y-m-d H:i:s', time() - 600);
-        $query = $db->getQuery(true)
-            ->select($db->quoteName('id'))
-            ->from($db->quoteName('#__loginguard_attempts'))
-            ->where($db->quoteName('user_id') . ' = ' . (string) $userId)
-            ->where($db->quoteName('status') . ' = ' . $db->quote('SUCCESS_LOGIN'))
-            ->where($db->quoteName('created') . ' >= ' . $db->quote($since));
-        if ($ipAddress !== 'unknown') {
-            $query->where($db->quoteName('ip_address') . ' = ' . $db->quote($ipAddress));
-        }
-        $query->order($db->quoteName('created') . ' DESC');
-        $db->setQuery($query, 0, 1);
-        $id = (int) $db->loadResult();
+        $id = (int) $session->get($sessionKey, 0);
         if ($id <= 0) {
             return;
         }
 
+        $db = $this->getDatabase();
         $update = $db->getQuery(true)
             ->update($db->quoteName('#__loginguard_attempts'))
             ->set($db->quoteName('status') . ' = ' . $db->quote('MFA_PENDING'))
             ->set($db->quoteName('attempt_type') . ' = ' . $db->quote('mfa'))
             ->set($db->quoteName('mfa_method') . ' = ' . $db->quote($method))
             ->set($db->quoteName('reason') . ' = ' . $db->quote('MFA_REQUIRED'))
-            ->where($db->quoteName('id') . ' = ' . (string) $id);
+            ->where($db->quoteName('id') . ' = ' . (string) $id)
+            ->where($db->quoteName('user_id') . ' = ' . (string) $userId)
+            ->where($db->quoteName('status') . ' = ' . $db->quote('SUCCESS_LOGIN'));
         $db->setQuery($update)->execute();
-        $session->set($sessionKey, $id);
     }
 
     private function finalisePendingLogin(int $userId, string $method): bool
