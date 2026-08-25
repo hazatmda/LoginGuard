@@ -18,6 +18,17 @@ ALTER TABLE `#__loginguard_blocked_ips`
 UPDATE `#__loginguard_blocked_ips`
    SET `source` = CASE WHEN `created_by` = 0 THEN 'automatic' ELSE 'manual' END;
 
+-- Expired temporary records are historical, not active enforcement rows.
+UPDATE `#__loginguard_blocked_ips`
+   SET `enabled` = 0,
+       `disabled_at` = COALESCE(`disabled_at`, UTC_TIMESTAMP()),
+       `disabled_by` = 0,
+       `active_key` = NULL
+ WHERE `enabled` = 1
+   AND `block_type` = 'temporary'
+   AND `blocked_until` IS NOT NULL
+   AND `blocked_until` < UTC_TIMESTAMP();
+
 -- Preserve the newest active row for each IP/scope and soft-disable older duplicates
 -- before introducing the unique active-key constraint.
 UPDATE `#__loginguard_blocked_ips` AS older
@@ -29,6 +40,7 @@ INNER JOIN `#__loginguard_blocked_ips` AS newer
        AND newer.`id` > older.`id`
    SET older.`enabled` = 0,
        older.`disabled_at` = COALESCE(older.`disabled_at`, UTC_TIMESTAMP()),
+       older.`disabled_by` = 0,
        older.`active_key` = NULL;
 
 UPDATE `#__loginguard_blocked_ips`
