@@ -37,11 +37,8 @@ PHP
 
 python3 - <<'PY'
 from pathlib import Path
-import re
-import sys
 import xml.etree.ElementTree as ET
 
-ROOT = Path('.')
 VERSION = Path('VERSION').read_text(encoding='utf-8').strip()
 if VERSION != '0.2.21':
     raise SystemExit(f'Expected VERSION 0.2.21, got {VERSION}')
@@ -110,6 +107,11 @@ schema_text = Path('plugins/user/loginguard/sql/install.mysql.utf8.sql').read_te
 for token in ['mfa_method', 'idx_loginguard_ip_status_created', 'active_key', '#__loginguard_admin_audit', '#__loginguard_health']:
     if token not in schema_text:
         raise SystemExit(f'Fresh install schema missing {token}')
+
+installer_text = Path('plugins/user/loginguard/script.php').read_text(encoding='utf-8')
+for forbidden in ['ALTER TABLE', 'CREATE TABLE IF NOT EXISTS', 'ensureSchema(']:
+    if forbidden in installer_text:
+        raise SystemExit(f'Installer PHP must delegate schema changes to Joomla SQL lifecycle: {forbidden}')
 
 ip_resolver_text = Path('plugins/user/loginguard/src/Service/IpResolver.php').read_text(encoding='utf-8')
 if 'REMOTE_ADDR' not in ip_resolver_text or 'FILTER_VALIDATE_IP' not in ip_resolver_text:
@@ -216,7 +218,7 @@ for token in ['plg_user_loginguard.zip', 'plg_system_loginguardmfa.zip', 'plg_ta
         raise SystemExit(f'Build script missing {token}')
 if '<file type="plugin" id="loginguardmfa" group="system">plg_system_loginguardmfa.zip</file>' not in package_text:
     raise SystemExit('Package manifest missing MFA child plugin')
-for token in ["'loginguardmfa', 'system'", "enableChildExtension('plugin', 'loginguardmfa', 'system')"]:
+for token in ["'element' => 'loginguardmfa'", "'folder' => 'system'", "enableChildExtension('plugin', 'loginguardmfa', 'system')"]:
     if token not in package_script:
         raise SystemExit(f'Package lifecycle missing MFA plugin handling: {token}')
 
