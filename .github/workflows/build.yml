@@ -129,8 +129,9 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           ASSET="pkg_loginguard_v${VERSION}.zip"
-          gh release view "${TAG}" --repo "${GITHUB_REPOSITORY}" --json tagName,assets --jq \
-            '.tagName as $tag | .assets[].name | select(. == env.ASSET)' >/dev/null
-          curl -fsSI -L \
+          test "$(gh release view "${TAG}" --repo "${GITHUB_REPOSITORY}" --json tagName --jq '.tagName')" = "${TAG}"
+          gh release view "${TAG}" --repo "${GITHUB_REPOSITORY}" --json assets --jq '.assets[].name' \
+            | grep -Fxq "${ASSET}"
+          curl -fsSL --range 0-0 \
             "https://github.com/${GITHUB_REPOSITORY}/releases/download/${TAG}/${ASSET}" \
-            >/dev/null
+            -o /dev/null
