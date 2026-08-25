@@ -3,7 +3,7 @@
 /**
  * LoginGuard package installer lifecycle helper.
  *
- * Joomla's package adapter owns installation and removal of the child plugin and
+ * Joomla's package adapter owns installation and removal of the child plugins and
  * component. The package remains a bootstrap installer while com_loginguard owns
  * updater authority. This script keeps package-child metadata and component
  * update-site bindings synchronized so upgrades, rollbacks, and package
@@ -17,12 +17,6 @@ use Joomla\Database\DatabaseDriver;
 
 class Pkg_LoginguardInstallerScript
 {
-    /**
-     * Remove stale package-child links before Joomla reconciles this package.
-     *
-     * @param   string  $type     Install action type.
-     * @param   mixed   $adapter  Joomla installer adapter.
-     */
     public function preflight($type, $adapter): bool
     {
         if (!in_array($type, ['install', 'update', 'discover_install', 'uninstall'], true)) {
@@ -32,12 +26,6 @@ class Pkg_LoginguardInstallerScript
         return $this->synchroniseChildExtensions($type === 'uninstall');
     }
 
-    /**
-     * Reconcile package-child links after package install/update paths.
-     *
-     * @param   string  $type     Install action type.
-     * @param   mixed   $adapter  Joomla installer adapter.
-     */
     public function postflight($type, $adapter): bool
     {
         if (!in_array($type, ['install', 'update', 'discover_install'], true)) {
@@ -46,16 +34,12 @@ class Pkg_LoginguardInstallerScript
 
         $this->synchroniseChildExtensions(false);
         $this->repairUpdateSiteRegistration();
+        $this->enableChildExtension('plugin', 'loginguardmfa', 'system');
         $this->enableChildExtension('plugin', 'loginguardcleanup', 'task');
 
         return true;
     }
 
-    /**
-     * Keep package uninstall idempotent if a child extension was removed earlier.
-     *
-     * @param   mixed  $adapter  Joomla installer adapter.
-     */
     public function uninstall($adapter): bool
     {
         return $this->synchroniseChildExtensions(true);
@@ -80,7 +64,6 @@ class Pkg_LoginguardInstallerScript
                 }
             }
         } catch (\Throwable $exception) {
-            // Registry cleanup is best-effort and must never block package lifecycle actions.
             return true;
         }
 
@@ -96,13 +79,12 @@ class Pkg_LoginguardInstallerScript
         }
     }
 
-    /**
-     * @return list<array{type: string, element: string, folder: string}>
-     */
+    /** @return list<array{type: string, element: string, folder: string}> */
     private function getChildExtensionDefinitions(): array
     {
         return [
             ['type' => 'plugin', 'element' => 'loginguard', 'folder' => 'user'],
+            ['type' => 'plugin', 'element' => 'loginguardmfa', 'folder' => 'system'],
             ['type' => 'plugin', 'element' => 'loginguardcleanup', 'folder' => 'task'],
             ['type' => 'component', 'element' => 'com_loginguard', 'folder' => ''],
         ];
@@ -124,7 +106,7 @@ class Pkg_LoginguardInstallerScript
                 ->where($db->quoteName('extension_id') . ' = ' . (int) $extensionId);
             $db->setQuery($query)->execute();
         } catch (\Throwable $exception) {
-            // Enabling the scheduler plugin is best-effort and must not block installs.
+            // Enabling LoginGuard operational plugins is best-effort and must not block installs.
         }
     }
 
