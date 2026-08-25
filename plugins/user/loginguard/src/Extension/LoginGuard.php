@@ -9,6 +9,7 @@ use Joomla\CMS\Authentication\AuthenticationResponse;
 use Joomla\CMS\Component\ComponentHelper;
 use Joomla\CMS\Factory;
 use Joomla\CMS\Language\Text;
+use Joomla\CMS\Log\Log;
 use Joomla\CMS\Plugin\CMSPlugin;
 use Joomla\CMS\User\UserHelper;
 use Joomla\Database\DatabaseDriver;
@@ -20,13 +21,22 @@ final class LoginGuard extends CMSPlugin
 {
     protected $autoloadLanguage = true;
 
+    private const MAX_USERNAME = 255;
+    private const MAX_NAME = 255;
+    private const MAX_EMAIL = 255;
+    private const MAX_IP = 45;
+    private const MAX_USER_AGENT = 2048;
+    private const MAX_COUNTRY = 100;
+    private const MAX_COUNTRY_CODE = 10;
+    private const MAX_REGION = 100;
+    private const MAX_CITY = 100;
+    private const MAX_ISP = 255;
+    private const MAX_ASN = 50;
+
     /**
      * Enforce LoginGuard IP blocking before Joomla creates an authenticated session.
      *
-     * @param   mixed  $response  Joomla authorisation response payload.
-     * @param   mixed  $options   Joomla login options payload.
-     *
-     * @return  AuthenticationResponse|null  Denied response for legacy dispatchers; null when LoginGuard allows the login.
+     * @return AuthenticationResponse|null
      */
     public function onUserAuthorisation($response = null, $options = [])
     {
@@ -55,22 +65,11 @@ final class LoginGuard extends CMSPlugin
         return $deniedResponse;
     }
 
-    /**
-     * Keep the legacy login hook non-blocking; blocking happens in onUserAuthorisation.
-     *
-     * @param   mixed  $user     Joomla login credential payload.
-     * @param   mixed  $options  Joomla login options payload.
-     *
-     * @return  bool
-     */
     public function onUserLogin($user = [], $options = []): bool
     {
         return true;
     }
 
-    /**
-     * @param   mixed  $payload  Joomla login payload.
-     */
     private function enforceBlockedIp($payload = []): bool
     {
         if (PHP_SAPI === 'cli') {
@@ -79,10 +78,8 @@ final class LoginGuard extends CMSPlugin
 
         try {
             $db = $this->getDatabase();
-            $this->ensureSchema($db);
-
             $client = $this->detectWhere();
-            $ipAddress = $this->cleanString(IpResolver::resolve(), 'unknown');
+            $ipAddress = $this->cleanString(IpResolver::resolve(), 'unknown', self::MAX_IP);
             $params = ComponentHelper::getParams('com_loginguard');
 
             if (!$this->isEnforcementEnabled($client, $params) || $this->isWhitelistedIp($ipAddress, $params)) {
@@ -92,6 +89,7 @@ final class LoginGuard extends CMSPlugin
             $block = $this->getActiveBlockForIp($ipAddress, $client, $db);
 
             if ($block === null) {
+                $this->recordHealth($db, 'enforcement', 'healthy', 'IP enforcement check completed.');
                 return false;
             }
 
@@ -106,19 +104,19 @@ final class LoginGuard extends CMSPlugin
 
             $this->insertAttemptRecord($record, $db);
             $this->sendBlockedIpAlert($record, $block, $db);
+            $this->recordHealth($db, 'enforcement', 'healthy', 'Blocked IP enforcement completed.');
 
             return true;
         } catch (Throwable $exception) {
+            $this->recordFailure('enforcement', $exception);
             return false;
         }
     }
-
 
     private function getAuthenticationResponseFromEvent(Event $event): ?AuthenticationResponse
     {
         if (method_exists($event, 'getAuthenticationResponse')) {
             $response = $event->getAuthenticationResponse();
-
             return $response instanceof AuthenticationResponse ? $response : null;
         }
 
@@ -137,7 +135,6 @@ final class LoginGuard extends CMSPlugin
     {
         $response->status = Authentication::STATUS_DENIED;
         $response->error_message = Text::_('PLG_USER_LOGINGUARD_LOGIN_BLOCKED');
-
         return $response;
     }
 
@@ -150,19 +147,15 @@ final class LoginGuard extends CMSPlugin
         try {
             Factory::getApplication()->enqueueMessage(Text::_('PLG_USER_LOGINGUARD_LOGIN_BLOCKED'), 'warning');
         } catch (Throwable $exception) {
-            // User-facing messaging must never interrupt the authorisation response.
+            $this->recordFailure('message', $exception);
         }
     }
 
-    /**
-     * Log a successful Joomla login.
-     *
-     * @param   mixed  $options  Login event options or an Event payload.
-     */
+    /** Log a successful Joomla primary login. The MFA system plugin reclassifies it to MFA_PENDING when captive MFA is required. */
     public function onUserAfterLogin($options = []): void
     {
         $payload = $this->normaliseEventPayload($options);
-        $user    = $payload['user'] ?? $payload;
+        $user = $payload['user'] ?? $payload;
 
         $this->storeAttempt([
             'name' => $this->readPayloadValue($user, 'name', ''),
@@ -174,11 +167,7 @@ final class LoginGuard extends CMSPlugin
         ]);
     }
 
-    /**
-     * Log a failed Joomla login without storing plaintext passwords.
-     *
-     * @param   mixed  $response  Failure response array/object/Event.
-     */
+    /** Log a failed Joomla username/password login without storing plaintext passwords. */
     public function onUserLoginFailure($response = []): void
     {
         $payload = $this->normaliseEventPayload($response);
@@ -203,21 +192,23 @@ final class LoginGuard extends CMSPlugin
         // LoginGuard only audits login attempts; logout must never interrupt Joomla.
     }
 
-    /**
-     * @param   array<string, mixed>  $attempt
-     */
+    /** @param array<string, mixed> $attempt */
     private function storeAttempt(array $attempt): void
     {
-        $db = $this->getDatabase();
-        $this->ensureSchema($db);
+        try {
+            $db = $this->getDatabase();
+            $ipAddress = $this->cleanString(IpResolver::resolve(), 'unknown', self::MAX_IP);
+            $client = $this->detectWhere();
+            $record = $this->buildAttemptRecord($attempt, $ipAddress, $client);
 
-        $ipAddress = $this->cleanString(IpResolver::resolve(), 'unknown');
-        $client    = $this->detectWhere();
-        $record    = $this->buildAttemptRecord($attempt, $ipAddress, $client);
-
-        $this->insertAttemptRecord($record, $db);
-        $this->maybeAutoBlockIp($record, $db);
-        $this->sendAuditAlert($record, $db);
+            $this->insertAttemptRecord($record, $db);
+            $this->recordHealth($db, 'database', 'healthy', 'Login audit write completed.');
+            $this->maybeAutoBlockIp($record, $db);
+            $this->sendAuditAlert($record, $db);
+        } catch (Throwable $exception) {
+            // LoginGuard audit failures must never interrupt Joomla authentication.
+            $this->recordFailure('database', $exception);
+        }
     }
 
     private function getDatabase(): DatabaseDriver
@@ -233,35 +224,32 @@ final class LoginGuard extends CMSPlugin
         }
     }
 
-    /**
-     * @param   array<string, mixed>  $attempt
-     *
-     * @return  array<string, mixed>
-     */
+    /** @param array<string, mixed> $attempt @return array<string, mixed> */
     private function buildAttemptRecord(array $attempt, string $ipAddress, string $client): array
     {
-        $userAgent = (string) ($_SERVER['HTTP_USER_AGENT'] ?? 'unknown');
-        $geoip     = $this->detectGeoIp($ipAddress);
+        $userAgent = $this->truncate((string) ($_SERVER['HTTP_USER_AGENT'] ?? 'unknown'), self::MAX_USER_AGENT);
+        $geoip = $this->detectGeoIp($ipAddress);
 
         return [
             'username' => $this->normaliseTelemetryUsername($attempt['username'] ?? null),
             'user_id' => (int) ($attempt['user_id'] ?? 0),
-            'name' => $this->cleanString((string) ($attempt['name'] ?? '')),
-            'email' => $this->cleanString((string) ($attempt['email'] ?? '')),
+            'name' => $this->cleanString((string) ($attempt['name'] ?? ''), '', self::MAX_NAME),
+            'email' => $this->cleanString((string) ($attempt['email'] ?? ''), '', self::MAX_EMAIL),
             'status' => $this->normaliseStatus((string) ($attempt['status'] ?? 'FAILED_LOGIN')),
-            'ip_address' => $ipAddress,
+            'ip_address' => $this->cleanString($ipAddress, 'unknown', self::MAX_IP),
             'user_agent' => $userAgent,
-            'country' => $geoip['country'],
-            'country_code' => $geoip['country_code'],
-            'region' => $geoip['region'],
-            'city' => $geoip['city'],
-            'isp' => $geoip['isp'],
-            'asn' => $geoip['asn'],
+            'country' => $this->truncate((string) $geoip['country'], self::MAX_COUNTRY),
+            'country_code' => $this->truncate((string) $geoip['country_code'], self::MAX_COUNTRY_CODE),
+            'region' => $this->truncate((string) $geoip['region'], self::MAX_REGION),
+            'city' => $this->truncate((string) $geoip['city'], self::MAX_CITY),
+            'isp' => $this->truncate((string) $geoip['isp'], self::MAX_ISP),
+            'asn' => $this->truncate((string) $geoip['asn'], self::MAX_ASN),
             'browser' => $this->detectBrowser($userAgent),
             'operating_system' => $this->detectOperatingSystem($userAgent),
             'where_at' => $client,
             'client' => $client,
-            'attempt_type' => 'login',
+            'attempt_type' => $this->truncate((string) ($attempt['attempt_type'] ?? 'login'), 50),
+            'mfa_method' => $this->truncate((string) ($attempt['mfa_method'] ?? ''), 100),
             'reason' => $this->normaliseFailureReason((string) ($attempt['reason'] ?? '')),
             'created' => gmdate('Y-m-d H:i:s'),
         ];
@@ -271,7 +259,7 @@ final class LoginGuard extends CMSPlugin
     private function insertAttemptRecord(array $record, DatabaseDriver $db): void
     {
         $columns = array_keys($record);
-        $values  = [];
+        $values = [];
 
         foreach ($record as $column => $value) {
             if ($column === 'user_id') {
@@ -289,67 +277,6 @@ final class LoginGuard extends CMSPlugin
             ->values(implode(',', $values));
 
         $db->setQuery($query)->execute();
-    }
-
-    private function ensureSchema(DatabaseDriver $db): void
-    {
-        $attemptColumns = [
-            'name' => "ALTER TABLE `#__loginguard_attempts` ADD COLUMN `name` varchar(255) NOT NULL DEFAULT '' AFTER `user_id`",
-            'email' => "ALTER TABLE `#__loginguard_attempts` ADD COLUMN `email` varchar(255) NOT NULL DEFAULT '' AFTER `username`",
-            'country' => "ALTER TABLE `#__loginguard_attempts` ADD COLUMN `country` varchar(100) NOT NULL DEFAULT '' AFTER `user_agent`",
-            'country_code' => "ALTER TABLE `#__loginguard_attempts` ADD COLUMN `country_code` varchar(10) NOT NULL DEFAULT '' AFTER `country`",
-            'region' => "ALTER TABLE `#__loginguard_attempts` ADD COLUMN `region` varchar(100) NOT NULL DEFAULT '' AFTER `country_code`",
-            'city' => "ALTER TABLE `#__loginguard_attempts` ADD COLUMN `city` varchar(100) NOT NULL DEFAULT '' AFTER `region`",
-            'isp' => "ALTER TABLE `#__loginguard_attempts` ADD COLUMN `isp` varchar(255) NOT NULL DEFAULT '' AFTER `city`",
-            'asn' => "ALTER TABLE `#__loginguard_attempts` ADD COLUMN `asn` varchar(50) NOT NULL DEFAULT '' AFTER `isp`",
-            'browser' => "ALTER TABLE `#__loginguard_attempts` ADD COLUMN `browser` varchar(100) NOT NULL DEFAULT '' AFTER `country`",
-            'operating_system' => "ALTER TABLE `#__loginguard_attempts` ADD COLUMN `operating_system` varchar(100) NOT NULL DEFAULT '' AFTER `browser`",
-            'where_at' => "ALTER TABLE `#__loginguard_attempts` ADD COLUMN `where_at` varchar(50) NOT NULL DEFAULT 'frontend' AFTER `country`",
-            'attempt_type' => "ALTER TABLE `#__loginguard_attempts` ADD COLUMN `attempt_type` varchar(50) NOT NULL DEFAULT 'login' AFTER `user_agent`",
-        ];
-
-        try {
-            $db->setQuery($this->getBlockedIpsCreateSql())->execute();
-            $existing = [];
-
-            foreach ($db->getTableColumns('#__loginguard_attempts') as $column => $type) {
-                $existing[$column] = true;
-            }
-
-            foreach ($attemptColumns as $column => $sql) {
-                if (!isset($existing[$column])) {
-                    $db->setQuery($sql)->execute();
-                }
-            }
-
-            if (isset($existing['username'])) {
-                $db->setQuery("UPDATE `#__loginguard_attempts` SET `username` = NULL WHERE `username` = ''")->execute();
-                $db->setQuery("ALTER TABLE `#__loginguard_attempts` MODIFY `username` varchar(255) NULL DEFAULT NULL")->execute();
-            }
-        } catch (Throwable $exception) {
-            // Schema reconciliation must never block a Joomla login.
-        }
-    }
-
-    private function getBlockedIpsCreateSql(): string
-    {
-        return "CREATE TABLE IF NOT EXISTS `#__loginguard_blocked_ips` (
-  `id` int unsigned NOT NULL AUTO_INCREMENT,
-  `ip_address` varchar(255) NOT NULL DEFAULT '',
-  `scope` varchar(20) NOT NULL DEFAULT 'all',
-  `block_type` varchar(20) NOT NULL DEFAULT 'temporary',
-  `reason` varchar(50) NOT NULL DEFAULT 'threshold_exceeded',
-  `failure_count` int NOT NULL DEFAULT 0,
-  `blocked_until` datetime NULL DEFAULT NULL,
-  `created` datetime NOT NULL,
-  `created_by` int NOT NULL DEFAULT 0,
-  `enabled` tinyint(1) NOT NULL DEFAULT 1,
-  PRIMARY KEY (`id`),
-  KEY `idx_loginguard_blocked_ip` (`ip_address`),
-  KEY `idx_loginguard_blocked_scope` (`scope`),
-  KEY `idx_loginguard_blocked_until` (`blocked_until`),
-  KEY `idx_loginguard_blocked_enabled` (`enabled`)
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 DEFAULT COLLATE=utf8mb4_unicode_ci";
     }
 
     private function isEnforcementEnabled(string $client, $params): bool
@@ -397,12 +324,18 @@ final class LoginGuard extends CMSPlugin
             return false;
         }
 
-        [$network, $bits] = array_pad(explode('/', $rule, 2), 2, '');
-        $bits = (int) $bits;
+        [$network, $bitsRaw] = array_pad(explode('/', $rule, 2), 2, '');
         $ipBinary = @inet_pton($ipAddress);
         $networkBinary = @inet_pton($network);
 
-        if ($ipBinary === false || $networkBinary === false || strlen($ipBinary) !== strlen($networkBinary)) {
+        if ($ipBinary === false || $networkBinary === false || strlen($ipBinary) !== strlen($networkBinary) || $bitsRaw === '' || !ctype_digit($bitsRaw)) {
+            return false;
+        }
+
+        $bits = (int) $bitsRaw;
+        $maxBits = strlen($ipBinary) * 8;
+
+        if ($bits < 0 || $bits > $maxBits) {
             return false;
         }
 
@@ -418,7 +351,6 @@ final class LoginGuard extends CMSPlugin
         }
 
         $mask = chr((0xff << (8 - $remainder)) & 0xff);
-
         return ($ipBinary[$bytes] & $mask) === ($networkBinary[$bytes] & $mask);
     }
 
@@ -436,18 +368,15 @@ final class LoginGuard extends CMSPlugin
             ->where($db->quoteName('enabled') . ' = 1')
             ->where($db->quoteName('scope') . ' IN (' . $this->quoteList($db, ['all', $client]) . ')')
             ->where(
-                '('
-                . $db->quoteName('block_type') . ' = ' . $db->quote('permanent')
+                '(' . $db->quoteName('block_type') . ' = ' . $db->quote('permanent')
                 . ' OR (' . $db->quoteName('block_type') . ' = ' . $db->quote('temporary')
                 . ' AND ' . $db->quoteName('blocked_until') . ' IS NOT NULL'
-                . ' AND ' . $db->quoteName('blocked_until') . ' >= ' . $db->quote($now) . ')'
-                . ')'
+                . ' AND ' . $db->quoteName('blocked_until') . ' >= ' . $db->quote($now) . '))'
             )
             ->order($db->quoteName('created') . ' DESC');
 
         $db->setQuery($query, 0, 1);
         $block = $db->loadObject();
-
         return $block ?: null;
     }
 
@@ -470,6 +399,8 @@ final class LoginGuard extends CMSPlugin
         $threshold = max(1, (int) $params->get('failed_attempt_threshold', 5));
         $windowMinutes = max(1, (int) $params->get('threshold_window_minutes', 15));
         $cooldownMinutes = max(1, (int) $params->get('cooldown_duration_minutes', 30));
+        $scope = (string) $params->get('automatic_block_scope', 'all');
+        $scope = in_array($scope, ['all', 'frontend', 'backend'], true) ? $scope : 'all';
         $since = gmdate('Y-m-d H:i:s', time() - ($windowMinutes * 60));
 
         try {
@@ -479,7 +410,6 @@ final class LoginGuard extends CMSPlugin
                 ->where($db->quoteName('status') . ' = ' . $db->quote('FAILED_LOGIN'))
                 ->where($db->quoteName('ip_address') . ' = ' . $db->quote($ipAddress))
                 ->where($db->quoteName('created') . ' >= ' . $db->quote($since));
-
             $db->setQuery($query);
             $failureCount = (int) $db->loadResult();
 
@@ -488,37 +418,50 @@ final class LoginGuard extends CMSPlugin
             }
 
             $now = gmdate('Y-m-d H:i:s');
+
+            // Release the uniqueness key from expired automatic rows before creating a new active block.
+            $expireQuery = $db->getQuery(true)
+                ->update($db->quoteName('#__loginguard_blocked_ips'))
+                ->set($db->quoteName('enabled') . ' = 0')
+                ->set($db->quoteName('active_key') . ' = NULL')
+                ->set($db->quoteName('disabled_at') . ' = ' . $db->quote($now))
+                ->set($db->quoteName('disabled_by') . ' = 0')
+                ->where($db->quoteName('ip_address') . ' = ' . $db->quote($ipAddress))
+                ->where($db->quoteName('scope') . ' = ' . $db->quote($scope))
+                ->where($db->quoteName('source') . ' = ' . $db->quote('automatic'))
+                ->where($db->quoteName('enabled') . ' = 1')
+                ->where($db->quoteName('block_type') . ' = ' . $db->quote('temporary'))
+                ->where($db->quoteName('blocked_until') . ' IS NOT NULL')
+                ->where($db->quoteName('blocked_until') . ' < ' . $db->quote($now));
+            $db->setQuery($expireQuery)->execute();
+
             $blockedUntil = gmdate('Y-m-d H:i:s', time() + ($cooldownMinutes * 60));
-            $columns = ['ip_address', 'scope', 'block_type', 'reason', 'failure_count', 'blocked_until', 'created', 'created_by', 'enabled'];
+            $activeKey = hash('sha256', $ipAddress . '|' . $scope);
+            $columns = [
+                'ip_address', 'scope', 'block_type', 'reason', 'source', 'active_key', 'failure_count',
+                'blocked_until', 'created', 'created_by', 'updated', 'updated_by', 'disabled_at', 'disabled_by', 'enabled',
+            ];
             $values = [
-                $db->quote($ipAddress),
-                $db->quote((string) $params->get('automatic_block_scope', 'all')),
-                $db->quote('temporary'),
-                $db->quote('threshold_exceeded'),
-                (string) $failureCount,
-                $db->quote($blockedUntil),
-                $db->quote($now),
-                '0',
-                '1',
+                $db->quote($ipAddress), $db->quote($scope), $db->quote('temporary'), $db->quote('threshold_exceeded'),
+                $db->quote('automatic'), $db->quote($activeKey), (string) $failureCount, $db->quote($blockedUntil),
+                $db->quote($now), '0', 'NULL', '0', 'NULL', '0', '1',
             ];
 
-            $insert = $db->getQuery(true)
-                ->insert($db->quoteName('#__loginguard_blocked_ips'))
-                ->columns($db->quoteName($columns))
-                ->values(implode(',', $values));
+            $sql = 'INSERT IGNORE INTO ' . $db->quoteName('#__loginguard_blocked_ips')
+                . ' (' . implode(',', array_map([$db, 'quoteName'], $columns)) . ') VALUES (' . implode(',', $values) . ')';
+            $db->setQuery($sql)->execute();
 
-            $db->setQuery($insert)->execute();
-            $this->sendBlockedIpAlert($record + ['block_until' => $blockedUntil, 'failure_count' => $failureCount], null, $db);
+            if ($db->getAffectedRows() > 0) {
+                $this->sendBlockedIpAlert($record + ['block_until' => $blockedUntil, 'failure_count' => $failureCount], null, $db);
+            }
+
+            $this->recordHealth($db, 'enforcement', 'healthy', 'Automatic password-failure blocking evaluation completed.');
         } catch (Throwable $exception) {
-            // Automatic blocking must never interrupt audit logging.
+            $this->recordFailure('automatic_block', $exception);
         }
     }
 
-    /**
-     * Send an optional Joomla mail audit alert for the audited login event.
-     *
-     * @param   array<string, mixed>  $record
-     */
+    /** @param array<string, mixed> $record */
     private function sendAuditAlert(array $record, DatabaseDriver $db): void
     {
         if (PHP_SAPI === 'cli') {
@@ -526,31 +469,25 @@ final class LoginGuard extends CMSPlugin
         }
 
         $params = ComponentHelper::getParams('com_loginguard');
-
         if (!$params->get('audit_alerts_enabled', 0)) {
             return;
         }
 
         $status = (string) ($record['status'] ?? '');
-
         if ($status === 'SUCCESS_LOGIN' && !$params->get('audit_alert_success', 0)) {
             return;
         }
-
         if ($status === 'FAILED_LOGIN' && !$params->get('audit_alert_failed', 1)) {
             return;
         }
-
         if ($status === 'BLOCKED_LOGIN' && !$params->get('blocked_ip_alerts_enabled', 1)) {
             return;
         }
-
         if ($status === 'FAILED_LOGIN' && $this->isFailedAlertThrottled($record, $db)) {
             return;
         }
 
         $recipients = $this->normaliseAlertRecipients((string) $params->get('audit_alert_recipients', ''));
-
         if ($recipients === []) {
             return;
         }
@@ -565,7 +502,7 @@ final class LoginGuard extends CMSPlugin
             $this->getDefaultAlertBodyTemplate()
         );
 
-        $this->sendMail($recipients, $subjectTemplate, $bodyTemplate, $this->buildAlertTemplateVariables($record), $status);
+        $this->sendMail($recipients, $subjectTemplate, $bodyTemplate, $this->buildAlertTemplateVariables($record), $status, $db);
     }
 
     /** @param array<string, mixed> $record */
@@ -576,13 +513,11 @@ final class LoginGuard extends CMSPlugin
         }
 
         $params = ComponentHelper::getParams('com_loginguard');
-
         if (!$params->get('audit_alerts_enabled', 0) || !$params->get('blocked_ip_alerts_enabled', 1)) {
             return;
         }
 
         $recipients = $this->normaliseAlertRecipients((string) $params->get('audit_alert_recipients', ''));
-
         if ($recipients === []) {
             return;
         }
@@ -595,12 +530,11 @@ final class LoginGuard extends CMSPlugin
 
         $subjectTemplate = (string) $params->get('blocked_ip_alert_subject', '[LOGIN GUARD] BLOCKED LOGIN ATTEMPT');
         $bodyTemplate = (string) $params->get('blocked_ip_alert_body', $this->getDefaultBlockedIpAlertBodyTemplate());
-
-        $this->sendMail($recipients, $subjectTemplate, $bodyTemplate, $variables, 'BLOCKED_LOGIN');
+        $this->sendMail($recipients, $subjectTemplate, $bodyTemplate, $variables, 'BLOCKED_LOGIN', $db);
     }
 
     /** @param list<string> $recipients @param array<string, string> $variables */
-    private function sendMail(array $recipients, string $subjectTemplate, string $bodyTemplate, array $variables, string $status): void
+    private function sendMail(array $recipients, string $subjectTemplate, string $bodyTemplate, array $variables, string $status, DatabaseDriver $db): void
     {
         $subject = strtoupper($this->replaceAlertTemplateVariables($subjectTemplate, $variables));
         $plainBody = $this->withAlertFooter($this->replaceAlertTemplateVariables($bodyTemplate, $variables));
@@ -614,8 +548,9 @@ final class LoginGuard extends CMSPlugin
             $mailer->AltBody = $plainBody;
             $mailer->isHtml(true);
             $mailer->Send();
+            $this->recordHealth($db, 'mail', 'healthy', 'Last configured LoginGuard alert was sent successfully.');
         } catch (Throwable $exception) {
-            // Audit mail must never block the Joomla login flow.
+            $this->recordFailure('mail', $exception);
         }
     }
 
@@ -623,13 +558,11 @@ final class LoginGuard extends CMSPlugin
     private function isFailedAlertThrottled(array $record, DatabaseDriver $db): bool
     {
         $params = ComponentHelper::getParams('com_loginguard');
-
         if (!$params->get('failed_alert_throttling_enabled', 0)) {
             return false;
         }
 
         $ipAddress = (string) ($record['ip_address'] ?? '');
-
         if ($ipAddress === '' || $ipAddress === 'unknown') {
             return false;
         }
@@ -645,11 +578,10 @@ final class LoginGuard extends CMSPlugin
                 ->where($db->quoteName('status') . ' = ' . $db->quote('FAILED_LOGIN'))
                 ->where($db->quoteName('ip_address') . ' = ' . $db->quote($ipAddress))
                 ->where($db->quoteName('created') . ' >= ' . $db->quote($since));
-
             $db->setQuery($query);
-
             return (int) $db->loadResult() > $threshold;
         } catch (Throwable $exception) {
+            $this->recordFailure('alert_throttle', $exception);
             return false;
         }
     }
@@ -662,7 +594,6 @@ final class LoginGuard extends CMSPlugin
 
         foreach ($recipients as $recipient) {
             $recipient = trim($recipient);
-
             if ($recipient !== '' && filter_var($recipient, FILTER_VALIDATE_EMAIL)) {
                 $validRecipients[] = $recipient;
             }
@@ -676,7 +607,8 @@ final class LoginGuard extends CMSPlugin
     {
         $config = Factory::getConfig();
         $status = (string) ($record['status'] ?? '');
-        $failureReason = $status === 'FAILED_LOGIN' || $status === 'BLOCKED_LOGIN' ? (string) ($record['reason'] ?? '') : '';
+        $failureReason = in_array($status, ['FAILED_LOGIN', 'BLOCKED_LOGIN', 'MFA_FAILED', 'MFA_TRY_LIMIT'], true)
+            ? (string) ($record['reason'] ?? '') : '';
 
         return [
             'username' => $this->formatNullableUsername($record['username'] ?? null),
@@ -701,11 +633,9 @@ final class LoginGuard extends CMSPlugin
         ];
     }
 
-
     private function getConfiguredTimezone(): \DateTimeZone
     {
         $timezone = (string) Factory::getConfig()->get('offset', 'UTC');
-
         try {
             return new \DateTimeZone($timezone !== '' ? $timezone : 'UTC');
         } catch (\Exception $exception) {
@@ -716,7 +646,6 @@ final class LoginGuard extends CMSPlugin
     private function formatConfiguredDateTime(string $value): string
     {
         $value = trim($value);
-
         if ($value === '') {
             return '';
         }
@@ -734,11 +663,9 @@ final class LoginGuard extends CMSPlugin
     private function replaceAlertTemplateVariables(string $template, array $variables): string
     {
         $replacements = [];
-
         foreach ($variables as $name => $value) {
             $replacements['{' . $name . '}'] = $value;
         }
-
         return strtr($template, $replacements);
     }
 
@@ -755,11 +682,9 @@ final class LoginGuard extends CMSPlugin
     private function withAlertFooter(string $body): string
     {
         $footer = 'Generated automatically by Login Guard MDA.';
-
         if (str_contains($body, $footer)) {
             return $body;
         }
-
         return rtrim($body) . "\n\n" . $footer;
     }
 
@@ -767,18 +692,18 @@ final class LoginGuard extends CMSPlugin
     private function buildAlertHtmlBody(string $subject, string $bodyTemplate, array $variables, string $status): string
     {
         $accentColor = match ($status) {
-            'SUCCESS_LOGIN' => '#1f8f45',
-            'BLOCKED_LOGIN' => '#b45309',
+            'SUCCESS_LOGIN', 'MFA_SUCCESS' => '#1f8f45',
+            'BLOCKED_LOGIN', 'MFA_TRY_LIMIT' => '#b45309',
             default => '#c62828',
         };
         $severityBackground = match ($status) {
-            'SUCCESS_LOGIN' => '#ecfdf3',
-            'BLOCKED_LOGIN' => '#fffbeb',
+            'SUCCESS_LOGIN', 'MFA_SUCCESS' => '#ecfdf3',
+            'BLOCKED_LOGIN', 'MFA_TRY_LIMIT' => '#fffbeb',
             default => '#fef2f2',
         };
         $severityText = match ($status) {
-            'SUCCESS_LOGIN' => '#166534',
-            'BLOCKED_LOGIN' => '#92400e',
+            'SUCCESS_LOGIN', 'MFA_SUCCESS' => '#166534',
+            'BLOCKED_LOGIN', 'MFA_TRY_LIMIT' => '#92400e',
             default => '#991b1b',
         };
         $htmlRows = '';
@@ -820,29 +745,23 @@ final class LoginGuard extends CMSPlugin
         if ($variableNames === []) {
             $variableNames = ['full_name', 'username', 'email', 'ip', 'status', 'failure_reason', 'where', 'browser', 'os', 'country', 'country_code', 'region', 'city', 'isp', 'asn', 'user_agent', 'datetime'];
         }
-
-        if ($status === 'SUCCESS_LOGIN') {
+        if (in_array($status, ['SUCCESS_LOGIN', 'MFA_SUCCESS'], true)) {
             $variableNames = array_values(array_filter($variableNames, static fn ($name) => $name !== 'failure_reason'));
         }
 
         $rows = [];
         $seen = [];
-
         foreach ($variableNames as $name) {
             if (isset($seen[$name]) || !array_key_exists($name, $labels)) {
                 continue;
             }
-
             $value = trim((string) ($variables[$name] ?? ''));
-
             if ($value === '') {
                 continue;
             }
-
             $rows[] = ['label' => $this->extractAlertVariableLabel($bodyTemplate, $name, $labels[$name]), 'value' => $value];
             $seen[$name] = true;
         }
-
         return $rows;
     }
 
@@ -850,28 +769,12 @@ final class LoginGuard extends CMSPlugin
     private function getAlertVariableLabels(): array
     {
         return [
-            'full_name' => 'Full Name',
-            'name' => 'Full Name',
-            'username' => 'Username',
-            'email' => 'Email',
-            'ip' => 'IP Address',
-            'status' => 'Status',
-            'failure_reason' => 'Failure Reason',
-            'where' => 'Where',
-            'browser' => 'Browser',
-            'os' => 'Operating System',
-            'country' => 'Country',
-            'country_code' => 'Country Code',
-            'region' => 'Region',
-            'city' => 'City',
-            'isp' => 'ISP',
-            'asn' => 'ASN',
-            'user_agent' => 'User Agent',
-            'datetime' => 'Date/Time',
-            'block_type' => 'Block Type',
-            'block_reason' => 'Block Reason',
-            'block_until' => 'Blocked Until',
-            'failure_count' => 'Failure Count',
+            'full_name' => 'Full Name', 'name' => 'Full Name', 'username' => 'Username', 'email' => 'Email',
+            'ip' => 'IP Address', 'status' => 'Status', 'failure_reason' => 'Failure Reason', 'where' => 'Where',
+            'browser' => 'Browser', 'os' => 'Operating System', 'country' => 'Country', 'country_code' => 'Country Code',
+            'region' => 'Region', 'city' => 'City', 'isp' => 'ISP', 'asn' => 'ASN', 'user_agent' => 'User Agent',
+            'datetime' => 'Date/Time', 'block_type' => 'Block Type', 'block_reason' => 'Block Reason',
+            'block_until' => 'Blocked Until', 'failure_count' => 'Failure Count',
         ];
     }
 
@@ -880,15 +783,12 @@ final class LoginGuard extends CMSPlugin
     {
         preg_match_all('/\{([a-z0-9_]+)\}/i', $template, $matches);
         $names = [];
-
         foreach ($matches[1] ?? [] as $name) {
             $name = strtolower((string) $name);
-
             if (!in_array($name, $names, true)) {
                 $names[] = $name;
             }
         }
-
         return $names;
     }
 
@@ -897,7 +797,6 @@ final class LoginGuard extends CMSPlugin
         if (preg_match('/^\s*([^\r\n:{}]{2,60})\s*:\s*\{' . preg_quote($name, '/') . '\}/mi', $template, $match)) {
             return trim($match[1]);
         }
-
         return $default;
     }
 
@@ -905,20 +804,16 @@ final class LoginGuard extends CMSPlugin
     private function extractAlertIntro(string $template, array $variables): string
     {
         $paragraphs = preg_split('/\R{2,}/', trim($template), -1, PREG_SPLIT_NO_EMPTY) ?: [];
-
         foreach ($paragraphs as $paragraph) {
             if (preg_match('/^\s*[^\r\n:{}]+\s*:\s*\{[a-z0-9_]+\}/mi', $paragraph)) {
                 continue;
             }
-
             $intro = trim($this->replaceAlertTemplateVariables($paragraph, $variables));
             $intro = preg_replace('/\s+/', ' ', $intro) ?? $intro;
-
             if ($intro !== '' && !str_contains($intro, 'Generated automatically by Login Guard MDA.')) {
                 return $intro;
             }
         }
-
         return 'LoginGuard recorded this security event with structured telemetry for review.';
     }
 
@@ -927,21 +822,16 @@ final class LoginGuard extends CMSPlugin
     {
         $footer = 'Generated automatically by Login Guard MDA.';
         $paragraphs = preg_split('/\R{2,}/', trim($template), -1, PREG_SPLIT_NO_EMPTY) ?: [];
-
         for ($index = count($paragraphs) - 1; $index >= 0; $index--) {
             $paragraph = trim($paragraphs[$index]);
-
             if ($index === 0 || $paragraph === '' || preg_match('/^\s*[^\r\n:{}]+\s*:\s*\{[a-z0-9_]+\}/mi', $paragraph)) {
                 continue;
             }
-
             $customFooter = trim($this->replaceAlertTemplateVariables($paragraph, $variables));
-
             if ($customFooter !== '') {
                 return $customFooter;
             }
         }
-
         return $footer;
     }
 
@@ -951,6 +841,10 @@ final class LoginGuard extends CMSPlugin
             'SUCCESS_LOGIN' => 'SUCCESS LOGIN',
             'FAILED_LOGIN' => 'FAILED LOGIN',
             'BLOCKED_LOGIN' => 'BLOCKED LOGIN',
+            'MFA_PENDING' => 'MFA PENDING',
+            'MFA_FAILED' => 'MFA FAILED',
+            'MFA_SUCCESS' => 'MFA SUCCESS',
+            'MFA_TRY_LIMIT' => 'MFA TRY LIMIT',
             default => str_replace('_', ' ', strtoupper($status)),
         };
     }
@@ -964,6 +858,12 @@ final class LoginGuard extends CMSPlugin
             'ACCOUNT_BLOCKED' => 'Account Blocked',
             'IP_BLOCKED' => 'IP Address Blocked',
             'INVALID_CREDENTIALS' => 'Invalid Credentials',
+            'MFA_REQUIRED' => 'MFA Required',
+            'MFA_INVALID_CODE' => 'Invalid MFA Code',
+            'MFA_INVALID_METHOD' => 'Invalid MFA Method',
+            'MFA_TRY_LIMIT_REACHED' => 'MFA Try Limit Reached',
+            'MFA_COMPLETED' => 'MFA Completed',
+            'MFA_THRESHOLD_EXCEEDED' => 'MFA Failure Threshold Exceeded',
             '' => '',
             default => ucwords(strtolower(str_replace('_', ' ', $reason))),
         };
@@ -985,28 +885,23 @@ final class LoginGuard extends CMSPlugin
     {
         if ($payload instanceof Event) {
             $arguments = $payload->getArguments();
-
             foreach (['options', 'response', 'user'] as $key) {
                 if (array_key_exists($key, $arguments)) {
                     return $this->normaliseEventPayload($arguments[$key]);
                 }
             }
-
             if (isset($arguments[0])) {
                 return $this->normaliseEventPayload($arguments[0]);
             }
-
             return $arguments;
         }
 
         if (is_array($payload)) {
             return $payload;
         }
-
         if (is_object($payload)) {
             return ['__payload' => $payload] + get_object_vars($payload);
         }
-
         return [];
     }
 
@@ -1016,11 +911,9 @@ final class LoginGuard extends CMSPlugin
             if (array_key_exists($key, $payload)) {
                 return $payload[$key];
             }
-
             if (isset($payload['__payload'])) {
                 return $this->readPayloadValue($payload['__payload'], $key, $default);
             }
-
             return $default;
         }
 
@@ -1028,12 +921,10 @@ final class LoginGuard extends CMSPlugin
             if (isset($payload->{$key})) {
                 return $payload->{$key};
             }
-
             if (method_exists($payload, 'get')) {
                 return $payload->get($key, $default);
             }
         }
-
         return $default;
     }
 
@@ -1041,42 +932,36 @@ final class LoginGuard extends CMSPlugin
     private function detectFailureReason(array $payload): string
     {
         $error = strtolower((string) $this->readPayloadValue($payload, 'error_message', ''));
-        $type  = strtoupper((string) $this->readPayloadValue($payload, 'type', ''));
+        $type = strtoupper((string) $this->readPayloadValue($payload, 'type', ''));
 
         if (str_contains($error, 'block')) {
             return 'ACCOUNT_BLOCKED';
         }
-
         if (str_contains($error, 'disable') || str_contains($error, 'inactive') || str_contains($error, 'activate')) {
             return 'ACCOUNT_DISABLED';
         }
-
         if ($type === 'USERNAME_NOT_FOUND') {
             return 'USERNAME_NOT_FOUND';
         }
-
         if ($type === 'PASSWORD_INCORRECT') {
             return 'PASSWORD_INCORRECT';
         }
 
         $username = trim((string) $this->readPayloadValue($payload, 'username', ''));
-
         if ($username !== '') {
             try {
                 $userId = (int) UserHelper::getUserId($username);
-
                 if ($userId === 0) {
                     return 'USERNAME_NOT_FOUND';
                 }
-
                 if (str_contains($error, 'password')) {
                     return 'PASSWORD_INCORRECT';
                 }
             } catch (Throwable $exception) {
+                $this->recordFailure('failure_reason', $exception);
                 return 'INVALID_CREDENTIALS';
             }
         }
-
         return 'INVALID_CREDENTIALS';
     }
 
@@ -1085,55 +970,41 @@ final class LoginGuard extends CMSPlugin
         if (PHP_SAPI === 'cli') {
             return 'cli';
         }
-
         $app = Factory::getApplication();
-
         if ($app->isClient('api')) {
             return 'api';
         }
-
         if ($app->isClient('administrator')) {
             return 'backend';
         }
-
         return 'frontend';
     }
 
     private function normaliseStatus(string $status): string
     {
         $status = strtoupper(trim($status));
-
-        return in_array($status, ['SUCCESS_LOGIN', 'FAILED_LOGIN', 'BLOCKED_LOGIN'], true) ? $status : 'FAILED_LOGIN';
+        $allowed = ['SUCCESS_LOGIN', 'FAILED_LOGIN', 'BLOCKED_LOGIN', 'MFA_PENDING', 'MFA_FAILED', 'MFA_SUCCESS', 'MFA_TRY_LIMIT'];
+        return in_array($status, $allowed, true) ? $status : 'FAILED_LOGIN';
     }
 
     private function normaliseFailureReason(string $reason): string
     {
         $reason = strtoupper(trim($reason));
-
         if ($reason === '') {
             return '';
         }
-
-        return in_array($reason, ['USERNAME_NOT_FOUND', 'PASSWORD_INCORRECT', 'INVALID_CREDENTIALS', 'ACCOUNT_BLOCKED', 'ACCOUNT_DISABLED', 'IP_BLOCKED'], true)
-            ? $reason
-            : 'INVALID_CREDENTIALS';
+        $allowed = [
+            'USERNAME_NOT_FOUND', 'PASSWORD_INCORRECT', 'INVALID_CREDENTIALS', 'ACCOUNT_BLOCKED', 'ACCOUNT_DISABLED',
+            'IP_BLOCKED', 'MFA_REQUIRED', 'MFA_INVALID_CODE', 'MFA_INVALID_METHOD', 'MFA_TRY_LIMIT_REACHED',
+            'MFA_COMPLETED', 'MFA_THRESHOLD_EXCEEDED',
+        ];
+        return in_array($reason, $allowed, true) ? $reason : 'INVALID_CREDENTIALS';
     }
 
-    /**
-     * Resolve GeoIP telemetry automatically from available local capabilities.
-     *
-     * LoginGuard never requires administrator setup or remote lookups during the
-     * login flow. It first detects common local GeoIP providers (PHP geoip and
-     * MaxMind DB readers) and then falls back to the legacy offline map when one
-     * exists for upgraded sites. Empty fields are returned when no capability is
-     * available so authentication and audit logging continue gracefully.
-     *
-     * @return array{country: string, country_code: string, region: string, city: string, isp: string, asn: string}
-     */
+    /** @return array{country: string, country_code: string, region: string, city: string, isp: string, asn: string} */
     private function detectGeoIp(string $ipAddress): array
     {
         $empty = $this->emptyGeoIpTelemetry();
-
         if ($ipAddress === '' || $ipAddress === 'unknown' || !filter_var($ipAddress, FILTER_VALIDATE_IP, FILTER_FLAG_NO_PRIV_RANGE | FILTER_FLAG_NO_RES_RANGE)) {
             return $empty;
         }
@@ -1143,21 +1014,13 @@ final class LoginGuard extends CMSPlugin
                 return $geoip;
             }
         }
-
         return $empty;
     }
 
     /** @return array{country: string, country_code: string, region: string, city: string, isp: string, asn: string} */
     private function emptyGeoIpTelemetry(): array
     {
-        return [
-            'country' => '',
-            'country_code' => '',
-            'region' => '',
-            'city' => '',
-            'isp' => '',
-            'asn' => '',
-        ];
+        return ['country' => '', 'country_code' => '', 'region' => '', 'city' => '', 'isp' => '', 'asn' => ''];
     }
 
     /** @param array{country: string, country_code: string, region: string, city: string, isp: string, asn: string} $geoip */
@@ -1168,7 +1031,6 @@ final class LoginGuard extends CMSPlugin
                 return true;
             }
         }
-
         return false;
     }
 
@@ -1176,19 +1038,15 @@ final class LoginGuard extends CMSPlugin
     private function detectPhpGeoIp(string $ipAddress): array
     {
         $geoip = $this->emptyGeoIpTelemetry();
-
         try {
             if (function_exists('geoip_country_name_by_name')) {
                 $geoip['country'] = (string) (@geoip_country_name_by_name($ipAddress) ?: '');
             }
-
             if (function_exists('geoip_country_code_by_name')) {
                 $geoip['country_code'] = strtoupper((string) (@geoip_country_code_by_name($ipAddress) ?: ''));
             }
-
             if (function_exists('geoip_record_by_name')) {
                 $record = @geoip_record_by_name($ipAddress);
-
                 if (is_array($record)) {
                     $geoip['country'] = $geoip['country'] !== '' ? $geoip['country'] : (string) ($record['country_name'] ?? '');
                     $geoip['country_code'] = $geoip['country_code'] !== '' ? $geoip['country_code'] : strtoupper((string) ($record['country_code'] ?? ''));
@@ -1196,7 +1054,6 @@ final class LoginGuard extends CMSPlugin
                     $geoip['city'] = (string) ($record['city'] ?? '');
                 }
             }
-
             if (function_exists('geoip_org_by_name')) {
                 $geoip['isp'] = (string) (@geoip_org_by_name($ipAddress) ?: '');
             }
@@ -1204,9 +1061,9 @@ final class LoginGuard extends CMSPlugin
                 $geoip['asn'] = 'AS' . $match[1];
             }
         } catch (Throwable $exception) {
+            $this->recordFailure('geoip', $exception);
             return $this->emptyGeoIpTelemetry();
         }
-
         return $geoip;
     }
 
@@ -1226,20 +1083,18 @@ final class LoginGuard extends CMSPlugin
                 $readerClass = 'GeoIp2\\Database\\Reader';
                 $reader = new $readerClass($databasePath);
                 $record = str_contains(strtolower(basename($databasePath)), 'city') ? $reader->city($ipAddress) : $reader->country($ipAddress);
-
                 return [
                     'country' => (string) ($record->country->name ?? ''),
                     'country_code' => strtoupper((string) ($record->country->isoCode ?? '')),
                     'region' => (string) ($record->mostSpecificSubdivision->name ?? ''),
                     'city' => (string) ($record->city->name ?? ''),
-                    'isp' => '',
-                    'asn' => '',
+                    'isp' => '', 'asn' => '',
                 ];
             } catch (Throwable $exception) {
+                $this->recordFailure('geoip', $exception);
                 continue;
             }
         }
-
         return $this->emptyGeoIpTelemetry();
     }
 
@@ -1249,18 +1104,15 @@ final class LoginGuard extends CMSPlugin
         $root = defined('JPATH_ROOT') ? JPATH_ROOT : '';
         $administrator = defined('JPATH_ADMINISTRATOR') ? JPATH_ADMINISTRATOR : ($root !== '' ? $root . '/administrator' : '');
         $candidates = [];
-
         foreach ([$root, $administrator, '/usr/share/GeoIP', '/usr/local/share/GeoIP', '/var/lib/GeoIP'] as $basePath) {
             if ($basePath === '') {
                 continue;
             }
-
             foreach (['GeoLite2-City.mmdb', 'GeoIP2-City.mmdb', 'GeoLite2-Country.mmdb', 'GeoIP2-Country.mmdb'] as $filename) {
                 $candidates[] = rtrim($basePath, '/\\') . '/GeoIP/' . $filename;
                 $candidates[] = rtrim($basePath, '/\\') . '/' . $filename;
             }
         }
-
         return array_values(array_unique($candidates));
     }
 
@@ -1273,40 +1125,25 @@ final class LoginGuard extends CMSPlugin
 
         foreach ($entries as $entry) {
             [$rule, $metadata] = array_pad(array_map('trim', explode('=', $entry, 2)), 2, '');
-
             if ($metadata === '' || !$this->ipMatchesRule($ipAddress, $rule)) {
                 continue;
             }
-
-            [$country, $countryCode, $region, $city, $isp, $asn] = array_pad(
-                array_map('trim', explode('|', $metadata, 6)),
-                6,
-                ''
-            );
-
+            [$country, $countryCode, $region, $city, $isp, $asn] = array_pad(array_map('trim', explode('|', $metadata, 6)), 6, '');
             return [
-                'country' => $country,
-                'country_code' => strtoupper($countryCode),
-                'region' => $region,
-                'city' => $city,
-                'isp' => $isp,
-                'asn' => strtoupper($asn),
+                'country' => $country, 'country_code' => strtoupper($countryCode), 'region' => $region,
+                'city' => $city, 'isp' => $isp, 'asn' => strtoupper($asn),
             ];
         }
-
         return $this->emptyGeoIpTelemetry();
     }
-
 
     private function normaliseTelemetryUsername($value): ?string
     {
         if ($value === null) {
             return null;
         }
-
         $value = (string) $value;
-
-        return $value === '' ? null : $value;
+        return $value === '' ? null : $this->truncate($value, self::MAX_USERNAME);
     }
 
     private function formatNullableUsername($value): string
@@ -1314,11 +1151,19 @@ final class LoginGuard extends CMSPlugin
         return $value === null || (is_string($value) && $value === '') ? 'NULL (empty)' : (string) $value;
     }
 
-    private function cleanString(string $value, string $fallback = ''): string
+    private function cleanString(string $value, string $fallback = '', int $maxLength = 255): string
     {
         $value = trim($value);
+        $value = $value === '' ? $fallback : $value;
+        return $this->truncate($value, $maxLength);
+    }
 
-        return $value === '' ? $fallback : $value;
+    private function truncate(string $value, int $maxLength): string
+    {
+        if (function_exists('mb_substr')) {
+            return mb_substr($value, 0, $maxLength, 'UTF-8');
+        }
+        return substr($value, 0, $maxLength);
     }
 
     private function detectBrowser(string $userAgent): string
@@ -1343,6 +1188,41 @@ final class LoginGuard extends CMSPlugin
             stripos($userAgent, 'Linux') !== false => 'Linux',
             default => 'Unknown',
         };
+    }
+
+    private function recordFailure(string $category, Throwable $exception): void
+    {
+        $message = $this->truncate($exception->getMessage(), 2000);
+        Log::add('LoginGuard ' . $category . ' failure: ' . $message, Log::ERROR, 'com_loginguard.' . preg_replace('/[^a-z0-9_.-]+/i', '_', strtolower($category)));
+
+        try {
+            $this->recordHealth($this->getDatabase(), $category, 'degraded', $message);
+        } catch (Throwable) {
+            // Logging must never recursively interrupt authentication.
+        }
+    }
+
+    private function recordHealth(DatabaseDriver $db, string $key, string $status, string $message): void
+    {
+        try {
+            $key = $this->truncate(strtolower(trim($key)), 64);
+            if ($key === '') {
+                return;
+            }
+            $status = $this->truncate(strtolower(trim($status)), 20);
+            $message = $this->truncate($message, 2000);
+            $now = gmdate('Y-m-d H:i:s');
+            $sql = 'INSERT INTO ' . $db->quoteName('#__loginguard_health')
+                . ' (' . implode(',', array_map([$db, 'quoteName'], ['health_key', 'status', 'message', 'updated'])) . ')'
+                . ' VALUES (' . implode(',', [$db->quote($key), $db->quote($status ?: 'healthy'), $db->quote($message), $db->quote($now)]) . ')'
+                . ' ON DUPLICATE KEY UPDATE '
+                . $db->quoteName('status') . '=VALUES(' . $db->quoteName('status') . '),'
+                . $db->quoteName('message') . '=VALUES(' . $db->quoteName('message') . '),'
+                . $db->quoteName('updated') . '=VALUES(' . $db->quoteName('updated') . ')';
+            $db->setQuery($sql)->execute();
+        } catch (Throwable $exception) {
+            Log::add('LoginGuard health write failure: ' . $this->truncate($exception->getMessage(), 1000), Log::ERROR, 'com_loginguard.health');
+        }
     }
 
     /** @param list<string> $values */
