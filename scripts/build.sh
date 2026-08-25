@@ -15,6 +15,11 @@ mkdir -p "${BUILD_DIR}" "${OUTPUT_DIR}"
 )
 
 (
+    cd plugins/system/loginguardmfa
+    zip -r "../../../${BUILD_DIR}/plg_system_loginguardmfa.zip" . >/dev/null
+)
+
+(
     cd plugins/task/loginguardcleanup
     zip -r "../../../${BUILD_DIR}/plg_task_loginguardcleanup.zip" . >/dev/null
 )
