@@ -7,6 +7,7 @@ defined('_JEXEC') or die;
 use Joomla\CMS\Log\Log;
 use Joomla\Database\DatabaseInterface;
 use Joomla\Registry\Registry;
+use Throwable;
 
 final class CleanupService
 {
@@ -22,9 +23,7 @@ final class CleanupService
     ) {
     }
 
-    /**
-     * @return array<string, int|string>
-     */
+    /** @return array<string, int|string> */
     public function execute(?int $batchSize = null): array
     {
         $startedAt = gmdate('Y-m-d H:i:s');
@@ -47,68 +46,56 @@ final class CleanupService
             'blocked_ip_retention_days' => $blockedIpRetentionDays,
         ];
 
-        $metrics['attempts_deleted'] = $this->cleanupOldAttempts($attemptCutoff, $batchSize, $metrics['batches']);
-        $metrics['expired_blocks_deleted'] = $this->cleanupExpiredBlocks($blockedIpCutoff, $batchSize, $metrics['batches']);
-        $metrics['disabled_blocks_deleted'] = $this->cleanupDisabledBlocks($blockedIpCutoff, $batchSize, $metrics['batches']);
-        $metrics['total_deleted'] = $metrics['attempts_deleted'] + $metrics['expired_blocks_deleted'] + $metrics['disabled_blocks_deleted'];
-        $metrics['finished_at'] = gmdate('Y-m-d H:i:s');
+        try {
+            $metrics['attempts_deleted'] = $this->cleanupOldAttempts($attemptCutoff, $batchSize, $metrics['batches']);
+            $metrics['expired_blocks_deleted'] = $this->cleanupExpiredBlocks($blockedIpCutoff, $batchSize, $metrics['batches']);
+            $metrics['disabled_blocks_deleted'] = $this->cleanupDisabledBlocks($blockedIpCutoff, $batchSize, $metrics['batches']);
+            $metrics['total_deleted'] = $metrics['attempts_deleted'] + $metrics['expired_blocks_deleted'] + $metrics['disabled_blocks_deleted'];
+            $metrics['finished_at'] = gmdate('Y-m-d H:i:s');
+            $this->recordMetrics($metrics);
+            OperationalAudit::recordHealth($this->db, 'cleanup', 'healthy', 'Retention cleanup completed successfully.');
 
-        $this->recordMetrics($metrics);
-
-        if ((int) $this->params->get('cleanup_execution_logging', 1) === 1) {
-            Log::add(
-                sprintf(
-                    'LoginGuard cleanup completed: attempts=%d expired_blocks=%d disabled_blocks=%d batches=%d batch_size=%d',
-                    $metrics['attempts_deleted'],
-                    $metrics['expired_blocks_deleted'],
-                    $metrics['disabled_blocks_deleted'],
-                    $metrics['batches'],
-                    $metrics['batch_size']
-                ),
-                Log::INFO,
-                'com_loginguard.cleanup'
-            );
+            if ((int) $this->params->get('cleanup_execution_logging', 1) === 1) {
+                Log::add(
+                    sprintf(
+                        'LoginGuard cleanup completed: attempts=%d expired_blocks=%d disabled_blocks=%d batches=%d batch_size=%d',
+                        $metrics['attempts_deleted'],
+                        $metrics['expired_blocks_deleted'],
+                        $metrics['disabled_blocks_deleted'],
+                        $metrics['batches'],
+                        $metrics['batch_size']
+                    ),
+                    Log::INFO,
+                    'com_loginguard.cleanup'
+                );
+            }
+        } catch (Throwable $exception) {
+            $metrics['finished_at'] = gmdate('Y-m-d H:i:s');
+            OperationalAudit::logFailure('cleanup', $exception->getMessage());
+            OperationalAudit::recordHealth($this->db, 'cleanup', 'degraded', $exception->getMessage());
         }
 
         return $metrics;
     }
 
-    /**
-     * @param   array<string, int|string>  $metrics
-     */
+    /** @param array<string, int|string> $metrics */
     private function recordMetrics(array $metrics): void
     {
         $columns = [
-            'started_at',
-            'finished_at',
-            'attempts_deleted',
-            'expired_blocks_deleted',
-            'disabled_blocks_deleted',
-            'total_deleted',
-            'batches',
-            'batch_size',
-            'login_retention_days',
-            'blocked_ip_retention_days',
+            'started_at', 'finished_at', 'attempts_deleted', 'expired_blocks_deleted', 'disabled_blocks_deleted',
+            'total_deleted', 'batches', 'batch_size', 'login_retention_days', 'blocked_ip_retention_days',
         ];
-
         $values = [
             $this->db->quote((string) $metrics['started_at']),
             $this->db->quote((string) $metrics['finished_at']),
-            (int) $metrics['attempts_deleted'],
-            (int) $metrics['expired_blocks_deleted'],
-            (int) $metrics['disabled_blocks_deleted'],
-            (int) $metrics['total_deleted'],
-            (int) $metrics['batches'],
-            (int) $metrics['batch_size'],
-            (int) $metrics['login_retention_days'],
-            (int) $metrics['blocked_ip_retention_days'],
+            (int) $metrics['attempts_deleted'], (int) $metrics['expired_blocks_deleted'], (int) $metrics['disabled_blocks_deleted'],
+            (int) $metrics['total_deleted'], (int) $metrics['batches'], (int) $metrics['batch_size'],
+            (int) $metrics['login_retention_days'], (int) $metrics['blocked_ip_retention_days'],
         ];
-
         $query = $this->db->getQuery(true)
             ->insert($this->db->quoteName('#__loginguard_cleanup_runs'))
             ->columns(array_map([$this->db, 'quoteName'], $columns))
             ->values(implode(',', $values));
-
         $this->db->setQuery($query)->execute();
     }
 
@@ -125,7 +112,6 @@ final class CleanupService
     private function cleanupExpiredBlocks(string $retentionCutoff, int $batchSize, int &$batches): int
     {
         $now = gmdate('Y-m-d H:i:s');
-
         return $this->deleteInBatches(
             '#__loginguard_blocked_ips',
             implode(' AND ', [
@@ -145,7 +131,7 @@ final class CleanupService
             '#__loginguard_blocked_ips',
             implode(' AND ', [
                 $this->db->quoteName('enabled') . ' = 0',
-                $this->db->quoteName('created') . ' < ' . $this->db->quote($retentionCutoff),
+                'COALESCE(' . $this->db->quoteName('disabled_at') . ',' . $this->db->quoteName('updated') . ',' . $this->db->quoteName('created') . ') < ' . $this->db->quote($retentionCutoff),
             ]),
             $batchSize,
             $batches
@@ -155,33 +141,25 @@ final class CleanupService
     private function deleteInBatches(string $table, string $where, int $batchSize, int &$batches): int
     {
         $deleted = 0;
-
         while ($batches < self::MAX_BATCHES_PER_RUN) {
             $ids = $this->fetchIds($table, $where, $batchSize);
-
             if ($ids === []) {
                 break;
             }
-
             $query = $this->db->getQuery(true)
                 ->delete($this->db->quoteName($table))
                 ->whereIn($this->db->quoteName('id'), $ids);
             $this->db->setQuery($query)->execute();
-
             $deleted += count($ids);
             $batches++;
-
             if (count($ids) < $batchSize) {
                 break;
             }
         }
-
         return $deleted;
     }
 
-    /**
-     * @return array<int, int>
-     */
+    /** @return array<int, int> */
     private function fetchIds(string $table, string $where, int $batchSize): array
     {
         $query = $this->db->getQuery(true)
@@ -189,9 +167,7 @@ final class CleanupService
             ->from($this->db->quoteName($table))
             ->where($where)
             ->order($this->db->quoteName('id') . ' ASC');
-
         $this->db->setQuery($query, 0, $batchSize);
-
         return array_map('intval', $this->db->loadColumn() ?: []);
     }
 
