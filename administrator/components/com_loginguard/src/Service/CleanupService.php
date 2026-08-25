@@ -72,7 +72,13 @@ final class CleanupService
         } catch (Throwable $exception) {
             $metrics['finished_at'] = gmdate('Y-m-d H:i:s');
             OperationalAudit::logFailure('cleanup', $exception->getMessage());
-            OperationalAudit::recordHealth($this->db, 'cleanup', 'degraded', $exception->getMessage());
+            try {
+                OperationalAudit::recordHealth($this->db, 'cleanup', 'degraded', $exception->getMessage());
+            } catch (Throwable $healthException) {
+                OperationalAudit::logFailure('cleanup_health', $healthException->getMessage());
+            }
+
+            throw $exception;
         }
 
         return $metrics;

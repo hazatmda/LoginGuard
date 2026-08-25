@@ -179,6 +179,24 @@ for forbidden in ["get('code'", 'get("code"', '$code =', '$mfaCode', '$mfa_code'
     if forbidden in mfa_plugin:
         raise SystemExit(f'MFA audit plugin must never read/store MFA codes: {forbidden}')
 
+# Captive MFA owns one primary attempt for the lifetime of the session flow. A
+# refresh must return instead of selecting another historical successful login.
+for token in ['ATTEMPT_SESSION_KEY', 'get($sessionKey, 0)', 'set($sessionKey, $id)', 'clear($sessionKey)']:
+    if token not in mfa_plugin:
+        raise SystemExit(f'MFA pending-attempt association missing: {token}')
+refresh_guard = mfa_plugin.index('if ((int) $session->get($sessionKey, 0) > 0)')
+success_lookup = mfa_plugin.index("->where($db->quoteName('status') . ' = ' . $db->quote('SUCCESS_LOGIN'))", refresh_guard)
+if refresh_guard > success_lookup:
+    raise SystemExit('Captive refresh guard must run before searching historical successful logins')
+
+for token in ['hasCaptiveMfa(', "#__user_mfa", "status === 'SUCCESS_LOGIN'", 'The MFA system plugin sends the single final success alert']:
+    if token not in login_guard:
+        raise SystemExit(f'Primary success-alert deferral missing: {token}')
+defer_start = login_guard.index("if ($status === 'SUCCESS_LOGIN' && $this->hasCaptiveMfa")
+audit_success_check = login_guard.index("if ($status === 'SUCCESS_LOGIN' && !$params->get('audit_alert_success'", defer_start)
+if defer_start > audit_success_check:
+    raise SystemExit('Captive MFA success alert must be suppressed before primary success mail handling')
+
 config_text = Path('administrator/components/com_loginguard/config.xml').read_text(encoding='utf-8')
 for token in [
     'mfa_automatic_blocking_enabled', 'mfa_failed_attempt_threshold', 'mfa_threshold_window_minutes',
@@ -206,6 +224,11 @@ cleanup = Path('administrator/components/com_loginguard/src/Service/CleanupServi
 for token in ['disabled_at', 'OperationalAudit::recordHealth', 'OperationalAudit::logFailure', 'MAX_BATCHES_PER_RUN']:
     if token not in cleanup:
         raise SystemExit(f'Cleanup hardening missing {token}')
+cleanup_catch = cleanup.index('} catch (Throwable $exception) {')
+cleanup_return = cleanup.index('return $metrics;', cleanup_catch)
+cleanup_failure = cleanup[cleanup_catch:cleanup_return]
+if 'throw $exception;' not in cleanup_failure:
+    raise SystemExit('Cleanup failures must propagate to scheduler and manual callers')
 
 dashboard_view = Path('administrator/components/com_loginguard/src/View/Dashboard/HtmlView.php').read_text(encoding='utf-8')
 dashboard_template = Path('administrator/components/com_loginguard/tmpl/dashboard/default.php').read_text(encoding='utf-8')

@@ -19,6 +19,7 @@ final class LoginGuardMfa extends CMSPlugin implements SubscriberInterface
 
     private const MAX_USER_AGENT = 2048;
     private const MAX_TEXT = 255;
+    private const ATTEMPT_SESSION_KEY = 'plg_system_loginguardmfa.pending_attempt.';
 
     public static function getSubscribedEvents(): array
     {
@@ -74,8 +75,9 @@ final class LoginGuardMfa extends CMSPlugin implements SubscriberInterface
             $context = $this->buildContext();
             $method = $this->getMfaMethod((int) $user->id);
             $this->insertAttempt($user, $context, 'MFA_SUCCESS', 'MFA_COMPLETED', $method);
-            $this->finalisePendingLogin((int) $user->id, $context['ip_address'], $method, $user, $context);
-            $this->sendFinalSuccessAlert($user, $context, $method);
+            if ($this->finalisePendingLogin((int) $user->id, $method)) {
+                $this->sendFinalSuccessAlert($user, $context, $method);
+            }
             $this->recordHealth('mfa', 'healthy', 'Last MFA validation completed successfully.');
         } catch (Throwable $exception) {
             $this->recordFailure('mfa', $exception);
@@ -147,6 +149,13 @@ final class LoginGuardMfa extends CMSPlugin implements SubscriberInterface
 
     private function markPrimarySuccessPending(int $userId, string $ipAddress, string $method): void
     {
+        $session = $this->getApplication()->getSession();
+        $sessionKey = self::ATTEMPT_SESSION_KEY . $userId;
+        if ((int) $session->get($sessionKey, 0) > 0) {
+            // A captive-page refresh belongs to the attempt already associated with this flow.
+            return;
+        }
+
         $db = $this->getDatabase();
         $since = gmdate('Y-m-d H:i:s', time() - 600);
         $query = $db->getQuery(true)
@@ -173,22 +182,25 @@ final class LoginGuardMfa extends CMSPlugin implements SubscriberInterface
             ->set($db->quoteName('reason') . ' = ' . $db->quote('MFA_REQUIRED'))
             ->where($db->quoteName('id') . ' = ' . (string) $id);
         $db->setQuery($update)->execute();
+        $session->set($sessionKey, $id);
     }
 
-    private function finalisePendingLogin(int $userId, string $ipAddress, string $method, $user, array $context): void
+    private function finalisePendingLogin(int $userId, string $method): bool
     {
+        $session = $this->getApplication()->getSession();
+        $sessionKey = self::ATTEMPT_SESSION_KEY . $userId;
+        $pendingAttemptId = (int) $session->get($sessionKey, 0);
+        if ($pendingAttemptId <= 0) {
+            return false;
+        }
+
         $db = $this->getDatabase();
-        $since = gmdate('Y-m-d H:i:s', time() - 1800);
         $query = $db->getQuery(true)
             ->select($db->quoteName('id'))
             ->from($db->quoteName('#__loginguard_attempts'))
             ->where($db->quoteName('user_id') . ' = ' . (string) $userId)
             ->where($db->quoteName('status') . ' = ' . $db->quote('MFA_PENDING'))
-            ->where($db->quoteName('created') . ' >= ' . $db->quote($since));
-        if ($ipAddress !== 'unknown') {
-            $query->where($db->quoteName('ip_address') . ' = ' . $db->quote($ipAddress));
-        }
-        $query->order($db->quoteName('created') . ' DESC');
+            ->where($db->quoteName('id') . ' = ' . (string) $pendingAttemptId);
         $db->setQuery($query, 0, 1);
         $id = (int) $db->loadResult();
 
@@ -201,10 +213,12 @@ final class LoginGuardMfa extends CMSPlugin implements SubscriberInterface
                 ->set($db->quoteName('reason') . ' = ' . $db->quote('MFA_COMPLETED'))
                 ->where($db->quoteName('id') . ' = ' . (string) $id);
             $db->setQuery($update)->execute();
-            return;
+            $session->clear($sessionKey);
+            return true;
         }
 
-        $this->insertAttempt($user, $context, 'SUCCESS_LOGIN', 'MFA_COMPLETED', $method, 'login');
+        $session->clear($sessionKey);
+        return false;
     }
 
     private function insertAttempt($user, array $context, string $status, string $reason, string $method, string $attemptType = 'mfa'): void

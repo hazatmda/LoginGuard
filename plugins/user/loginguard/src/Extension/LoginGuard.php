@@ -473,6 +473,11 @@ final class LoginGuard extends CMSPlugin
         }
 
         $status = (string) ($record['status'] ?? '');
+        if ($status === 'SUCCESS_LOGIN' && $this->hasCaptiveMfa((int) ($record['user_id'] ?? 0), $db)) {
+            // Captive MFA is not a successful login until Joomla validates the second factor.
+            // The MFA system plugin sends the single final success alert after MFA_SUCCESS.
+            return;
+        }
         if ($status === 'SUCCESS_LOGIN' && !$params->get('audit_alert_success', 0)) {
             return;
         }
@@ -502,6 +507,21 @@ final class LoginGuard extends CMSPlugin
         );
 
         $this->sendMail($recipients, $subjectTemplate, $bodyTemplate, $this->buildAlertTemplateVariables($record), $status, $db);
+    }
+
+    private function hasCaptiveMfa(int $userId, DatabaseDriver $db): bool
+    {
+        if ($userId <= 0) {
+            return false;
+        }
+
+        $query = $db->getQuery(true)
+            ->select('COUNT(*)')
+            ->from($db->quoteName('#__user_mfa'))
+            ->where($db->quoteName('user_id') . ' = ' . (string) $userId);
+        $db->setQuery($query);
+
+        return (int) $db->loadResult() > 0;
     }
 
     /** @param array<string, mixed> $record */
