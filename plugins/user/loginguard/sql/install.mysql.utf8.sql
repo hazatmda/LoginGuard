@@ -17,6 +17,7 @@ CREATE TABLE IF NOT EXISTS `#__loginguard_attempts` (
   `where_at` varchar(50) NOT NULL DEFAULT 'frontend',
   `user_agent` text NOT NULL,
   `attempt_type` varchar(50) NOT NULL DEFAULT 'login',
+  `mfa_method` varchar(100) NOT NULL DEFAULT '',
   `client` varchar(50) NOT NULL DEFAULT 'frontend',
   `reason` text NOT NULL,
   `created` datetime NOT NULL,
@@ -27,7 +28,9 @@ CREATE TABLE IF NOT EXISTS `#__loginguard_attempts` (
   KEY `idx_loginguard_where_at` (`where_at`),
   KEY `idx_loginguard_client` (`client`),
   KEY `idx_loginguard_username` (`username`),
-  KEY `idx_loginguard_attempt_type` (`attempt_type`)
+  KEY `idx_loginguard_attempt_type` (`attempt_type`),
+  KEY `idx_loginguard_ip_status_created` (`ip_address`, `status`, `created`),
+  KEY `idx_loginguard_user_status_created` (`user_id`, `status`, `created`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 DEFAULT COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE IF NOT EXISTS `#__loginguard_blocked_ips` (
@@ -36,16 +39,25 @@ CREATE TABLE IF NOT EXISTS `#__loginguard_blocked_ips` (
   `scope` varchar(20) NOT NULL DEFAULT 'all',
   `block_type` varchar(20) NOT NULL DEFAULT 'temporary',
   `reason` varchar(50) NOT NULL DEFAULT 'threshold_exceeded',
+  `source` varchar(20) NOT NULL DEFAULT 'manual',
+  `active_key` varchar(64) NULL DEFAULT NULL,
   `failure_count` int NOT NULL DEFAULT 0,
   `blocked_until` datetime NULL DEFAULT NULL,
   `created` datetime NOT NULL,
   `created_by` int NOT NULL DEFAULT 0,
+  `updated` datetime NULL DEFAULT NULL,
+  `updated_by` int NOT NULL DEFAULT 0,
+  `disabled_at` datetime NULL DEFAULT NULL,
+  `disabled_by` int NOT NULL DEFAULT 0,
   `enabled` tinyint(1) NOT NULL DEFAULT 1,
   PRIMARY KEY (`id`),
+  UNIQUE KEY `idx_loginguard_active_key` (`active_key`),
   KEY `idx_loginguard_blocked_ip` (`ip_address`),
   KEY `idx_loginguard_blocked_scope` (`scope`),
   KEY `idx_loginguard_blocked_until` (`blocked_until`),
-  KEY `idx_loginguard_blocked_enabled` (`enabled`)
+  KEY `idx_loginguard_blocked_enabled` (`enabled`),
+  KEY `idx_loginguard_source` (`source`),
+  KEY `idx_loginguard_disabled_at` (`disabled_at`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 DEFAULT COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE IF NOT EXISTS `#__loginguard_cleanup_runs` (
@@ -62,4 +74,29 @@ CREATE TABLE IF NOT EXISTS `#__loginguard_cleanup_runs` (
   `blocked_ip_retention_days` int unsigned NOT NULL DEFAULT 0,
   PRIMARY KEY (`id`),
   KEY `idx_loginguard_cleanup_finished_at` (`finished_at`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 DEFAULT COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS `#__loginguard_admin_audit` (
+  `id` int unsigned NOT NULL AUTO_INCREMENT,
+  `action` varchar(50) NOT NULL,
+  `target_type` varchar(50) NOT NULL DEFAULT '',
+  `target_id` int NOT NULL DEFAULT 0,
+  `target_ip` varchar(45) NOT NULL DEFAULT '',
+  `actor_user_id` int NOT NULL DEFAULT 0,
+  `details` text NOT NULL,
+  `created` datetime NOT NULL,
+  PRIMARY KEY (`id`),
+  KEY `idx_loginguard_admin_action` (`action`),
+  KEY `idx_loginguard_admin_actor` (`actor_user_id`),
+  KEY `idx_loginguard_admin_created` (`created`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 DEFAULT COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS `#__loginguard_health` (
+  `health_key` varchar(64) NOT NULL,
+  `status` varchar(20) NOT NULL DEFAULT 'healthy',
+  `message` text NOT NULL,
+  `updated` datetime NOT NULL,
+  PRIMARY KEY (`health_key`),
+  KEY `idx_loginguard_health_status` (`status`),
+  KEY `idx_loginguard_health_updated` (`updated`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 DEFAULT COLLATE=utf8mb4_unicode_ci;
