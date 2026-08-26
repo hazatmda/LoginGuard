@@ -2,7 +2,7 @@
 <updates>
     <update>
         <name>LoginGuard</name>
-        <description>LoginGuard security, reliability, login auditing, cleanup, and administrator monitoring package.</description>
+        <description>LoginGuard package with the user plugin, scheduled cleanup task plugin, and administrator component.</description>
         <element>com_loginguard</element>
         <type>component</type>
         <version>0.2.26</version>

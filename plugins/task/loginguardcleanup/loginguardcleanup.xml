@@ -5,12 +5,15 @@
     <creationDate>2026-05-15</creationDate>
     <version>0.2.26</version>
     <description>PLG_TASK_LOGINGUARDCLEANUP_XML_DESCRIPTION</description>
+
     <namespace path="src">Joomla\Plugin\Task\LoginGuardCleanup</namespace>
+
     <files>
         <folder plugin="loginguardcleanup">services</folder>
         <folder>src</folder>
         <folder>language</folder>
     </files>
+
     <languages>
         <language tag="en-GB">language/en-GB/en-GB.plg_task_loginguardcleanup.ini</language>
         <language tag="en-GB">language/en-GB/en-GB.plg_task_loginguardcleanup.sys.ini</language>

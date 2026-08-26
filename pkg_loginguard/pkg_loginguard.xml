@@ -5,7 +5,7 @@
     <author>Hazim</author>
     <creationDate>2026-05-15</creationDate>
     <version>0.2.26</version>
-    <description>LoginGuard package with login auditing, scheduled cleanup, IP enforcement, and administrator monitoring.</description>
+    <description>LoginGuard package with the user plugin, scheduled cleanup task plugin, and administrator component.</description>
     <scriptfile>script.php</scriptfile>
     <blockChildUninstall>true</blockChildUninstall>
 

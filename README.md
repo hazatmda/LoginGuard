@@ -1,40 +1,77 @@
 # LoginGuard
 
-Joomla 5 package for login-attempt auditing, IP enforcement, monitoring, and security operations.
+Joomla 5 package for login attempt detection, monitoring, and auditing.
+
+## Status
 
 Current development version: `0.2.26`.
 
-## Features
+## Features planned for MVP
 
-- Records successful and failed primary Joomla logins without storing credentials.
-- Resolves client IPs through explicitly trusted proxies, including defensive Cloudflare and X-Forwarded-For handling.
-- Supports exact IPv4/IPv6 and CIDR whitelist rules.
-- Enforces manual and automatic temporary IP blocks independently for frontend and administrator logins.
-- Sends configurable Joomla mail alerts with failed-login throttling.
-- Protects CSV exports from spreadsheet formula injection and records administrator actions.
-- Runs bounded retention cleanup and reports runtime health without schema DDL in authentication paths.
-- Caps attacker-controlled User-Agent telemetry at 2048 characters.
+- Detect successful Joomla login attempts
+- Detect failed Joomla login attempts
+- Store login attempt audit records
+- Capture proxy-aware IP address, name, username, status, failure reason, where, country, country code, region, city, ISP, ASN, browser, operating system, user agent, and datetime without storing plaintext passwords
+- Provide a Joomla administrator component with Dashboard telemetry, Login Information, Configuration, Blocked IPs, and About navigation
+- Send optional Joomla mail audit alerts for successful and failed login events using Joomla Global Configuration mail settings
+- Publish Joomla update server metadata from the component lifecycle for automatic update discovery with direct package ZIP URLs
+- Integrate Joomla-native ACL permissions and component configuration through access.xml and com_config
+- Search, filter, sort, and paginate login attempt audit records while keeping Login Information as the full audit table
+- Run scheduled retention cleanup in bounded batches for old login attempts and stale blocked-IP records
+- Generate an installable Joomla package ZIP from GitHub Actions
 
-LoginGuard does not integrate with Joomla Multi-factor Authentication. Joomla core exclusively owns its setup, routing, validation, and session state. LoginGuard records an ordinary `SUCCESS_LOGIN` as soon as Joomla accepts the primary credentials.
+## GeoIP Enrichment
 
-## Client IP policy
+LoginGuard automatically enriches login telemetry when a local GeoIP capability is available. No administrator GeoIP setup is required: the plugin detects PHP GeoIP functions, common local MaxMind database locations, and legacy offline maps from upgraded installations. If no local provider is available, LoginGuard gracefully stores empty location fields while preserving proxy-aware IP resolution and the login audit flow. The Login Information table displays Country, City, ISP, and ASN, and CSV export includes all GeoIP fields.
 
-LoginGuard uses validated `REMOTE_ADDR` by default. Behind Cloudflare or another reverse proxy, administrators can trust exact IPv4/IPv6 addresses or CIDRs for the immediate proxy and select `CF-Connecting-IP` or defensively parsed `X-Forwarded-For`. Forwarded headers from untrusted peers are ignored, malformed values fall back safely, and X-Forwarded-For is walked from the immediate peer toward the client while discarding only configured proxies.
+## Requirements
 
-Whitelist entries accept exact IPv4/IPv6 addresses and CIDRs. Matching resolved client addresses remain audited but bypass active enforcement and automatic primary-login blocks; invalid rules never match.
+- Joomla 5.2+
+- PHP 8.1+
+- MySQL/MariaDB supported by Joomla 5
 
-## Build and validation
+## Repository Structure
 
-Requirements: Joomla 5.2+ and PHP 8.1+.
+```text
+.github/workflows/build.yml               GitHub Actions validation and package artifact workflow
+administrator/components/com_loginguard/  Joomla administrator component source
+pkg_loginguard/                           Joomla package manifest source
+plugins/user/loginguard/                  Joomla user plugin source
+plugins/task/loginguardcleanup/            Joomla Scheduler cleanup task plugin source
+scripts/build.sh                          Local package build script
+scripts/validate.sh                       Local validation script
+packages/                                 Generated ZIP output directory, ignored by Git
+updates/                                  Joomla extension update stream metadata
+VERSION                                   Canonical project version
+CHANGELOG.md                              Release notes
+```
+
+## Build Package Locally
 
 ```bash
 bash scripts/validate.sh
 bash scripts/build.sh
 ```
 
-The build produces `packages/pkg_loginguard_v0.2.26.zip`. Generated ZIP files are release-workflow artifacts and are intentionally not committed.
+Generated package:
 
-## Release metadata
+```text
+packages/pkg_loginguard_v0.2.26.zip
+```
+
+## Versioning Policy
+
+Before release, these must match:
+
+- `VERSION`
+- plugin manifest `<version>`
+- component manifest `<version>`
+- package manifest `<version>`
+- package filename
+- release tag
+- release notes
+
+Example:
 
 ```text
 version: 0.2.26
@@ -42,10 +79,6 @@ tag: v0.2.26
 package: pkg_loginguard_v0.2.26.zip
 ```
 
-## Security invariants
+## License
 
-- LoginGuard audit, health, and mail failures remain fail-open; intentional blocked-IP enforcement remains the only authentication denial.
-- Passwords and authentication codes are never stored or logged.
-- Client-controlled telemetry is bounded and output is escaped.
-- Fresh-install schema changes happen only during installation or Joomla migrations.
-- Test Email is intentionally absent; use Joomla Global Configuration for mail testing.
+GNU General Public License v3.0.

@@ -3,7 +3,7 @@
 /**
  * LoginGuard package installer lifecycle helper.
  *
- * Joomla's package adapter owns installation and removal of the child plugins and
+ * Joomla's package adapter owns installation and removal of the child plugin and
  * component. The package remains a bootstrap installer while com_loginguard owns
  * updater authority. This script keeps package-child metadata and component
  * update-site bindings synchronized so upgrades, rollbacks, and package
@@ -13,24 +13,31 @@
 defined('_JEXEC') or die;
 
 use Joomla\CMS\Factory;
-use Joomla\CMS\Installer\Installer;
 use Joomla\Database\DatabaseDriver;
 
 class Pkg_LoginguardInstallerScript
 {
+    /**
+     * Remove stale package-child links before Joomla reconciles this package.
+     *
+     * @param   string  $type     Install action type.
+     * @param   mixed   $adapter  Joomla installer adapter.
+     */
     public function preflight($type, $adapter): bool
     {
         if (!in_array($type, ['install', 'update', 'discover_install', 'uninstall'], true)) {
             return true;
         }
 
-        if ($type === 'update') {
-            $this->removeLegacyMfaPlugin();
-        }
-
         return $this->synchroniseChildExtensions($type === 'uninstall');
     }
 
+    /**
+     * Reconcile package-child links after package install/update paths.
+     *
+     * @param   string  $type     Install action type.
+     * @param   mixed   $adapter  Joomla installer adapter.
+     */
     public function postflight($type, $adapter): bool
     {
         if (!in_array($type, ['install', 'update', 'discover_install'], true)) {
@@ -38,13 +45,17 @@ class Pkg_LoginguardInstallerScript
         }
 
         $this->synchroniseChildExtensions(false);
-        $this->removeLegacyMfaPlugin();
         $this->repairUpdateSiteRegistration();
         $this->enableChildExtension('plugin', 'loginguardcleanup', 'task');
 
         return true;
     }
 
+    /**
+     * Keep package uninstall idempotent if a child extension was removed earlier.
+     *
+     * @param   mixed  $adapter  Joomla installer adapter.
+     */
     public function uninstall($adapter): bool
     {
         return $this->synchroniseChildExtensions(true);
@@ -69,6 +80,7 @@ class Pkg_LoginguardInstallerScript
                 }
             }
         } catch (\Throwable $exception) {
+            // Registry cleanup is best-effort and must never block package lifecycle actions.
             return true;
         }
 
@@ -84,7 +96,9 @@ class Pkg_LoginguardInstallerScript
         }
     }
 
-    /** @return list<array{type: string, element: string, folder: string}> */
+    /**
+     * @return list<array{type: string, element: string, folder: string}>
+     */
     private function getChildExtensionDefinitions(): array
     {
         return [
@@ -92,38 +106,6 @@ class Pkg_LoginguardInstallerScript
             ['type' => 'plugin', 'element' => 'loginguardcleanup', 'folder' => 'task'],
             ['type' => 'component', 'element' => 'com_loginguard', 'folder' => ''],
         ];
-    }
-
-    /** Disable and detach first, then best-effort uninstall the retired v0.2.21-v0.2.24 observer. */
-    private function removeLegacyMfaPlugin(): void
-    {
-        try {
-            $db = $this->getDatabase();
-            $extensionId = $this->getExtensionId($db, 'plugin', 'loginguardmfa', 'system');
-
-            if ($extensionId === 0) {
-                return;
-            }
-
-            $query = $db->getQuery(true)
-                ->update($db->quoteName('#__extensions'))
-                ->set($db->quoteName('enabled') . ' = 0')
-                ->where($db->quoteName('extension_id') . ' = ' . $extensionId);
-            $db->setQuery($query)->execute();
-
-            // Old package metadata blocks Joomla's child uninstall. Detach only
-            // this exact, already-disabled extension before invoking Installer.
-            $this->setPackageId($db, $extensionId, 0);
-
-            try {
-                Installer::getInstance()->uninstall('plugin', $extensionId);
-            } catch (\Throwable $exception) {
-                // A disabled, detached legacy row is safe if Joomla cannot
-                // remove historically drifted files or metadata.
-            }
-        } catch (\Throwable $exception) {
-            // Legacy cleanup is fail-safe and must never abort the package update.
-        }
     }
 
     private function enableChildExtension(string $type, string $element, string $folder): void
@@ -142,7 +124,7 @@ class Pkg_LoginguardInstallerScript
                 ->where($db->quoteName('extension_id') . ' = ' . (int) $extensionId);
             $db->setQuery($query)->execute();
         } catch (\Throwable $exception) {
-            // Enabling LoginGuard operational plugins is best-effort and must not block installs.
+            // Enabling the scheduler plugin is best-effort and must not block installs.
         }
     }
 

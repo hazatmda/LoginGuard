@@ -1,1 +1,1 @@
--- LoginGuard 0.2.26 changes authentication event behavior only; no schema changes are required.
+-- Version marker only: runtime and schema remain at the v0.2.20 compatibility baseline.

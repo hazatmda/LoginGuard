@@ -6,136 +6,43 @@ on:
       - main
       - develop
       - feature/**
-      - codex/**
+    tags:
+      - 'v*'
   pull_request:
+  release:
+    types:
+      - published
 
 jobs:
-  validate:
+  validate-and-build:
     runs-on: ubuntu-latest
-    permissions:
-      contents: read
-    strategy:
-      fail-fast: false
-      matrix:
-        php-version: ['8.1', '8.2', '8.3', '8.4']
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-      - name: Load canonical version
-        run: echo "VERSION=$(cat VERSION)" >> "$GITHUB_ENV"
-      - name: Setup PHP
-        uses: shivammathur/setup-php@v2
-        with:
-          php-version: ${{ matrix.php-version }}
-      - name: Validate repository
-        run: bash scripts/validate.sh
 
-  build:
-    needs: validate
-    runs-on: ubuntu-latest
     permissions:
-      contents: read
+      contents: write
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
-      - name: Load canonical version
-        run: echo "VERSION=$(cat VERSION)" >> "$GITHUB_ENV"
+
       - name: Setup PHP
         uses: shivammathur/setup-php@v2
         with:
           php-version: '8.2'
-      - name: Validate repository
+
+      - name: Validate PHP syntax
         run: bash scripts/validate.sh
+
       - name: Build Joomla package
         run: bash scripts/build.sh
+
       - name: Upload package artifact
         uses: actions/upload-artifact@v4
         with:
           name: LoginGuard-package
-          path: packages/pkg_loginguard_v${{ env.VERSION }}.zip
+          path: packages/*.zip
 
-  publish-release:
-    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-    needs: build
-    runs-on: ubuntu-latest
-    concurrency:
-      group: loginguard-release-main
-      cancel-in-progress: false
-    permissions:
-      contents: write
-    steps:
-      - name: Checkout validated main commit
-        uses: actions/checkout@v4
-        with:
-          ref: ${{ github.sha }}
-
-      - name: Prepare automatic release metadata
-        id: release
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          VERSION="$(cat VERSION)"
-          TAG="v${VERSION}"
-          EXPECTED_PACKAGE="packages/pkg_loginguard_v${VERSION}.zip"
-
-          [[ "${VERSION}" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || {
-            echo "VERSION must be a stable semantic version: ${VERSION}" >&2
-            exit 1
-          }
-
-          # Automatic publishing intentionally derives the tag from VERSION
-          # instead of depending on github.event.release.tag_name.
-          test "${TAG}" = "v${VERSION}"
-
-          echo "VERSION=${VERSION}" >> "$GITHUB_ENV"
-          echo "TAG=${TAG}" >> "$GITHUB_ENV"
-          echo "EXPECTED_PACKAGE=${EXPECTED_PACKAGE}" >> "$GITHUB_ENV"
-          echo "tag=${TAG}" >> "$GITHUB_OUTPUT"
-
-          if gh release view "${TAG}" --repo "${GITHUB_REPOSITORY}" >/dev/null 2>&1; then
-            echo "exists=true" >> "$GITHUB_OUTPUT"
-            echo "Release ${TAG} already exists; creation will be skipped."
-          else
-            echo "exists=false" >> "$GITHUB_OUTPUT"
-          fi
-
-      - name: Setup PHP
-        uses: shivammathur/setup-php@v2
-        with:
-          php-version: '8.2'
-
-      - name: Validate repository
-        run: bash scripts/validate.sh
-
-      - name: Build Joomla package
-        run: bash scripts/build.sh
-
-      - name: Verify exact release package
-        run: |
-          VERSION="$(cat VERSION)"
-          test -f "packages/pkg_loginguard_v${VERSION}.zip"
-          test "${EXPECTED_PACKAGE}" = "packages/pkg_loginguard_v${VERSION}.zip"
-
-      - name: Create GitHub Release and attach Joomla package
-        if: steps.release.outputs.exists == 'false'
+      - name: Attach package to GitHub Release
+        if: github.event_name == 'release'
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: ${{ steps.release.outputs.tag }}
-          target_commitish: ${{ github.sha }}
-          name: LoginGuard ${{ steps.release.outputs.tag }}
-          generate_release_notes: true
-          make_latest: true
-          files: packages/pkg_loginguard_v${{ env.VERSION }}.zip
-
-      - name: Verify published release and updater asset
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          ASSET="pkg_loginguard_v${VERSION}.zip"
-          test "$(gh release view "${TAG}" --repo "${GITHUB_REPOSITORY}" --json tagName --jq '.tagName')" = "${TAG}"
-          test "$(gh api "repos/${GITHUB_REPOSITORY}/commits/${TAG}" --jq '.sha')" = "${GITHUB_SHA}"
-          gh release view "${TAG}" --repo "${GITHUB_REPOSITORY}" --json assets --jq '.assets[].name' \
-            | grep -Fxq "${ASSET}"
-          curl -fsSL --range 0-0 \
-            "https://github.com/${GITHUB_REPOSITORY}/releases/download/${TAG}/${ASSET}" \
-            -o /dev/null
+          files: packages/*.zip

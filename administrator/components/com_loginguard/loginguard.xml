@@ -6,10 +6,13 @@
     <version>0.2.26</version>
     <element>com_loginguard</element>
     <description>COM_LOGINGUARD_XML_DESCRIPTION</description>
+
     <updateservers>
         <server type="extension" priority="1" name="LoginGuard Updates">https://raw.githubusercontent.com/hazatmda/LoginGuard/main/updates/loginguard.xml</server>
     </updateservers>
+
     <namespace path="src">LoginGuard\Component\LoginGuard</namespace>
+
     <administration>
         <menu link="option=com_loginguard&amp;view=dashboard" img="class:shield-alt">COM_LOGINGUARD</menu>
         <submenu>
@@ -20,8 +23,15 @@
             <menu view="about">COM_LOGINGUARD_SUBMENU_ABOUT</menu>
         </submenu>
         <files folder="administrator/components/com_loginguard">
-            <filename>loginguard.php</filename><filename>loginguard.xml</filename><filename>access.xml</filename><filename>config.xml</filename>
-            <folder>forms</folder><folder>language</folder><folder>services</folder><folder>src</folder><folder>tmpl</folder>
+            <filename>loginguard.php</filename>
+            <filename>loginguard.xml</filename>
+            <filename>access.xml</filename>
+            <filename>config.xml</filename>
+            <folder>forms</folder>
+            <folder>language</folder>
+            <folder>services</folder>
+            <folder>src</folder>
+            <folder>tmpl</folder>
         </files>
         <languages folder="administrator/components/com_loginguard/language">
             <language tag="en-GB">en-GB/en-GB.com_loginguard.ini</language>

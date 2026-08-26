@@ -1,65 +1,9 @@
 # Changelog
 
 ## 0.2.26
-
-- Kept successful Joomla administrator login and captive MFA routing transparent by removing component bootstrapping from the User plugin's `onUserAfterLogin` audit-alert path; alert delivery remains plugin-local and fail-open.
-- Disabled and detached only the retired System - LoginGuard MFA extension from its legacy package association before asking Joomla Installer to uninstall it, with a safe disabled/detached fallback for historically drifted installations.
-- Added focused regressions for post-login routing neutrality, exactly-once success auditing, fail-open telemetry, and disable/detach/uninstall cleanup ordering.
-
-## 0.2.25
-
-- Removed all LoginGuard MFA integration so Joomla core exclusively owns MFA lifecycle, routing, and state.
-- Added fail-safe package upgrade cleanup which disables and then attempts to uninstall the legacy System - LoginGuard MFA plugin.
-- Restored immediate ordinary `SUCCESS_LOGIN` auditing after successful primary authentication while preserving trusted-proxy telemetry, enforcement, alerts, health reporting, and fail-open behavior.
-- Removed MFA-only runtime, configuration, dashboard, filter, export, language, alert-template, package, and fresh-install schema surfaces; legacy upgrade columns may remain inert for compatibility.
-- Preserved the non-MFA security and operational hardening delivered through v0.2.24.
-
-## 0.2.24
-
-- Removed LoginGuard's redundant Test Email control; use Joomla Global Configuration for mail testing.
-- Restored a passive post-login boundary by removing session correlation and pre-captive MFA database checks from the User plugin.
-- Deferred every interactive frontend/backend primary success until Joomla's captive-success event, conservatively covering mandatory first-time setup without querying MFA records or touching Joomla session/routing state; API and CLI outcomes remain immediate.
-- Kept `MFA_PENDING` as neutral telemetry outside alerts, throttling, blocking, and thresholds, and added accurate method/status/result metadata to the shared Success/Failed Alert defaults without replacing saved templates.
-- Kept MFA event auditing observational and independent of Joomla captive routing state.
-- Simplified dashboard hierarchy, time-range controls, and runtime-health presentation.
-
-## 0.2.23
-
-- Unified final Joomla MFA success and failure mail with the configured general audit alert templates, toggles, recipients, and failure throttling; MFA context is available through `{mfa_method}`, `{mfa_status}`, and `{mfa_reason}`.
-- Replaced LoginGuard's dummy diagnostic message with Joomla native test-mail behavior and a Joomla 5.2 MailerFactory compatibility fallback.
-- Added a centralized trusted-proxy-aware client IP resolver supporting Cloudflare and defensively parsed X-Forwarded-For, exact IPv4/IPv6 proxy rules, and CIDR rules.
-- Hardened the existing IP whitelist so resolved exact IPv4/IPv6 and CIDR matches remain audited while bypassing active enforcement and password/MFA automatic blocks.
-- Deferred GeoIP enrichment for this release: audit records retain the trusted-proxy-aware public client IP as their only network-origin telemetry. Saved alert templates are normalized at render time so retired GeoIP rows do not leak literal placeholders; legacy database columns and history remain intact because the supported MySQL migration format cannot conditionally drop drifted columns safely.
-
-## 0.2.22
-
-- Added the default-on **Enable MFA Auditing** master switch for LoginGuard MFA lifecycle auditing, MFA-specific automatic blocking, and MFA alerts without changing Joomla MFA itself.
-- Preserved immediate normal successful-login auditing and alerts when LoginGuard MFA auditing is disabled, including for Joomla users who have MFA configured.
-- Gated MFA policy and alert controls behind the master switch and expanded regression validation for MFA/non-MFA users in both switch states and credential/code non-access.
-- Finalized session-owned MFA attempts already in flight when auditing is switched off, without creating new MFA audit, blocking, or MFA-alert side effects.
-- Hardened release publishing around canonical `VERSION`, the exact matching tag, updater URLs, and versioned package asset.
-- Synchronized release metadata and package naming for `pkg_loginguard_v0.2.22.zip`.
-
-## 0.2.21
-
-- Changed client-IP resolution to trust only the web-server/PHP `REMOTE_ADDR`; LoginGuard no longer trusts request-supplied Cloudflare or forwarded-IP headers.
-- Removed schema reconciliation and DDL from the authentication request path; schema changes are now delivered through install/update SQL only.
-- Added Joomla captive MFA auditing for `MFA_PENDING`, `MFA_FAILED`, `MFA_SUCCESS`, and `MFA_TRY_LIMIT` without reading or storing MFA codes.
-- Finalized `SUCCESS_LOGIN` only after captive MFA completion when MFA is required, while preserving normal successful-login behavior for users without captive MFA.
-- Added separate MFA failure threshold/window/cooldown policy and optional MFA failure/threshold email alerts.
-- Added composite login-attempt indexes for IP/status/time and user/status/time queries.
-- Added atomic/idempotent active automatic-block creation with a unique active key and safe recycling of expired automatic blocks.
-- Added blocked-IP provenance and lifecycle metadata (`source`, update/disable metadata) and changed normal delete behavior to soft-disable/history retention.
-- Added administrator audit records for block-management actions, login-audit deletion, and CSV export operations.
-- Added CSV spreadsheet-formula protection at export time while preserving raw stored telemetry.
-- Added bounded attacker-controlled telemetry lengths including a 2048-character User-Agent limit.
-- Added Joomla failure logging plus runtime health/degraded-state storage for database/audit, enforcement, automatic blocking, MFA, mail, GeoIP, and cleanup operations.
-- Added dashboard MFA telemetry and runtime health visibility.
-- Removed unused/misleading runtime configuration fields for trusted proxies, logging level, and export-permission toggling; ACL export permission remains mandatory.
-- Hardened cleanup to retain soft-disabled block history until its configured retention window expires.
-- Added the `plg_system_loginguardmfa` package child plugin and automatic package-lifecycle enablement.
-- Hardened GitHub Actions permissions, added PHP 8.1–8.4 validation, and expanded repository validation for the v0.2.21 security invariants.
-- Aligned documented support to Joomla 5.2+ and PHP 8.1+ and synchronized package/update metadata for `pkg_loginguard_v0.2.21.zip`.
+- Restored all package runtime, backend, installer, and plugin behavior to the v0.2.20 compatibility baseline.
+- Retained only dashboard presentation refinements while keeping the v0.2.20 dashboard data contract.
+- Synchronized release metadata and package naming for `pkg_loginguard_v0.2.26.zip`.
 
 ## 0.2.20
 - Preserve raw submitted username telemetry and stop replacing empty or missing usernames with `unknown`.

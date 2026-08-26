@@ -4,8 +4,10 @@
     <author>Hazim</author>
     <creationDate>2026-05-15</creationDate>
     <version>0.2.26</version>
-    <description>Joomla security plugin for login attempt detection, monitoring, auditing, and IP enforcement.</description>
+    <description>Joomla security plugin for login attempt detection, monitoring, and auditing.</description>
+
     <namespace path="src">Joomla\Plugin\User\LoginGuard</namespace>
+
     <files>
         <folder plugin="loginguard">services</folder>
         <folder>src</folder>
@@ -13,11 +15,28 @@
         <folder>sql</folder>
         <filename>script.php</filename>
     </files>
+
     <languages>
         <language tag="en-GB">language/en-GB/en-GB.plg_user_loginguard.ini</language>
     </languages>
+
     <scriptfile>script.php</scriptfile>
-    <install><sql><file driver="mysql" charset="utf8">sql/install.mysql.utf8.sql</file></sql></install>
-    <update><schemas><schemapath type="mysql">sql/updates/mysql</schemapath></schemas></update>
-    <uninstall><sql><file driver="mysql" charset="utf8">sql/uninstall.mysql.utf8.sql</file></sql></uninstall>
+
+    <install>
+        <sql>
+            <file driver="mysql" charset="utf8">sql/install.mysql.utf8.sql</file>
+        </sql>
+    </install>
+
+    <update>
+        <schemas>
+            <schemapath type="mysql">sql/updates/mysql</schemapath>
+        </schemas>
+    </update>
+
+    <uninstall>
+        <sql>
+            <file driver="mysql" charset="utf8">sql/uninstall.mysql.utf8.sql</file>
+        </sql>
+    </uninstall>
 </extension>
