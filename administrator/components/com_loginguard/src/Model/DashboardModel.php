@@ -229,6 +229,30 @@ final class DashboardModel extends BaseDatabaseModel
 
 
     /**
+     * @return array<int, object>
+     */
+    public function getTopCountries(): array
+    {
+        $db = $this->getDatabase();
+        $query = $db->getQuery(true)
+            ->select([
+                'COALESCE(NULLIF(' . $db->quoteName('country') . ', ' . $db->quote('') . '), ' . $db->quote('Unknown') . ') AS ' . $db->quoteName('country'),
+                'COUNT(*) AS ' . $db->quoteName('total'),
+            ])
+            ->from($db->quoteName('#__loginguard_attempts'))
+            ->where($db->quoteName('status') . ' IN (' . $this->quoteList(['FAILED_LOGIN', 'BLOCKED_LOGIN']) . ')');
+
+        $this->applyAttemptTimeframe($query);
+
+        $query->group('COALESCE(NULLIF(' . $db->quoteName('country') . ', ' . $db->quote('') . '), ' . $db->quote('Unknown') . ')')
+            ->order($db->quoteName('total') . ' DESC');
+
+        $db->setQuery($query, 0, 5);
+
+        return $db->loadObjectList() ?: [];
+    }
+
+    /**
      * @return array<string, int>
      */
     public function getAttackOriginSummary(): array
@@ -268,6 +292,9 @@ final class DashboardModel extends BaseDatabaseModel
         $params = \Joomla\CMS\Component\ComponentHelper::getParams('com_loginguard');
         $automaticCleanup = (int) $params->get('automatic_cleanup_enabled', 0);
         $enforcement = (int) $params->get('enforcement_enabled', 0);
+        $geoipEnabled = 1;
+        $geoipMap = trim((string) $params->get('geoip_country_map', ''));
+        $geoipAvailable = $this->hasAutomaticGeoIpCapability() || $geoipMap !== '';
         $lastCleanup = '';
 
         $query = $db->getQuery(true)
@@ -306,9 +333,39 @@ final class DashboardModel extends BaseDatabaseModel
             'enforcement_enabled' => $enforcement,
             'automatic_cleanup_enabled' => $automaticCleanup,
             'scheduler_enabled' => $schedulerEnabled,
+            'geoip_enabled' => $geoipEnabled,
+            'geoip_configured' => $geoipAvailable ? 1 : 0,
             'last_cleanup_execution' => $lastCleanup,
             'next_cleanup_window' => $automaticCleanup === 1 && $schedulerEnabled === 1 ? 'Joomla task scheduler cadence' : '',
         ];
+    }
+
+    private function hasAutomaticGeoIpCapability(): bool
+    {
+        if (function_exists('geoip_country_name_by_name') || function_exists('geoip_record_by_name') || function_exists('geoip_country_code_by_name')) {
+            return true;
+        }
+
+        if (!class_exists('GeoIp2\\Database\\Reader')) {
+            return false;
+        }
+
+        $root = defined('JPATH_ROOT') ? JPATH_ROOT : '';
+        $administrator = defined('JPATH_ADMINISTRATOR') ? JPATH_ADMINISTRATOR : ($root !== '' ? $root . '/administrator' : '');
+
+        foreach ([$root, $administrator, '/usr/share/GeoIP', '/usr/local/share/GeoIP', '/var/lib/GeoIP'] as $basePath) {
+            if ($basePath === '') {
+                continue;
+            }
+
+            foreach (['GeoLite2-City.mmdb', 'GeoIP2-City.mmdb', 'GeoLite2-Country.mmdb', 'GeoIP2-Country.mmdb'] as $filename) {
+                if (is_readable(rtrim($basePath, '/\\') . '/GeoIP/' . $filename) || is_readable(rtrim($basePath, '/\\') . '/' . $filename)) {
+                    return true;
+                }
+            }
+        }
+
+        return false;
     }
 
     /**

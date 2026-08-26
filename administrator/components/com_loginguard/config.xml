@@ -1,78 +1,392 @@
 <?xml version="1.0" encoding="utf-8"?>
 <config>
     <fieldset name="component" label="COM_LOGINGUARD_CONFIG_FIELDSET_COMPONENT">
-        <field name="retention_days" type="number" label="COM_LOGINGUARD_CONFIG_RETENTION_DAYS_LABEL" description="COM_LOGINGUARD_CONFIG_RETENTION_DAYS_DESC" default="90" min="1" filter="integer" />
-        <field name="automatic_cleanup_enabled" type="radio" layout="joomla.form.field.radio.switcher" label="COM_LOGINGUARD_CONFIG_AUTOMATIC_CLEANUP_ENABLED_LABEL" description="COM_LOGINGUARD_CONFIG_AUTOMATIC_CLEANUP_ENABLED_DESC" default="0" filter="integer">
-            <option value="0">JNO</option><option value="1">JYES</option>
+        <field
+            name="trusted_proxies"
+            type="textarea"
+            label="COM_LOGINGUARD_CONFIG_TRUSTED_PROXIES_LABEL"
+            description="COM_LOGINGUARD_CONFIG_TRUSTED_PROXIES_DESC"
+            rows="4"
+            filter="string"
+        />
+        <field
+            name="retention_days"
+            type="number"
+            label="COM_LOGINGUARD_CONFIG_RETENTION_DAYS_LABEL"
+            description="COM_LOGINGUARD_CONFIG_RETENTION_DAYS_DESC"
+            default="90"
+            min="1"
+            filter="integer"
+        />
+        <field
+            name="automatic_cleanup_enabled"
+            type="radio"
+            layout="joomla.form.field.radio.switcher"
+            label="COM_LOGINGUARD_CONFIG_AUTOMATIC_CLEANUP_ENABLED_LABEL"
+            description="COM_LOGINGUARD_CONFIG_AUTOMATIC_CLEANUP_ENABLED_DESC"
+            default="0"
+            filter="integer"
+        >
+            <option value="0">JNO</option>
+            <option value="1">JYES</option>
         </field>
-        <field name="login_retention_days" type="number" label="COM_LOGINGUARD_CONFIG_LOGIN_RETENTION_DAYS_LABEL" description="COM_LOGINGUARD_CONFIG_LOGIN_RETENTION_DAYS_DESC" default="90" min="1" showon="automatic_cleanup_enabled:1" filter="integer" />
-        <field name="blocked_ip_retention_days" type="number" label="COM_LOGINGUARD_CONFIG_BLOCKED_IP_RETENTION_DAYS_LABEL" description="COM_LOGINGUARD_CONFIG_BLOCKED_IP_RETENTION_DAYS_DESC" default="30" min="1" showon="automatic_cleanup_enabled:1" filter="integer" />
-        <field name="cleanup_batch_size" type="number" label="COM_LOGINGUARD_CONFIG_CLEANUP_BATCH_SIZE_LABEL" description="COM_LOGINGUARD_CONFIG_CLEANUP_BATCH_SIZE_DESC" default="500" min="1" max="5000" showon="automatic_cleanup_enabled:1" filter="integer" />
-        <field name="cleanup_execution_logging" type="radio" layout="joomla.form.field.radio.switcher" label="COM_LOGINGUARD_CONFIG_CLEANUP_EXECUTION_LOGGING_LABEL" description="COM_LOGINGUARD_CONFIG_CLEANUP_EXECUTION_LOGGING_DESC" default="1" showon="automatic_cleanup_enabled:1" filter="integer">
-            <option value="0">JNO</option><option value="1">JYES</option>
+        <field
+            name="login_retention_days"
+            type="number"
+            label="COM_LOGINGUARD_CONFIG_LOGIN_RETENTION_DAYS_LABEL"
+            description="COM_LOGINGUARD_CONFIG_LOGIN_RETENTION_DAYS_DESC"
+            default="90"
+            min="1"
+            showon="automatic_cleanup_enabled:1"
+            filter="integer"
+        />
+        <field
+            name="blocked_ip_retention_days"
+            type="number"
+            label="COM_LOGINGUARD_CONFIG_BLOCKED_IP_RETENTION_DAYS_LABEL"
+            description="COM_LOGINGUARD_CONFIG_BLOCKED_IP_RETENTION_DAYS_DESC"
+            default="30"
+            min="1"
+            showon="automatic_cleanup_enabled:1"
+            filter="integer"
+        />
+        <field
+            name="cleanup_batch_size"
+            type="number"
+            label="COM_LOGINGUARD_CONFIG_CLEANUP_BATCH_SIZE_LABEL"
+            description="COM_LOGINGUARD_CONFIG_CLEANUP_BATCH_SIZE_DESC"
+            default="500"
+            min="1"
+            max="5000"
+            showon="automatic_cleanup_enabled:1"
+            filter="integer"
+        />
+        <field
+            name="cleanup_execution_logging"
+            type="radio"
+            layout="joomla.form.field.radio.switcher"
+            label="COM_LOGINGUARD_CONFIG_CLEANUP_EXECUTION_LOGGING_LABEL"
+            description="COM_LOGINGUARD_CONFIG_CLEANUP_EXECUTION_LOGGING_DESC"
+            default="1"
+            showon="automatic_cleanup_enabled:1"
+            filter="integer"
+        >
+            <option value="0">JNO</option>
+            <option value="1">JYES</option>
         </field>
+        <field
+            name="logging_level"
+            type="list"
+            label="COM_LOGINGUARD_CONFIG_LOGGING_LEVEL_LABEL"
+            description="COM_LOGINGUARD_CONFIG_LOGGING_LEVEL_DESC"
+            default="standard"
+            validate="options"
+        >
+            <option value="minimal">COM_LOGINGUARD_CONFIG_LOGGING_LEVEL_MINIMAL</option>
+            <option value="standard">COM_LOGINGUARD_CONFIG_LOGGING_LEVEL_STANDARD</option>
+            <option value="verbose">COM_LOGINGUARD_CONFIG_LOGGING_LEVEL_VERBOSE</option>
+        </field>
+        <field
+            name="geoip_enabled"
+            type="hidden"
+            default="1"
+            filter="integer"
+        />
 
-        <field name="trusted_proxy_note" type="note" label="COM_LOGINGUARD_CONFIG_TRUSTED_PROXY_NOTE_LABEL" description="COM_LOGINGUARD_CONFIG_TRUSTED_PROXY_NOTE_DESC" class="alert alert-warning" />
-        <field name="trusted_proxy_ips" type="textarea" label="COM_LOGINGUARD_CONFIG_TRUSTED_PROXY_IPS_LABEL" description="COM_LOGINGUARD_CONFIG_TRUSTED_PROXY_IPS_DESC" rows="4" filter="string" />
-        <field name="forwarded_ip_header" type="list" label="COM_LOGINGUARD_CONFIG_FORWARDED_IP_HEADER_LABEL" description="COM_LOGINGUARD_CONFIG_FORWARDED_IP_HEADER_DESC" default="none" validate="options">
-            <option value="none">COM_LOGINGUARD_CONFIG_FORWARDED_IP_HEADER_NONE</option>
-            <option value="cf-connecting-ip">CF-Connecting-IP</option>
-            <option value="x-forwarded-for">X-Forwarded-For</option>
-        </field>
+        <field
+            name="automatic_policy_note"
+            type="note"
+            label="COM_LOGINGUARD_CONFIG_AUTOMATIC_POLICY_NOTE_LABEL"
+            description="COM_LOGINGUARD_CONFIG_AUTOMATIC_POLICY_NOTE_DESC"
+            class="alert alert-info"
+        />
 
-        <field name="automatic_policy_note" type="note" label="COM_LOGINGUARD_CONFIG_AUTOMATIC_POLICY_NOTE_LABEL" description="COM_LOGINGUARD_CONFIG_AUTOMATIC_POLICY_NOTE_DESC" class="alert alert-info" />
-        <field name="enforcement_enabled" type="radio" layout="joomla.form.field.radio.switcher" label="COM_LOGINGUARD_CONFIG_ENFORCEMENT_ENABLED_LABEL" description="COM_LOGINGUARD_CONFIG_ENFORCEMENT_ENABLED_DESC" default="0" filter="integer">
-            <option value="0">JNO</option><option value="1">JYES</option>
+        <field
+            name="enforcement_enabled"
+            type="radio"
+            layout="joomla.form.field.radio.switcher"
+            label="COM_LOGINGUARD_CONFIG_ENFORCEMENT_ENABLED_LABEL"
+            description="COM_LOGINGUARD_CONFIG_ENFORCEMENT_ENABLED_DESC"
+            default="0"
+            filter="integer"
+        >
+            <option value="0">JNO</option>
+            <option value="1">JYES</option>
         </field>
-        <field name="frontend_enforcement_enabled" type="radio" layout="joomla.form.field.radio.switcher" label="COM_LOGINGUARD_CONFIG_FRONTEND_ENFORCEMENT_LABEL" description="COM_LOGINGUARD_CONFIG_FRONTEND_ENFORCEMENT_DESC" default="1" showon="enforcement_enabled:1" filter="integer">
-            <option value="0">JNO</option><option value="1">JYES</option>
+        <field
+            name="frontend_enforcement_enabled"
+            type="radio"
+            layout="joomla.form.field.radio.switcher"
+            label="COM_LOGINGUARD_CONFIG_FRONTEND_ENFORCEMENT_LABEL"
+            description="COM_LOGINGUARD_CONFIG_FRONTEND_ENFORCEMENT_DESC"
+            default="1"
+            showon="enforcement_enabled:1"
+            filter="integer"
+        >
+            <option value="0">JNO</option>
+            <option value="1">JYES</option>
         </field>
-        <field name="backend_enforcement_enabled" type="radio" layout="joomla.form.field.radio.switcher" label="COM_LOGINGUARD_CONFIG_BACKEND_ENFORCEMENT_LABEL" description="COM_LOGINGUARD_CONFIG_BACKEND_ENFORCEMENT_DESC" default="1" showon="enforcement_enabled:1" filter="integer">
-            <option value="0">JNO</option><option value="1">JYES</option>
+        <field
+            name="backend_enforcement_enabled"
+            type="radio"
+            layout="joomla.form.field.radio.switcher"
+            label="COM_LOGINGUARD_CONFIG_BACKEND_ENFORCEMENT_LABEL"
+            description="COM_LOGINGUARD_CONFIG_BACKEND_ENFORCEMENT_DESC"
+            default="1"
+            showon="enforcement_enabled:1"
+            filter="integer"
+        >
+            <option value="0">JNO</option>
+            <option value="1">JYES</option>
         </field>
-        <field name="automatic_blocking_enabled" type="radio" layout="joomla.form.field.radio.switcher" label="COM_LOGINGUARD_CONFIG_AUTOMATIC_BLOCKING_LABEL" description="COM_LOGINGUARD_CONFIG_AUTOMATIC_BLOCKING_DESC" default="0" showon="enforcement_enabled:1" filter="integer">
-            <option value="0">JNO</option><option value="1">JYES</option>
+        <field
+            name="automatic_blocking_enabled"
+            type="radio"
+            layout="joomla.form.field.radio.switcher"
+            label="COM_LOGINGUARD_CONFIG_AUTOMATIC_BLOCKING_LABEL"
+            description="COM_LOGINGUARD_CONFIG_AUTOMATIC_BLOCKING_DESC"
+            default="0"
+            showon="enforcement_enabled:1"
+            filter="integer"
+        >
+            <option value="0">JNO</option>
+            <option value="1">JYES</option>
         </field>
-        <field name="failed_attempt_threshold" type="number" label="COM_LOGINGUARD_CONFIG_FAILED_ATTEMPT_THRESHOLD_LABEL" description="COM_LOGINGUARD_CONFIG_FAILED_ATTEMPT_THRESHOLD_DESC" default="5" min="1" showon="automatic_blocking_enabled:1" filter="integer" />
-        <field name="threshold_window_minutes" type="number" label="COM_LOGINGUARD_CONFIG_THRESHOLD_WINDOW_LABEL" description="COM_LOGINGUARD_CONFIG_THRESHOLD_WINDOW_DESC" default="15" min="1" showon="automatic_blocking_enabled:1" filter="integer" />
-        <field name="cooldown_duration_minutes" type="number" label="COM_LOGINGUARD_CONFIG_COOLDOWN_LABEL" description="COM_LOGINGUARD_CONFIG_COOLDOWN_DESC" default="30" min="1" showon="automatic_blocking_enabled:1" filter="integer" />
-        <field name="automatic_block_scope" type="list" label="COM_LOGINGUARD_CONFIG_AUTOMATIC_BLOCK_SCOPE_LABEL" description="COM_LOGINGUARD_CONFIG_AUTOMATIC_BLOCK_SCOPE_DESC" default="all" showon="enforcement_enabled:1" validate="options">
+        <field
+            name="failed_attempt_threshold"
+            type="number"
+            label="COM_LOGINGUARD_CONFIG_FAILED_ATTEMPT_THRESHOLD_LABEL"
+            description="COM_LOGINGUARD_CONFIG_FAILED_ATTEMPT_THRESHOLD_DESC"
+            default="5"
+            min="1"
+            showon="automatic_blocking_enabled:1"
+            filter="integer"
+        />
+        <field
+            name="threshold_window_minutes"
+            type="number"
+            label="COM_LOGINGUARD_CONFIG_THRESHOLD_WINDOW_LABEL"
+            description="COM_LOGINGUARD_CONFIG_THRESHOLD_WINDOW_DESC"
+            default="15"
+            min="1"
+            showon="automatic_blocking_enabled:1"
+            filter="integer"
+        />
+        <field
+            name="cooldown_duration_minutes"
+            type="number"
+            label="COM_LOGINGUARD_CONFIG_COOLDOWN_LABEL"
+            description="COM_LOGINGUARD_CONFIG_COOLDOWN_DESC"
+            default="30"
+            min="1"
+            showon="automatic_blocking_enabled:1"
+            filter="integer"
+        />
+        <field
+            name="automatic_block_scope"
+            type="list"
+            label="COM_LOGINGUARD_CONFIG_AUTOMATIC_BLOCK_SCOPE_LABEL"
+            description="COM_LOGINGUARD_CONFIG_AUTOMATIC_BLOCK_SCOPE_DESC"
+            default="all"
+            showon="automatic_blocking_enabled:1"
+            validate="options"
+        >
             <option value="all">COM_LOGINGUARD_BLOCK_SCOPE_ALL</option>
             <option value="frontend">COM_LOGINGUARD_WHERE_FRONTEND</option>
             <option value="backend">COM_LOGINGUARD_WHERE_BACKEND</option>
         </field>
-        <field name="whitelisted_ips" type="textarea" label="COM_LOGINGUARD_CONFIG_WHITELISTED_IPS_LABEL" description="COM_LOGINGUARD_CONFIG_WHITELISTED_IPS_DESC" rows="4" filter="string" />
-
+        <field
+            name="whitelisted_ips"
+            type="textarea"
+            label="COM_LOGINGUARD_CONFIG_WHITELISTED_IPS_LABEL"
+            description="COM_LOGINGUARD_CONFIG_WHITELISTED_IPS_DESC"
+            rows="4"
+            filter="string"
+        />
+        <field
+            name="geoip_country_map"
+            type="hidden"
+            filter="string"
+        />
+        <field
+            name="export_requires_permission"
+            type="radio"
+            layout="joomla.form.field.radio.switcher"
+            label="COM_LOGINGUARD_CONFIG_EXPORT_REQUIRES_PERMISSION_LABEL"
+            description="COM_LOGINGUARD_CONFIG_EXPORT_REQUIRES_PERMISSION_DESC"
+            default="1"
+            filter="integer"
+        >
+            <option value="0">JNO</option>
+            <option value="1">JYES</option>
+        </field>
     </fieldset>
 
     <fieldset name="alerts" label="COM_LOGINGUARD_CONFIG_FIELDSET_ALERTS">
-        <field name="audit_alerts_enabled" type="radio" layout="joomla.form.field.radio.switcher" label="COM_LOGINGUARD_CONFIG_AUDIT_ALERTS_ENABLED_LABEL" description="COM_LOGINGUARD_CONFIG_AUDIT_ALERTS_ENABLED_DESC" default="0" filter="integer">
-            <option value="0">JNO</option><option value="1">JYES</option>
+        <field
+            name="audit_alerts_enabled"
+            type="radio"
+            layout="joomla.form.field.radio.switcher"
+            label="COM_LOGINGUARD_CONFIG_AUDIT_ALERTS_ENABLED_LABEL"
+            description="COM_LOGINGUARD_CONFIG_AUDIT_ALERTS_ENABLED_DESC"
+            default="0"
+            filter="integer"
+        >
+            <option value="0">JNO</option>
+            <option value="1">JYES</option>
         </field>
-        <field name="audit_alert_success" type="radio" layout="joomla.form.field.radio.switcher" label="COM_LOGINGUARD_CONFIG_AUDIT_ALERT_SUCCESS_LABEL" description="COM_LOGINGUARD_CONFIG_AUDIT_ALERT_SUCCESS_DESC" default="0" showon="audit_alerts_enabled:1" filter="integer">
-            <option value="0">JNO</option><option value="1">JYES</option>
+        <field
+            name="audit_alert_success"
+            type="radio"
+            layout="joomla.form.field.radio.switcher"
+            label="COM_LOGINGUARD_CONFIG_AUDIT_ALERT_SUCCESS_LABEL"
+            description="COM_LOGINGUARD_CONFIG_AUDIT_ALERT_SUCCESS_DESC"
+            default="0"
+            showon="audit_alerts_enabled:1"
+            filter="integer"
+        >
+            <option value="0">JNO</option>
+            <option value="1">JYES</option>
         </field>
-        <field name="audit_alert_failed" type="radio" layout="joomla.form.field.radio.switcher" label="COM_LOGINGUARD_CONFIG_AUDIT_ALERT_FAILED_LABEL" description="COM_LOGINGUARD_CONFIG_AUDIT_ALERT_FAILED_DESC" default="1" showon="audit_alerts_enabled:1" filter="integer">
-            <option value="0">JNO</option><option value="1">JYES</option>
+        <field
+            name="audit_alert_failed"
+            type="radio"
+            layout="joomla.form.field.radio.switcher"
+            label="COM_LOGINGUARD_CONFIG_AUDIT_ALERT_FAILED_LABEL"
+            description="COM_LOGINGUARD_CONFIG_AUDIT_ALERT_FAILED_DESC"
+            default="1"
+            showon="audit_alerts_enabled:1"
+            filter="integer"
+        >
+            <option value="0">JNO</option>
+            <option value="1">JYES</option>
         </field>
-        <field name="failed_alert_throttling_enabled" type="radio" layout="joomla.form.field.radio.switcher" label="COM_LOGINGUARD_CONFIG_FAILED_ALERT_THROTTLING_ENABLED_LABEL" description="COM_LOGINGUARD_CONFIG_FAILED_ALERT_THROTTLING_ENABLED_DESC" default="0" showon="audit_alerts_enabled:1[AND]audit_alert_failed:1" filter="integer">
-            <option value="0">JNO</option><option value="1">JYES</option>
-        </field>
-        <field name="failed_alert_threshold" type="number" label="COM_LOGINGUARD_CONFIG_FAILED_ALERT_THRESHOLD_LABEL" description="COM_LOGINGUARD_CONFIG_FAILED_ALERT_THRESHOLD_DESC" default="10" min="1" step="1" showon="audit_alerts_enabled:1[AND]audit_alert_failed:1[AND]failed_alert_throttling_enabled:1" filter="integer" />
-        <field name="failed_alert_throttle_window_minutes" type="number" label="COM_LOGINGUARD_CONFIG_FAILED_ALERT_THROTTLE_WINDOW_LABEL" description="COM_LOGINGUARD_CONFIG_FAILED_ALERT_THROTTLE_WINDOW_DESC" default="15" min="1" step="1" showon="audit_alerts_enabled:1[AND]audit_alert_failed:1[AND]failed_alert_throttling_enabled:1" filter="integer" />
-        <field name="blocked_ip_alerts_enabled" type="radio" layout="joomla.form.field.radio.switcher" label="COM_LOGINGUARD_CONFIG_BLOCKED_IP_ALERTS_ENABLED_LABEL" description="COM_LOGINGUARD_CONFIG_BLOCKED_IP_ALERTS_ENABLED_DESC" default="1" showon="audit_alerts_enabled:1" filter="integer">
-            <option value="0">JNO</option><option value="1">JYES</option>
-        </field>
-        <field name="blocked_ip_alert_subject" type="text" label="COM_LOGINGUARD_CONFIG_BLOCKED_IP_ALERT_SUBJECT_LABEL" description="COM_LOGINGUARD_CONFIG_BLOCKED_IP_ALERT_TEMPLATE_DESC" default="[LOGIN GUARD] BLOCKED LOGIN ATTEMPT" showon="audit_alerts_enabled:1[AND]blocked_ip_alerts_enabled:1" filter="string" />
-        <field name="blocked_ip_alert_body" type="textarea" label="COM_LOGINGUARD_CONFIG_BLOCKED_IP_ALERT_BODY_LABEL" description="COM_LOGINGUARD_CONFIG_BLOCKED_IP_ALERT_TEMPLATE_DESC" default="LoginGuard recorded a {status} event on {site_name}.&#10;&#10;Full Name: {full_name}&#10;Username: {username}&#10;Email: {email}&#10;IP Address: {ip}&#10;Where: {where}&#10;Browser: {browser}&#10;Operating System: {os}&#10;Failure Reason: {failure_reason}&#10;Block Type: {block_type}&#10;Block Reason: {block_reason}&#10;Blocked Until: {block_until}&#10;Failure Count: {failure_count}&#10;User Agent: {user_agent}&#10;Date/Time: {datetime}&#10;&#10;Generated automatically by Login Guard MDA." rows="8" showon="audit_alerts_enabled:1[AND]blocked_ip_alerts_enabled:1" filter="string" />
-        <field name="audit_alert_recipients" type="textarea" label="COM_LOGINGUARD_CONFIG_AUDIT_ALERT_RECIPIENTS_LABEL" description="COM_LOGINGUARD_CONFIG_AUDIT_ALERT_RECIPIENTS_DESC" rows="3" showon="audit_alerts_enabled:1" filter="string" />
-        <field name="audit_alert_success_subject" type="text" label="COM_LOGINGUARD_CONFIG_AUDIT_ALERT_SUCCESS_SUBJECT_LABEL" description="COM_LOGINGUARD_CONFIG_AUDIT_ALERT_TEMPLATE_DESC" default="[LOGIN GUARD] SUCCESSFUL BACKEND LOGIN" showon="audit_alerts_enabled:1[AND]audit_alert_success:1" filter="string" />
-        <field name="audit_alert_success_body" type="textarea" label="COM_LOGINGUARD_CONFIG_AUDIT_ALERT_SUCCESS_BODY_LABEL" description="COM_LOGINGUARD_CONFIG_AUDIT_ALERT_TEMPLATE_DESC" default="LoginGuard recorded a {status} event on {site_name}.&#10;&#10;Full Name: {full_name}&#10;Username: {username}&#10;Email: {email}&#10;IP Address: {ip}&#10;Where: {where}&#10;Browser: {browser}&#10;Operating System: {os}&#10;Failure Reason: {failure_reason}&#10;User Agent: {user_agent}&#10;Date/Time: {datetime}&#10;&#10;Generated automatically by Login Guard MDA." rows="8" showon="audit_alerts_enabled:1[AND]audit_alert_success:1" filter="string" />
-        <field name="audit_alert_failed_subject" type="text" label="COM_LOGINGUARD_CONFIG_AUDIT_ALERT_FAILED_SUBJECT_LABEL" description="COM_LOGINGUARD_CONFIG_AUDIT_ALERT_TEMPLATE_DESC" default="[LOGIN GUARD] FAILED BACKEND LOGIN" showon="audit_alerts_enabled:1[AND]audit_alert_failed:1" filter="string" />
-        <field name="audit_alert_failed_body" type="textarea" label="COM_LOGINGUARD_CONFIG_AUDIT_ALERT_FAILED_BODY_LABEL" description="COM_LOGINGUARD_CONFIG_AUDIT_ALERT_TEMPLATE_DESC" default="LoginGuard recorded a {status} event on {site_name}.&#10;&#10;Full Name: {full_name}&#10;Username: {username}&#10;Email: {email}&#10;IP Address: {ip}&#10;Where: {where}&#10;Browser: {browser}&#10;Operating System: {os}&#10;Failure Reason: {failure_reason}&#10;User Agent: {user_agent}&#10;Date/Time: {datetime}&#10;&#10;Generated automatically by Login Guard MDA." rows="8" showon="audit_alerts_enabled:1[AND]audit_alert_failed:1" filter="string" />
-    </fieldset>
 
+        <field
+            name="failed_alert_throttling_enabled"
+            type="radio"
+            layout="joomla.form.field.radio.switcher"
+            label="COM_LOGINGUARD_CONFIG_FAILED_ALERT_THROTTLING_ENABLED_LABEL"
+            description="COM_LOGINGUARD_CONFIG_FAILED_ALERT_THROTTLING_ENABLED_DESC"
+            default="0"
+            showon="audit_alerts_enabled:1[AND]audit_alert_failed:1"
+            filter="integer"
+        >
+            <option value="0">JNO</option>
+            <option value="1">JYES</option>
+        </field>
+        <field
+            name="failed_alert_threshold"
+            type="number"
+            label="COM_LOGINGUARD_CONFIG_FAILED_ALERT_THRESHOLD_LABEL"
+            description="COM_LOGINGUARD_CONFIG_FAILED_ALERT_THRESHOLD_DESC"
+            default="10"
+            min="1"
+            step="1"
+            showon="audit_alerts_enabled:1[AND]audit_alert_failed:1[AND]failed_alert_throttling_enabled:1"
+            filter="integer"
+        />
+        <field
+            name="failed_alert_throttle_window_minutes"
+            type="number"
+            label="COM_LOGINGUARD_CONFIG_FAILED_ALERT_THROTTLE_WINDOW_LABEL"
+            description="COM_LOGINGUARD_CONFIG_FAILED_ALERT_THROTTLE_WINDOW_DESC"
+            default="15"
+            min="1"
+            step="1"
+            showon="audit_alerts_enabled:1[AND]audit_alert_failed:1[AND]failed_alert_throttling_enabled:1"
+            filter="integer"
+        />
+
+        <field
+            name="blocked_ip_alerts_enabled"
+            type="radio"
+            layout="joomla.form.field.radio.switcher"
+            label="COM_LOGINGUARD_CONFIG_BLOCKED_IP_ALERTS_ENABLED_LABEL"
+            description="COM_LOGINGUARD_CONFIG_BLOCKED_IP_ALERTS_ENABLED_DESC"
+            default="1"
+            showon="audit_alerts_enabled:1"
+            filter="integer"
+        >
+            <option value="0">JNO</option>
+            <option value="1">JYES</option>
+        </field>
+        <field
+            name="blocked_ip_alert_subject"
+            type="text"
+            label="COM_LOGINGUARD_CONFIG_BLOCKED_IP_ALERT_SUBJECT_LABEL"
+            description="COM_LOGINGUARD_CONFIG_BLOCKED_IP_ALERT_TEMPLATE_DESC"
+            default="[LOGIN GUARD] BLOCKED LOGIN ATTEMPT"
+            showon="audit_alerts_enabled:1[AND]blocked_ip_alerts_enabled:1"
+            filter="string"
+        />
+        <field
+            name="blocked_ip_alert_body"
+            type="textarea"
+            label="COM_LOGINGUARD_CONFIG_BLOCKED_IP_ALERT_BODY_LABEL"
+            description="COM_LOGINGUARD_CONFIG_BLOCKED_IP_ALERT_TEMPLATE_DESC"
+            default="LoginGuard recorded a {status} event on {site_name}.&#10;&#10;Full Name: {full_name}&#10;Username: {username}&#10;Email: {email}&#10;IP Address: {ip}&#10;Where: {where}&#10;Browser: {browser}&#10;Operating System: {os}&#10;Failure Reason: {failure_reason}&#10;Block Type: {block_type}&#10;Block Reason: {block_reason}&#10;Blocked Until: {block_until}&#10;Failure Count: {failure_count}&#10;Country: {country}&#10;Country Code: {country_code}&#10;Region: {region}&#10;City: {city}&#10;ISP: {isp}&#10;ASN: {asn}&#10;User Agent: {user_agent}&#10;Date/Time: {datetime}&#10;&#10;Generated automatically by Login Guard MDA."
+            rows="8"
+            showon="audit_alerts_enabled:1[AND]blocked_ip_alerts_enabled:1"
+            filter="string"
+        />
+        <field
+            name="audit_alert_recipients"
+            type="textarea"
+            label="COM_LOGINGUARD_CONFIG_AUDIT_ALERT_RECIPIENTS_LABEL"
+            description="COM_LOGINGUARD_CONFIG_AUDIT_ALERT_RECIPIENTS_DESC"
+            rows="3"
+            showon="audit_alerts_enabled:1"
+            filter="string"
+        />
+        <field
+            name="audit_alert_success_subject"
+            type="text"
+            label="COM_LOGINGUARD_CONFIG_AUDIT_ALERT_SUCCESS_SUBJECT_LABEL"
+            description="COM_LOGINGUARD_CONFIG_AUDIT_ALERT_TEMPLATE_DESC"
+            default="[LOGIN GUARD] SUCCESSFUL BACKEND LOGIN"
+            showon="audit_alerts_enabled:1[AND]audit_alert_success:1"
+            filter="string"
+        />
+        <field
+            name="audit_alert_success_body"
+            type="textarea"
+            label="COM_LOGINGUARD_CONFIG_AUDIT_ALERT_SUCCESS_BODY_LABEL"
+            description="COM_LOGINGUARD_CONFIG_AUDIT_ALERT_TEMPLATE_DESC"
+            default="LoginGuard recorded a {status} event on {site_name}.&#10;&#10;Full Name: {full_name}&#10;Username: {username}&#10;Email: {email}&#10;IP Address: {ip}&#10;Where: {where}&#10;Browser: {browser}&#10;Operating System: {os}&#10;Failure Reason: {failure_reason}&#10;Country: {country}&#10;Country Code: {country_code}&#10;Region: {region}&#10;City: {city}&#10;ISP: {isp}&#10;ASN: {asn}&#10;User Agent: {user_agent}&#10;Date/Time: {datetime}&#10;&#10;Generated automatically by Login Guard MDA."
+            rows="8"
+            showon="audit_alerts_enabled:1[AND]audit_alert_success:1"
+            filter="string"
+        />
+        <field
+            name="audit_alert_failed_subject"
+            type="text"
+            label="COM_LOGINGUARD_CONFIG_AUDIT_ALERT_FAILED_SUBJECT_LABEL"
+            description="COM_LOGINGUARD_CONFIG_AUDIT_ALERT_TEMPLATE_DESC"
+            default="[LOGIN GUARD] FAILED BACKEND LOGIN"
+            showon="audit_alerts_enabled:1[AND]audit_alert_failed:1"
+            filter="string"
+        />
+        <field
+            name="audit_alert_failed_body"
+            type="textarea"
+            label="COM_LOGINGUARD_CONFIG_AUDIT_ALERT_FAILED_BODY_LABEL"
+            description="COM_LOGINGUARD_CONFIG_AUDIT_ALERT_TEMPLATE_DESC"
+            default="LoginGuard recorded a {status} event on {site_name}.&#10;&#10;Full Name: {full_name}&#10;Username: {username}&#10;Email: {email}&#10;IP Address: {ip}&#10;Where: {where}&#10;Browser: {browser}&#10;Operating System: {os}&#10;Failure Reason: {failure_reason}&#10;Country: {country}&#10;Country Code: {country_code}&#10;Region: {region}&#10;City: {city}&#10;ISP: {isp}&#10;ASN: {asn}&#10;User Agent: {user_agent}&#10;Date/Time: {datetime}&#10;&#10;Generated automatically by Login Guard MDA."
+            rows="8"
+            showon="audit_alerts_enabled:1[AND]audit_alert_failed:1"
+            filter="string"
+        />
+    </fieldset>
     <fieldset name="permissions" label="JCONFIG_PERMISSIONS_LABEL">
-        <field name="rules" type="rules" label="JCONFIG_PERMISSIONS_LABEL" component="com_loginguard" section="component" filter="rules" validate="rules" />
+        <field
+            name="rules"
+            type="rules"
+            label="JCONFIG_PERMISSIONS_LABEL"
+            component="com_loginguard"
+            section="component"
+            filter="rules"
+            validate="rules"
+        />
     </fieldset>
 </config>

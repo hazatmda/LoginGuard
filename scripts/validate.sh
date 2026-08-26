@@ -1,12 +1,9 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-find plugins administrator pkg_loginguard -name "*.php" -exec php -l {} \;
+find plugins administrator -name "*.php" -exec php -l {} \;
+php tests/v020_runtime_baseline.php
 
-php tests/joomla_login_event_aggregation.php
-php tests/no_mfa_integration.php
-php tests/legacy_mfa_cleanup.php
-php tests/ip_blocked_reason.php
 
 php <<'PHP'
 <?php
@@ -16,17 +13,38 @@ require 'plugins/user/loginguard/src/Service/IpResolver.php';
 use Joomla\Plugin\User\LoginGuard\Service\IpResolver;
 
 $cases = [
-    'public_remote_addr' => [['REMOTE_ADDR' => '203.0.113.10'], '203.0.113.10'],
-    'private_remote_addr' => [['REMOTE_ADDR' => '10.10.10.20'], '10.10.10.20'],
-    'ipv6_remote_addr' => [['REMOTE_ADDR' => '2001:db8::10'], '2001:db8::10'],
-    'forwarded_headers_are_not_trusted' => [[
-        'REMOTE_ADDR' => '192.0.2.50',
-        'HTTP_CF_CONNECTING_IP' => '1.1.1.1',
-        'HTTP_X_FORWARDED_FOR' => '8.8.8.8',
-        'HTTP_X_REAL_IP' => '9.9.9.9',
-    ], '192.0.2.50'],
-    'invalid_remote_addr' => [['REMOTE_ADDR' => 'not-an-ip'], 'unknown'],
-    'missing_remote_addr' => [[], 'unknown'],
+    'cloudflare_ipv4_priority' => [
+        ['HTTP_CF_CONNECTING_IP' => '1.1.1.1', 'HTTP_X_FORWARDED_FOR' => '8.8.8.8', 'REMOTE_ADDR' => '127.0.0.1'],
+        '1.1.1.1',
+    ],
+    'proxy_x_forwarded_for_first_public' => [
+        ['HTTP_X_FORWARDED_FOR' => 'malformed, 10.0.0.5, 8.8.8.8, 1.1.1.1', 'REMOTE_ADDR' => '127.0.0.1'],
+        '8.8.8.8',
+    ],
+    'x_real_ip_fallback' => [
+        ['HTTP_CF_CONNECTING_IP' => 'bad', 'HTTP_X_FORWARDED_FOR' => '10.0.0.1, nope', 'HTTP_X_REAL_IP' => '9.9.9.9', 'REMOTE_ADDR' => '127.0.0.1'],
+        '9.9.9.9',
+    ],
+    'localhost_remote_fallback' => [
+        ['HTTP_CF_CONNECTING_IP' => 'bad', 'REMOTE_ADDR' => '127.0.0.1'],
+        '127.0.0.1',
+    ],
+    'docker_remote_fallback' => [
+        ['HTTP_X_FORWARDED_FOR' => '172.17.0.2', 'REMOTE_ADDR' => '172.17.0.1'],
+        '172.17.0.1',
+    ],
+    'ipv6_public_proxy' => [
+        ['HTTP_X_FORWARDED_FOR' => 'fd00::1, 2606:4700:4700::1111', 'REMOTE_ADDR' => '::1'],
+        '2606:4700:4700::1111',
+    ],
+    'ipv6_localhost_fallback' => [
+        ['HTTP_X_REAL_IP' => 'fd00::1', 'REMOTE_ADDR' => '::1'],
+        '::1',
+    ],
+    'invalid_values_unknown' => [
+        ['HTTP_CF_CONNECTING_IP' => '1.2.3.4.5', 'HTTP_X_FORWARDED_FOR' => 'bad', 'HTTP_X_REAL_IP' => 'also-bad', 'REMOTE_ADDR' => 'nope'],
+        'unknown',
+    ],
 ];
 
 foreach ($cases as $name => [$server, $expected]) {
@@ -37,35 +55,13 @@ foreach ($cases as $name => [$server, $expected]) {
     }
 }
 
-$proxyCases = [
-    'spoofed_cloudflare_header' => [['REMOTE_ADDR' => '198.51.100.9', 'HTTP_CF_CONNECTING_IP' => '203.0.113.7'], '192.0.2.0/24', 'cf-connecting-ip', '198.51.100.9'],
-    'trusted_cloudflare_proxy' => [['REMOTE_ADDR' => '172.71.210.74', 'HTTP_CF_CONNECTING_IP' => '203.0.113.7'], '172.64.0.0/13', 'cf-connecting-ip', '203.0.113.7'],
-    'trusted_ipv6_proxy' => [['REMOTE_ADDR' => '2001:db8:1::4', 'HTTP_CF_CONNECTING_IP' => '2001:db8:2::8'], '2001:db8:1::/48', 'cf-connecting-ip', '2001:db8:2::8'],
-    'defensive_xff_chain' => [['REMOTE_ADDR' => '10.0.0.2', 'HTTP_X_FORWARDED_FOR' => '203.0.113.8, 10.0.0.1'], '10.0.0.0/8', 'x-forwarded-for', '203.0.113.8'],
-    'invalid_forwarded_fallback' => [['REMOTE_ADDR' => '10.0.0.2', 'HTTP_CF_CONNECTING_IP' => 'invalid'], '10.0.0.0/8', 'cf-connecting-ip', '10.0.0.2'],
-];
-foreach ($proxyCases as $name => [$server, $trusted, $header, $expected]) {
-    $actual = IpResolver::resolve($server, $trusted, $header);
-    if ($actual !== $expected) { fwrite(STDERR, "$name expected $expected got $actual\n"); exit(1); }
-}
-foreach (['192.0.2.7', '2001:db8::7', '192.0.2.0/24', '2001:db8::/32'] as $rule) {
-    $ip = str_contains($rule, ':') ? '2001:db8::7' : '192.0.2.7';
-    if (!IpResolver::matchesRule($ip, $rule)) { fwrite(STDERR, "Whitelist rule failed: $rule\n"); exit(1); }
-}
-if (IpResolver::matchesRule('192.0.2.7', 'invalid/24')) { fwrite(STDERR, "Invalid whitelist matched\n"); exit(1); }
-
-echo "IpResolver trusted proxy and whitelist validation completed successfully\n";
+echo "IpResolver validation completed successfully\n";
 PHP
 
 python3 - <<'PY'
 from pathlib import Path
+import sys
 import xml.etree.ElementTree as ET
-
-VERSION = Path('VERSION').read_text(encoding='utf-8').strip()
-if VERSION != '0.2.25':
-    raise SystemExit(f'Expected VERSION 0.2.25, got {VERSION}')
-if '-' in VERSION:
-    raise SystemExit('Canonical release version must be stable semantic version')
 
 xml_files = [
     *Path('plugins').rglob('*.xml'),
@@ -73,229 +69,552 @@ xml_files = [
     *Path('pkg_loginguard').rglob('*.xml'),
     *Path('updates').rglob('*.xml'),
 ]
+
+versions = {'VERSION': Path('VERSION').read_text(encoding='utf-8').strip()}
 roots = {}
 for xml_file in xml_files:
     try:
-        roots[xml_file] = ET.parse(xml_file).getroot()
+        root = ET.parse(xml_file).getroot()
     except ET.ParseError as exc:
-        raise SystemExit(f'Invalid XML in {xml_file}: {exc}')
+        print(f'Invalid XML in {xml_file}: {exc}', file=sys.stderr)
+        sys.exit(1)
 
-versioned = {
+    roots[xml_file] = root
+    version = root.findtext('version')
+    if version is not None:
+        versions[str(xml_file)] = version.strip()
+
+mismatched = {path: version for path, version in versions.items() if version != versions['VERSION']}
+if mismatched:
+    details = ', '.join(f'{path}={version}' for path, version in versions.items())
+    print(f'Version mismatch: {details}', file=sys.stderr)
+    sys.exit(1)
+
+if '-' in versions['VERSION']:
+    print(f'Canonical release version must be a stable semantic version without prerelease suffix: {versions["VERSION"]}', file=sys.stderr)
+    sys.exit(1)
+
+plugin_manifest = Path('plugins/user/loginguard/loginguard.xml')
+plugin_root = roots.get(plugin_manifest)
+if plugin_root is None:
+    print(f'Missing plugin manifest: {plugin_manifest}', file=sys.stderr)
+    sys.exit(1)
+
+expected_sql = {
+    './install/sql/file': 'sql/install.mysql.utf8.sql',
+    './uninstall/sql/file': 'sql/uninstall.mysql.utf8.sql',
+}
+
+for xpath, relative_path in expected_sql.items():
+    node = plugin_root.find(xpath)
+    if node is None or (node.text or '').strip() != relative_path:
+        print(f'Plugin manifest missing SQL mapping {xpath} -> {relative_path}', file=sys.stderr)
+        sys.exit(1)
+    if not (plugin_manifest.parent / relative_path).is_file():
+        print(f'Plugin SQL file missing: {plugin_manifest.parent / relative_path}', file=sys.stderr)
+        sys.exit(1)
+
+schema_path = plugin_root.findtext('./update/schemas/schemapath')
+if schema_path != 'sql/updates/mysql':
+    print('Plugin manifest missing update schema path sql/updates/mysql', file=sys.stderr)
+    sys.exit(1)
+
+if not (plugin_manifest.parent / schema_path / f"{versions['VERSION']}.sql").is_file():
+    print(f"Missing update migration for {versions['VERSION']}", file=sys.stderr)
+    sys.exit(1)
+
+package_manifest = Path('pkg_loginguard/pkg_loginguard.xml')
+package_root = roots.get(package_manifest)
+package_manifest_text = package_manifest.read_text(encoding='utf-8')
+if package_root is None:
+    print(f'Missing package manifest: {package_manifest}', file=sys.stderr)
+    sys.exit(1)
+if package_root.findtext('scriptfile') != 'script.php' or not Path('pkg_loginguard/script.php').is_file():
+    print('Package manifest must include the package installer script.php lifecycle helper', file=sys.stderr)
+    sys.exit(1)
+if package_root.findtext('blockChildUninstall') != 'true':
+    print('Package manifest must block independent child extension uninstall for lifecycle synchronization', file=sys.stderr)
+    sys.exit(1)
+package_script_text = Path('pkg_loginguard/script.php').read_text(encoding='utf-8')
+for required_text in ['class Pkg_LoginguardInstallerScript', 'preflight', 'postflight', 'uninstall', 'package_id', 'synchroniseChildExtensions', 'repairUpdateSiteRegistration', 'ensureUpdateSite', 'bindUpdateSiteToExtension', 'deleteStaleUpdateSiteMappings', 'removePackageUpdateSiteBindings', 'removeDuplicateComponentUpdateSiteBindings', 'com_loginguard', 'last_check_timestamp']:
+    if required_text not in package_script_text:
+        print(f'Package installer script missing lifecycle synchronization token: {required_text}', file=sys.stderr)
+        sys.exit(1)
+build_script_text = Path('scripts/build.sh').read_text(encoding='utf-8')
+if 'cp pkg_loginguard/script.php' not in build_script_text:
+    print('Build script must include the package lifecycle script in the release ZIP', file=sys.stderr)
+    sys.exit(1)
+if 'plg_task_loginguardcleanup.zip' not in build_script_text:
+    print('Build script must include the LoginGuard scheduled cleanup task plugin ZIP', file=sys.stderr)
+    sys.exit(1)
+if '<file type="plugin" id="loginguardcleanup" group="task">plg_task_loginguardcleanup.zip</file>' not in package_manifest_text:
+    print('Package manifest must include the LoginGuard task scheduler plugin child extension', file=sys.stderr)
+    sys.exit(1)
+
+ip_resolver = Path('plugins/user/loginguard/src/Service/IpResolver.php')
+login_guard = Path('plugins/user/loginguard/src/Extension/LoginGuard.php')
+if not ip_resolver.is_file():
+    print('Missing centralized IpResolver service', file=sys.stderr)
+    sys.exit(1)
+
+ip_resolver_text = ip_resolver.read_text(encoding='utf-8')
+for required_text in ['HTTP_CF_CONNECTING_IP', 'HTTP_X_FORWARDED_FOR', 'HTTP_X_REAL_IP', 'REMOTE_ADDR', 'FILTER_VALIDATE_IP', 'FILTER_FLAG_NO_PRIV_RANGE', 'FILTER_FLAG_NO_RES_RANGE']:
+    if required_text not in ip_resolver_text:
+        print(f'IpResolver missing proxy-aware validation token: {required_text}', file=sys.stderr)
+        sys.exit(1)
+
+login_guard_text = login_guard.read_text(encoding='utf-8')
+if 'IpResolver::resolve()' not in login_guard_text:
+    print('Login logging must use IpResolver::resolve()', file=sys.stderr)
+    sys.exit(1)
+for required_text in ["ComponentHelper::getParams('com_loginguard')", 'Factory::getMailer()', 'audit_alerts_enabled', 'audit_alert_success', 'audit_alert_failed', 'audit_alert_recipients', 'audit_alert_success_subject', 'audit_alert_success_body', 'audit_alert_failed_subject', 'audit_alert_failed_body', 'isFailedAlertThrottled', 'normaliseAlertRecipients', 'failed_alert_throttling_enabled', 'failed_alert_threshold', 'failed_alert_throttle_window_minutes']:
+    if required_text not in login_guard_text:
+        print(f'LoginGuard extension missing audit alert support: {required_text}', file=sys.stderr)
+        sys.exit(1)
+
+for forbidden_text in ['audit_alert_clients']:
+    if forbidden_text in login_guard_text:
+        print(f'LoginGuard extension must send mail alerts instead of onscreen alert support: {forbidden_text}', file=sys.stderr)
+        sys.exit(1)
+
+for required_text in ['AuthenticationResponse', 'Authentication::STATUS_DENIED', 'getAuthenticationResponseFromEvent', 'addResult($deniedResponse)', 'PLG_USER_LOGINGUARD_LOGIN_BLOCKED']:
+    if required_text not in login_guard_text:
+        print(f'LoginGuard extension missing AuthenticationResponse authorisation enforcement: {required_text}', file=sys.stderr)
+        sys.exit(1)
+if 'public function onUserAuthorisation($response = null, $options = [])' not in login_guard_text or 'public function onUserAuthorisation($response = [], $options = []): bool' in login_guard_text or 'return $this->enforceBlockedIp($response);' in login_guard_text:
+    print('LoginGuard authorisation enforcement must not return boolean results from onUserAuthorisation', file=sys.stderr)
+    sys.exit(1)
+for template_variable in ['{full_name}', '{username}', '{email}', '{ip}', '{status}', '{failure_reason}', '{where}', '{browser}', '{os}', '{country}', '{country_code}', '{region}', '{city}', '{isp}', '{asn}', '{user_agent}', '{datetime}', '{site_name}']:
+    if template_variable not in login_guard_text:
+        print(f'LoginGuard extension missing alert template variable: {template_variable}', file=sys.stderr)
+        sys.exit(1)
+if "$_SERVER['REMOTE_ADDR']" in login_guard_text or '$_SERVER["REMOTE_ADDR"]' in login_guard_text:
+    print('LoginGuard extension must not read REMOTE_ADDR directly', file=sys.stderr)
+    sys.exit(1)
+
+component_view = Path('administrator/components/com_loginguard/src/View/Attempts/HtmlView.php')
+component_model = Path('administrator/components/com_loginguard/src/Model/AttemptsModel.php')
+component_template = Path('administrator/components/com_loginguard/tmpl/attempts/default.php')
+component_filter = Path('administrator/components/com_loginguard/forms/filter_attempts.xml')
+
+for required_file in [component_view, component_model, component_template, component_filter]:
+    if not required_file.is_file():
+        print(f'Missing administrator MVC/ListView file: {required_file}', file=sys.stderr)
+        sys.exit(1)
+
+template_text = component_template.read_text(encoding='utf-8')
+if "LayoutHelper::render('joomla.searchtools.default'" not in template_text:
+    print('Attempts template must render Joomla SearchTools through LayoutHelper', file=sys.stderr)
+    sys.exit(1)
+if "HTMLHelper::_('searchtools.default'" in template_text:
+    print('Attempts template must not call the non-layout searchtools.default HTML helper', file=sys.stderr)
+    sys.exit(1)
+if "HTMLHelper::_('searchtools.sort'" not in template_text:
+    print('Attempts template must use Joomla SearchTools sorting helpers', file=sys.stderr)
+    sys.exit(1)
+if "getListFooter()" not in template_text:
+    print('Attempts template missing pagination footer rendering', file=sys.stderr)
+    sys.exit(1)
+
+view_text = component_view.read_text(encoding='utf-8')
+for required_state in ['FilterForm', 'ActiveFilters', 'Pagination', 'Items', 'ToolbarHelper::title']:
+    if required_state not in view_text:
+        print(f'Attempts HtmlView missing {required_state} wiring', file=sys.stderr)
+        sys.exit(1)
+
+model_text = component_model.read_text(encoding='utf-8')
+for required_state in ["'filter.search'", "'filter.status'", "'filter.where_at'", "'list.ordering'", "'list.direction'"]:
+    if required_state not in model_text:
+        print(f'Attempts ListModel missing state handling for {required_state}', file=sys.stderr)
+        sys.exit(1)
+
+
+attempts_controller_text = Path('administrator/components/com_loginguard/src/Controller/AttemptsController.php').read_text(encoding='utf-8')
+for required_text in ["requirePermission('loginguard.export')", 'checkToken()', "['ignore_request' => false]", 'getExportRows', 'Content-Type', 'charset=UTF-8', 'Content-Disposition', 'Content-Transfer-Encoding', 'fputcsv', 'fwrite($output']:
+    if required_text not in attempts_controller_text:
+        print(f'Attempts export missing required routing/header/encoding token: {required_text}', file=sys.stderr)
+        sys.exit(1)
+for required_text in ['getExportRows', 'getListQuery()', 'whereIn', 'loadAssocList']:
+    if required_text not in model_text:
+        print(f'Attempts model missing export filter/selected-row support: {required_text}', file=sys.stderr)
+        sys.exit(1)
+if "ToolbarHelper::custom('attempts.export'" not in view_text:
+    print('Attempts toolbar must route export through Joomla toolbar form task submission', file=sys.stderr)
+    sys.exit(1)
+
+filter_root = roots.get(component_filter)
+if filter_root is None:
+    print(f'Missing attempts filter XML: {component_filter}', file=sys.stderr)
+    sys.exit(1)
+filter_fields = {field.attrib.get('name') for field in filter_root.findall("./fields[@name='filter']/field")}
+list_fields = {field.attrib.get('name') for field in filter_root.findall("./fields[@name='list']/field")}
+if not {'search', 'status', 'where_at'}.issubset(filter_fields):
+    print('Attempts filter XML missing search/status/where_at filters', file=sys.stderr)
+    sys.exit(1)
+if not {'fullordering', 'limit'}.issubset(list_fields):
+    print('Attempts filter XML missing SearchTools ordering or limit fields', file=sys.stderr)
+    sys.exit(1)
+
+
+component_manifest = Path('administrator/components/com_loginguard/loginguard.xml')
+component_root = roots.get(component_manifest)
+component_manifest_text = component_manifest.read_text(encoding='utf-8')
+for required_file in ['access.xml', 'config.xml']:
+    if f'<filename>{required_file}</filename>' not in component_manifest_text or not (component_manifest.parent / required_file).is_file():
+        print(f'Component manifest missing Joomla-native {required_file}', file=sys.stderr)
+        sys.exit(1)
+component_menu = component_root.find('./administration/menu') if component_root is not None else None
+if component_menu is None or component_menu.attrib.get('view') == 'attempts':
+    print('Component root menu must be present and must not route to attempts', file=sys.stderr)
+    sys.exit(1)
+if component_menu.attrib.get('link') != 'option=com_loginguard&view=dashboard':
+    print('Component root menu must route to the dashboard view for stable active menu behavior', file=sys.stderr)
+    sys.exit(1)
+submenu_root = component_root.find('./administration/submenu') if component_root is not None else None
+if submenu_root is None:
+    print('Component manifest missing Joomla-native administrator submenu registration', file=sys.stderr)
+    sys.exit(1)
+expected_submenus = [
+    ('COM_LOGINGUARD_SUBMENU_DASHBOARD', {'view': 'dashboard'}),
+    ('COM_LOGINGUARD_SUBMENU_LOGIN_INFORMATION', {'view': 'attempts'}),
+    ('COM_LOGINGUARD_SUBMENU_CONFIGURATION', {'link': 'option=com_config&view=component&component=com_loginguard'}),
+    ('COM_LOGINGUARD_SUBMENU_ABOUT', {'view': 'about'}),
+]
+submenu_items = [((item.text or '').strip(), item.attrib) for item in submenu_root.findall('menu')]
+
+if 'COM_LOGINGUARD_SUBMENU_TOOLS' in component_manifest_text or 'view=tools' in component_manifest_text:
+    print('Component manifest must not register the removed Tools submenu/view', file=sys.stderr)
+    sys.exit(1)
+for removed_tools_path in [Path('administrator/components/com_loginguard/src/View/Tools'), Path('administrator/components/com_loginguard/tmpl/tools')]:
+    if removed_tools_path.exists():
+        print(f'Removed Tools view path still exists: {removed_tools_path}', file=sys.stderr)
+        sys.exit(1)
+for label, required_attrs in expected_submenus:
+    if not any(item_label == label and all(attrs.get(name) == value for name, value in required_attrs.items()) for item_label, attrs in submenu_items):
+        print(f'Component manifest missing administrator submenu item: {label} {required_attrs}', file=sys.stderr)
+        sys.exit(1)
+
+access_xml = Path('administrator/components/com_loginguard/access.xml')
+access_root = roots.get(access_xml)
+if access_root is None:
+    print('Missing access.xml for ACL validation', file=sys.stderr)
+    sys.exit(1)
+actions = {action.attrib.get('name') for action in access_root.findall("./section[@name='component']/action")}
+required_actions = {'core.manage', 'loginguard.view', 'core.admin', 'loginguard.delete', 'loginguard.export'}
+if not required_actions.issubset(actions):
+    print(f'access.xml missing ACL actions: {sorted(required_actions - actions)}', file=sys.stderr)
+    sys.exit(1)
+
+config_xml = Path('administrator/components/com_loginguard/config.xml')
+config_root = roots.get(config_xml)
+if config_root is None:
+    print('Missing config.xml for com_config integration', file=sys.stderr)
+    sys.exit(1)
+config_fields = {field.attrib.get('name') for field in config_root.findall('.//field')}
+required_config_fields = {'trusted_proxies', 'retention_days', 'automatic_cleanup_enabled', 'login_retention_days', 'blocked_ip_retention_days', 'cleanup_batch_size', 'cleanup_execution_logging', 'logging_level', 'geoip_enabled', 'export_requires_permission', 'enforcement_enabled', 'frontend_enforcement_enabled', 'backend_enforcement_enabled', 'automatic_blocking_enabled', 'failed_attempt_threshold', 'threshold_window_minutes', 'cooldown_duration_minutes', 'automatic_block_scope', 'whitelisted_ips', 'geoip_country_map', 'audit_alerts_enabled', 'audit_alert_success', 'audit_alert_failed', 'failed_alert_throttling_enabled', 'failed_alert_threshold', 'failed_alert_throttle_window_minutes', 'audit_alert_recipients', 'audit_alert_success_subject', 'audit_alert_success_body', 'audit_alert_failed_subject', 'audit_alert_failed_body', 'blocked_ip_alerts_enabled', 'blocked_ip_alert_subject', 'blocked_ip_alert_body', 'rules'}
+forbidden_config_fields = {'lockout_duration'}
+if not required_config_fields.issubset(config_fields):
+    print(f'config.xml missing fields: {sorted(required_config_fields - config_fields)}', file=sys.stderr)
+    sys.exit(1)
+if forbidden_config_fields & config_fields:
+    print(f'config.xml keeps non-functional enforcement fields: {sorted(forbidden_config_fields & config_fields)}', file=sys.stderr)
+    sys.exit(1)
+if config_root.find(".//field[@name='failed_alert_throttling_enabled']").attrib.get('default') != '0':
+    print('Failed-login alert throttling must be disabled by default', file=sys.stderr)
+    sys.exit(1)
+if config_root.find(".//field[@name='failed_alert_threshold']").attrib.get('default') != '10':
+    print('Failed-login alert threshold must default to 10', file=sys.stderr)
+    sys.exit(1)
+if config_root.find(".//field[@name='failed_alert_throttle_window_minutes']").attrib.get('default') != '15':
+    print('Failed-login alert throttle window must default to 15 minutes', file=sys.stderr)
+    sys.exit(1)
+
+for view in ['Dashboard', 'Attempts', 'About']:
+    view_file = Path(f'administrator/components/com_loginguard/src/View/{view}/HtmlView.php')
+    if not view_file.is_file():
+        print(f'Missing submenu view {view}', file=sys.stderr)
+        sys.exit(1)
+
+cleanup_service = Path('administrator/components/com_loginguard/src/Service/CleanupService.php')
+task_plugin = Path('plugins/task/loginguardcleanup/src/Extension/LoginGuardCleanup.php')
+task_manifest = Path('plugins/task/loginguardcleanup/loginguardcleanup.xml')
+for required_file in [cleanup_service, task_plugin, task_manifest, Path('plugins/task/loginguardcleanup/services/provider.php')]:
+    if not required_file.is_file():
+        print(f'Missing scheduled cleanup file: {required_file}', file=sys.stderr)
+        sys.exit(1)
+cleanup_service_text = cleanup_service.read_text(encoding='utf-8')
+for required_text in ['cleanupOldAttempts', 'cleanupExpiredBlocks', 'cleanupDisabledBlocks', 'deleteInBatches', 'fetchIds', 'cleanup_batch_size', 'login_retention_days', 'blocked_ip_retention_days', '#__loginguard_cleanup_runs', 'MAX_BATCHES_PER_RUN', 'whereIn']:
+    if required_text not in cleanup_service_text:
+        print(f'CleanupService missing retention/batch token: {required_text}', file=sys.stderr)
+        sys.exit(1)
+cleanup_task_text = task_plugin.read_text(encoding='utf-8')
+for required_text in ['TaskPluginTrait', 'TASKS_MAP', 'loginguard.cleanup', 'onTaskOptionsList', 'onExecuteTask', 'ComponentHelper::getParams', 'automatic_cleanup_enabled', 'CleanupService']:
+    if required_text not in cleanup_task_text:
+        print(f'Scheduled cleanup task plugin missing token: {required_text}', file=sys.stderr)
+        sys.exit(1)
+dashboard_view = Path('administrator/components/com_loginguard/src/View/Dashboard/HtmlView.php')
+dashboard_model = Path('administrator/components/com_loginguard/src/Model/DashboardModel.php')
+dashboard_template = Path('administrator/components/com_loginguard/tmpl/dashboard/default.php')
+for required_file in [dashboard_view, dashboard_model, dashboard_template]:
+    if not required_file.is_file():
+        print(f'Missing dashboard MVC file: {required_file}', file=sys.stderr)
+        sys.exit(1)
+
+dashboard_view_text = dashboard_view.read_text(encoding='utf-8')
+for required_text in ["requirePermission('core.manage')", "requirePermission('loginguard.view')", 'TelemetryCounts', 'RecentActivity', 'TopFailureReasons', 'TopFailedIps']:
+    if required_text not in dashboard_view_text:
+        print(f'Dashboard HtmlView missing required telemetry/ACL wiring: {required_text}', file=sys.stderr)
+        sys.exit(1)
+
+dashboard_model_text = dashboard_model.read_text(encoding='utf-8')
+for required_text in ['SUCCESS_LOGIN', 'FAILED_LOGIN', 'BLOCKED_LOGIN', 'frontend', 'backend', 'PASSWORD_INCORRECT', 'USERNAME_NOT_FOUND', 'INVALID_CREDENTIALS', 'ACCOUNT_BLOCKED', 'ACCOUNT_DISABLED', 'IP_BLOCKED', '#__loginguard_attempts', '#__loginguard_blocked_ips']:
+    if required_text not in dashboard_model_text:
+        print(f'Dashboard model missing required telemetry token: {required_text}', file=sys.stderr)
+        sys.exit(1)
+
+dashboard_template_text = dashboard_template.read_text(encoding='utf-8')
+for required_text in ['COM_LOGINGUARD_DASHBOARD_FRONTEND_SUCCESS', 'COM_LOGINGUARD_DASHBOARD_BACKEND_SUCCESS', 'COM_LOGINGUARD_DASHBOARD_FRONTEND_FAILED', 'COM_LOGINGUARD_DASHBOARD_BACKEND_FAILED', 'COM_LOGINGUARD_DASHBOARD_RECENT_ACTIVITY', 'COM_LOGINGUARD_DASHBOARD_TOP_FAILURE_REASONS', 'COM_LOGINGUARD_DASHBOARD_TOP_IPS', 'COM_LOGINGUARD_SUBMENU_LOGIN_INFORMATION']:
+    if required_text not in dashboard_template_text:
+        print(f'Dashboard template missing required widget rendering: {required_text}', file=sys.stderr)
+        sys.exit(1)
+if any(forbidden in dashboard_template_text.lower() for forbidden in ['chart.js', 'analytics', 'leaflet', 'react', 'vue']):
+    print('Dashboard template must remain lightweight without charts/maps/SPA/analytics libraries', file=sys.stderr)
+    sys.exit(1)
+
+if any(origin in dashboard_template_text for origin in ["'api' =>", "'cli' =>"]):
+    print('Dashboard origin metrics must only render frontend and backend origins', file=sys.stderr)
+    sys.exit(1)
+
+helper_text = Path('administrator/components/com_loginguard/src/Helper/LoginGuardHelper.php').read_text(encoding='utf-8')
+internal_sidebar_paths = [
+    Path('administrator/components/com_loginguard/src/Helper/LoginGuardHelper.php'),
+    *(Path(f'administrator/components/com_loginguard/src/View/{view}/HtmlView.php') for view in ['Dashboard', 'Attempts', 'About']),
+    *(Path(f'administrator/components/com_loginguard/tmpl/{view}/default.php') for view in ['dashboard', 'attempts', 'about']),
+]
+for internal_sidebar_path in internal_sidebar_paths:
+    internal_sidebar_text = internal_sidebar_path.read_text(encoding='utf-8')
+    for forbidden_sidebar_token in ['Sidebar::addEntry', 'Sidebar::render()', 'j-sidebar-container', '$this->sidebar']:
+        if forbidden_sidebar_token in internal_sidebar_text:
+            print(f'Internal component sidebar token remains in {internal_sidebar_path}: {forbidden_sidebar_token}', file=sys.stderr)
+            sys.exit(1)
+
+for permission in required_actions:
+    if permission not in helper_text + view_text + login_guard_text + Path('administrator/components/com_loginguard/src/Controller/DisplayController.php').read_text(encoding='utf-8') + Path('administrator/components/com_loginguard/src/Controller/AttemptsController.php').read_text(encoding='utf-8'):
+        print(f'ACL permission not enforced or referenced: {permission}', file=sys.stderr)
+        sys.exit(1)
+
+install_sql = (plugin_manifest.parent / 'sql/install.mysql.utf8.sql').read_text(encoding='utf-8')
+username_migration = plugin_manifest.parent / 'sql/updates/mysql/0.2.20.sql'
+username_migration_text = username_migration.read_text(encoding='utf-8') if username_migration.is_file() else ''
+dashboard_template_text = Path('administrator/components/com_loginguard/tmpl/dashboard/default.php').read_text(encoding='utf-8')
+attempts_template = component_template.read_text(encoding='utf-8')
+username_storage_tokens = [
+    "'username' => $this->normaliseTelemetryUsername($attempt['username'] ?? null)",
+    "$values[] = 'NULL'",
+    'normaliseTelemetryUsername',
+]
+for token in username_storage_tokens:
+    if token not in login_guard_text:
+        print(f'Username telemetry storage must preserve raw values and write missing/empty usernames as NULL: {token}', file=sys.stderr)
+        sys.exit(1)
+if "'username' => $this->readPayloadValue($payload, 'username', 'unknown')" in login_guard_text or "'username' => (string) ($record['username'] ?? 'unknown')" in login_guard_text:
+    print('Username telemetry must not fall back to synthetic unknown values', file=sys.stderr)
+    sys.exit(1)
+if '`username` varchar(255) NULL DEFAULT NULL' not in install_sql:
+    print('Install SQL must allow NULL username values', file=sys.stderr)
+    sys.exit(1)
+if 'MODIFY `username` varchar(255) NULL DEFAULT NULL' not in username_migration_text or "SET `username` = NULL" not in username_migration_text:
+    print('v0.2.20 baseline migration must convert empty usernames to nullable username storage', file=sys.stderr)
+    sys.exit(1)
+if 'LoginGuardHelper::formatNullableUsername($item->username ?? null)' not in attempts_template + dashboard_template_text:
+    print('Administrator UI must render NULL usernames as NULL (empty)', file=sys.stderr)
+    sys.exit(1)
+if 'formatNullableUsername($record' not in login_guard_text:
+    print('Mail alert rendering must format NULL usernames in the presentation layer', file=sys.stderr)
+    sys.exit(1)
+if '#__loginguard_cleanup_runs' not in install_sql:
+    print('Install SQL missing cleanup metrics table', file=sys.stderr)
+    sys.exit(1)
+
+for telemetry in ['SUCCESS_LOGIN', 'FAILED_LOGIN', 'USERNAME_NOT_FOUND', 'PASSWORD_INCORRECT', 'INVALID_CREDENTIALS', 'ACCOUNT_BLOCKED', 'ACCOUNT_DISABLED', 'frontend', 'backend', 'api', 'cli', 'BLOCKED_LOGIN', 'IP_BLOCKED']:
+    if telemetry not in login_guard_text and telemetry not in install_sql:
+        print(f'Missing authentication telemetry token: {telemetry}', file=sys.stderr)
+        sys.exit(1)
+if 'password' in login_guard_text.lower() and "'password'" not in login_guard_text.lower() and 'PASSWORD_INCORRECT' not in login_guard_text:
+    print('Unexpected password handling check failed', file=sys.stderr)
+    sys.exit(1)
+if 'raw password' in login_guard_text.lower() or 'plaintext password' in install_sql.lower():
+    print('Potential plaintext password storage detected', file=sys.stderr)
+    sys.exit(1)
+
+for heading in ['COM_LOGINGUARD_HEADING_FAILURE_REASON', 'COM_LOGINGUARD_HEADING_USER_AGENT', 'COM_LOGINGUARD_HEADING_WHERE', 'COM_LOGINGUARD_HEADING_DATETIME', 'COM_LOGINGUARD_HEADING_COUNTRY', 'COM_LOGINGUARD_HEADING_CITY', 'COM_LOGINGUARD_HEADING_ISP', 'COM_LOGINGUARD_HEADING_ASN']:
+    if heading not in attempts_template and heading not in view_text:
+        print(f'Attempts table missing required heading {heading}', file=sys.stderr)
+        sys.exit(1)
+
+package_manifest = Path('pkg_loginguard/pkg_loginguard.xml')
+package_name = f"pkg_loginguard_v{versions['VERSION']}.zip"
+release_tag = f"v{versions['VERSION']}"
+expected_update_url = 'https://raw.githubusercontent.com/hazatmda/LoginGuard/main/updates/loginguard.xml'
+expected_release_url = f'https://github.com/hazatmda/LoginGuard/releases/tag/{release_tag}'
+expected_download_url = f'https://github.com/hazatmda/LoginGuard/releases/download/{release_tag}/{package_name}'
+
+update_manifest = Path('updates/loginguard.xml')
+if '<updateservers>' in package_manifest_text or 'updates/loginguard.xml' in package_manifest_text or '<downloadurl' in package_manifest_text:
+    print('Package manifest must remain a bootstrap installer without updater authority', file=sys.stderr)
+    sys.exit(1)
+if '<updateservers>' not in component_manifest_text or 'updates/loginguard.xml' not in component_manifest_text:
+    print('Component manifest missing Joomla update server metadata', file=sys.stderr)
+    sys.exit(1)
+if not update_manifest.is_file():
+    print('Missing Joomla update stream metadata: updates/loginguard.xml', file=sys.stderr)
+    sys.exit(1)
+update_text = update_manifest.read_text(encoding='utf-8')
+update_server_text = component_manifest_text + update_text + package_script_text
+wrong_repo = 'hazim' + '/LoginGuard'
+if wrong_repo in update_server_text:
+    print('Update metadata contains the incorrect repository URL', file=sys.stderr)
+    sys.exit(1)
+
+active_release_files = [
+    Path('VERSION'),
+    Path('README.md'),
+    Path('administrator/components/com_loginguard/tmpl/about/default.php'),
+    component_manifest,
+    package_manifest,
     Path('plugins/user/loginguard/loginguard.xml'),
     Path('plugins/task/loginguardcleanup/loginguardcleanup.xml'),
-    Path('administrator/components/com_loginguard/loginguard.xml'),
-    Path('pkg_loginguard/pkg_loginguard.xml'),
+    update_manifest,
+]
+for active_file in active_release_files:
+    active_text = active_file.read_text(encoding='utf-8')
+    for stale_token in ['0.2.17', 'v0.2.17', 'pkg_loginguard_v0.2.17.zip']:
+        if stale_token in active_text:
+            print(f'Active release metadata contains stale token {stale_token}: {active_file}', file=sys.stderr)
+            sys.exit(1)
+
+component_update_servers = component_root.findall('./updateservers/server') if component_root is not None else []
+if len(component_update_servers) != 1:
+    print('Component manifest must register exactly one Joomla update server', file=sys.stderr)
+    sys.exit(1)
+component_update_server = component_update_servers[0]
+if (component_update_server.text or '').strip() != expected_update_url:
+    print('Component manifest update server URL is not aligned with updates/loginguard.xml', file=sys.stderr)
+    sys.exit(1)
+if component_update_server.attrib.get('type') != 'extension' or component_update_server.attrib.get('priority') != '1':
+    print('Component updater authority must remain an extension update server with priority 1', file=sys.stderr)
+    sys.exit(1)
+if component_root.findtext('element') != 'com_loginguard' or component_root.attrib.get('type') != 'component':
+    print('Component manifest must keep com_loginguard as updater owner', file=sys.stderr)
+    sys.exit(1)
+
+for required_url in [expected_update_url, expected_release_url, expected_download_url, 'https://github.com/hazatmda/LoginGuard']:
+    if required_url not in update_server_text:
+        print(f'Update metadata missing corrected repository URL: {required_url}', file=sys.stderr)
+        sys.exit(1)
+for required_text in [f'<version>{versions["VERSION"]}</version>', package_name, '<type>component</type>', '<element>com_loginguard</element>']:
+    if required_text not in update_text:
+        print(f'Update stream missing required metadata: {required_text}', file=sys.stderr)
+        sys.exit(1)
+readme_text = Path('README.md').read_text(encoding='utf-8')
+for required_readme_text in [f'Current development version: `{versions["VERSION"]}`.', package_name, f'tag: {release_tag}', f'package: {package_name}']:
+    if required_readme_text not in readme_text:
+        print(f'Readme missing expected release synchronization text: {required_readme_text}', file=sys.stderr)
+        sys.exit(1)
+if 'PACKAGE_NAME="pkg_loginguard_v${VERSION}.zip"' not in build_script_text:
+    print('Build script must derive package filename from the canonical VERSION file', file=sys.stderr)
+    sys.exit(1)
+
+update_root = roots.get(update_manifest)
+update_node = update_root.find('./update') if update_root is not None else None
+download_node = update_root.find('./update/downloads/downloadurl') if update_root is not None else None
+if update_node is None or download_node is None:
+    print('Update stream missing direct package download URL metadata', file=sys.stderr)
+    sys.exit(1)
+update_expectations = {
+    'element': 'com_loginguard',
+    'type': 'component',
+    'version': versions['VERSION'],
+    'infourl': expected_release_url,
+    'maintainerurl': 'https://github.com/hazatmda/LoginGuard',
+    'php_minimum': '8.1.0',
 }
-for path in versioned:
-    root = roots[path]
-    actual = (root.findtext('version') or '').strip()
-    if actual != VERSION:
-        raise SystemExit(f'Version mismatch: {path}={actual}, VERSION={VERSION}')
+for child_name, expected_value in update_expectations.items():
+    actual_value = (update_node.findtext(child_name) or '').strip()
+    if actual_value != expected_value:
+        print(f'Update stream {child_name} mismatch: expected {expected_value}, got {actual_value}', file=sys.stderr)
+        sys.exit(1)
+target_platform = update_node.find('targetplatform')
+if target_platform is None or target_platform.attrib.get('name') != 'joomla' or target_platform.attrib.get('version') != r'5\..*':
+    print('Update stream target platform must remain Joomla 5.x', file=sys.stderr)
+    sys.exit(1)
+download_url = (download_node.text or '').strip()
+if download_url != expected_download_url:
+    print(f'Update stream direct ZIP URL mismatch: {download_url}', file=sys.stderr)
+    sys.exit(1)
+if download_node.attrib.get('type') != 'full' or download_node.attrib.get('format') != 'zip':
+    print('Update stream download URL must be a full zip package', file=sys.stderr)
+    sys.exit(1)
+if 'repairUpdateSiteRegistration' not in package_script_text or 'removePackageUpdateSiteBindings' not in package_script_text or 'bindUpdateSiteToExtension($db, $updateSiteId, $componentId)' not in package_script_text:
+    print('Package installer must keep update-site registration owned by com_loginguard', file=sys.stderr)
+    sys.exit(1)
 
-update_root = roots[Path('updates/loginguard.xml')]
-update = update_root.find('update')
-if update is None or (update.findtext('version') or '').strip() != VERSION:
-    raise SystemExit('Update stream version is not synchronized')
-update_text = Path('updates/loginguard.xml').read_text(encoding='utf-8')
-expected_info = f'https://github.com/hazatmda/LoginGuard/releases/tag/v{VERSION}'
-expected_download = f'https://github.com/hazatmda/LoginGuard/releases/download/v{VERSION}/pkg_loginguard_v{VERSION}.zip'
-if (update.findtext('infourl') or '').strip() != expected_info:
-    raise SystemExit(f'Update information URL must equal {expected_info}')
-if (update.findtext('./downloads/downloadurl') or '').strip() != expected_download:
-    raise SystemExit(f'Update download URL must equal {expected_download}')
-for token in ['<php_minimum>8.1.0</php_minimum>', 'version="5\\..*"']:
-    if token not in update_text:
-        raise SystemExit(f'Update stream missing: {token}')
+for geoip_token in ['detectGeoIp', 'country_code', 'region', 'city', 'isp', 'asn', "explode('|', $metadata, 6)"]:
+    if geoip_token not in login_guard_text:
+        print(f'LoginGuard extension missing GeoIP enrichment token: {geoip_token}', file=sys.stderr)
+        sys.exit(1)
+for export_token in ['Country Code', 'Region', 'City', 'ISP', 'ASN']:
+    if export_token not in attempts_controller_text:
+        print(f'CSV export missing GeoIP field: {export_token}', file=sys.stderr)
+        sys.exit(1)
 
-plugin_manifest = roots[Path('plugins/user/loginguard/loginguard.xml')]
-if plugin_manifest.findtext('./update/schemas/schemapath') != 'sql/updates/mysql':
-    raise SystemExit('User plugin update schema path missing')
-migration = Path(f'plugins/user/loginguard/sql/updates/mysql/{VERSION}.sql')
-if not migration.is_file():
-    raise SystemExit(f'Missing migration {migration}')
+scriptfile = plugin_root.findtext('scriptfile')
+if scriptfile != 'script.php' or not (plugin_manifest.parent / scriptfile).is_file():
+    print('Plugin installer scriptfile is not registered or missing', file=sys.stderr)
+    sys.exit(1)
 
-migration_text = Path('plugins/user/loginguard/sql/updates/mysql/0.2.21.sql').read_text(encoding='utf-8')
-for token in [
-    'mfa_method',
-    'idx_loginguard_ip_status_created',
-    'idx_loginguard_user_status_created',
-    'source',
-    'active_key',
-    'idx_loginguard_active_key',
-    'updated_by',
-    'disabled_at',
-    '#__loginguard_admin_audit',
-    '#__loginguard_health',
-]:
-    if token not in migration_text:
-        raise SystemExit(f'v0.2.21 baseline migration missing {token}')
+required_columns = [
+    'id', 'user_id', 'name', 'username', 'email', 'ip_address', 'status',
+    'browser', 'operating_system', 'country', 'where_at', 'user_agent',
+    'attempt_type', 'client', 'reason', 'created', 'country_code', 'region', 'city', 'isp', 'asn',
+]
+required_block_columns = ['ip_address', 'scope', 'block_type', 'reason', 'failure_count', 'blocked_until', 'created', 'created_by', 'enabled']
+missing_columns = [column for column in required_columns if f'`{column}`' not in install_sql]
+missing_block_columns = [column for column in required_block_columns if f'`{column}`' not in install_sql]
 
-schema_text = Path('plugins/user/loginguard/sql/install.mysql.utf8.sql').read_text(encoding='utf-8')
-for token in ['idx_loginguard_ip_status_created', 'active_key', '#__loginguard_admin_audit', '#__loginguard_health']:
-    if token not in schema_text:
-        raise SystemExit(f'Fresh install schema missing {token}')
-if 'mfa_method' in schema_text:
-    raise SystemExit('Fresh install schema retains retired MFA field')
+if "OR ' . $db->quoteName('blocked_until') . ' IS NULL" in login_guard_text:
+    print('Temporary IP blocks with NULL blocked_until must not be treated as active enforcement blocks', file=sys.stderr)
+    sys.exit(1)
+if "blocked_until') . ' IS NOT NULL" not in login_guard_text or "block_type') . ' = ' . $db->quote('temporary')" not in login_guard_text:
+    print('Enforcement must require a non-null expiry for active temporary blocks', file=sys.stderr)
+    sys.exit(1)
+blockedips_controller_text = Path('administrator/components/com_loginguard/src/Controller/BlockedipsController.php').read_text(encoding='utf-8')
+blockedips_template_text = Path('administrator/components/com_loginguard/tmpl/blockedips/default.php').read_text(encoding='utf-8')
+dashboard_model_text = Path('administrator/components/com_loginguard/src/Model/DashboardModel.php').read_text(encoding='utf-8')
+dashboard_template_text = Path('administrator/components/com_loginguard/tmpl/dashboard/default.php').read_text(encoding='utf-8')
+if 'cooldown_duration_minutes' not in blockedips_controller_text or "time() + ($cooldownMinutes * 60)" not in blockedips_controller_text:
+    print('Manual temporary blocks must receive a cooldown-based expiry when no expiry is supplied', file=sys.stderr)
+    sys.exit(1)
+if "blockType === 'permanent'" not in blockedips_controller_text or "blockedUntilSql = 'NULL'" not in blockedips_controller_text:
+    print('Manual permanent blocks must continue saving NULL blocked_until', file=sys.stderr)
+    sys.exit(1)
+for required_display_token in ['COM_LOGINGUARD_HEADING_BLOCK_STATUS', 'COM_LOGINGUARD_BLOCKEDIPS_STATUS_TEMPORARY_ACTIVE', 'COM_LOGINGUARD_BLOCKEDIPS_STATUS_TEMPORARY_EXPIRED', 'COM_LOGINGUARD_BLOCKEDIPS_STATUS_PERMANENT']:
+    if required_display_token not in blockedips_template_text + dashboard_template_text:
+        print(f'Blocked IP UI missing status display token: {required_display_token}', file=sys.stderr)
+        sys.exit(1)
+if "until !== '' && $until >= $now" not in dashboard_model_text or "!$isPermanent && !$isTemporaryActive" not in dashboard_model_text:
+    print('Dashboard telemetry must distinguish active temporary, expired temporary, and permanent blocks', file=sys.stderr)
+    sys.exit(1)
 
-installer_text = Path('plugins/user/loginguard/script.php').read_text(encoding='utf-8')
-for forbidden in ['ALTER TABLE', 'CREATE TABLE IF NOT EXISTS', 'ensureSchema(']:
-    if forbidden in installer_text:
-        raise SystemExit(f'Installer PHP must delegate schema changes to Joomla SQL lifecycle: {forbidden}')
-
-ip_resolver_text = Path('plugins/user/loginguard/src/Service/IpResolver.php').read_text(encoding='utf-8')
-if 'REMOTE_ADDR' not in ip_resolver_text or 'FILTER_VALIDATE_IP' not in ip_resolver_text:
-    raise SystemExit('IpResolver must validate REMOTE_ADDR')
-for token in ['matchesAnyRule', 'cf-connecting-ip', 'x-forwarded-for']:
-    if token not in ip_resolver_text:
-        raise SystemExit(f'IpResolver trusted proxy support missing {token}')
-
-login_guard = Path('plugins/user/loginguard/src/Extension/LoginGuard.php').read_text(encoding='utf-8')
-for forbidden in ['ensureSchema(', 'ALTER TABLE', 'CREATE TABLE IF NOT EXISTS']:
-    if forbidden in login_guard:
-        raise SystemExit(f'Authentication runtime contains schema DDL/reconciliation token: {forbidden}')
-for token in [
-    'IpResolver::resolve(',
-    'INSERT IGNORE INTO',
-    'active_key',
-    "'source'",
-    'MAX_USER_AGENT = 2048',
-    'Log::add(',
-    'recordHealth(',
-    "'IP_BLOCKED'",
-]:
-    if token not in login_guard:
-        raise SystemExit(f'Core LoginGuard missing hardening token: {token}')
-
-# An expired manual temporary block must release its active key before the
-# threshold-triggered automatic INSERT IGNORE is attempted.
-expiry_start = login_guard.index('// Release the uniqueness key from every expired row')
-insert_start = login_guard.index('INSERT IGNORE INTO', expiry_start)
-expiry_end = login_guard.index('$db->setQuery($expireQuery)->execute()', expiry_start)
-if expiry_end > insert_start:
-    raise SystemExit('Expired-block release must execute before automatic block insertion')
-expiry_query = login_guard[expiry_start:expiry_end]
-for token in ["'enabled'", "'block_type'", "'temporary'", "'blocked_until'", "'active_key'"]:
-    if token not in expiry_query:
-        raise SystemExit(f'Expired-block release regression check missing {token}')
-if "'source'" in expiry_query:
-    raise SystemExit('Expired manual temporary blocks must be released before automatic blocking')
-
-# Active MFA integration and legacy cleanup are covered by dedicated regressions above.
-
-# LoginGuard test mail is intentionally absent; Joomla Global Configuration is
-# the sole test-mail interface.
-for removed in [
-    Path('administrator/components/com_loginguard/src/Controller/TestemailController.php'),
-    Path('administrator/components/com_loginguard/src/Field/TestemailField.php'),
-]:
-    if removed.exists():
-        raise SystemExit(f'Removed Test Email artifact returned: {removed}')
-config_text = Path('administrator/components/com_loginguard/config.xml').read_text(encoding='utf-8')
-language_text = Path('administrator/components/com_loginguard/language/en-GB/en-GB.com_loginguard.ini').read_text(encoding='utf-8')
-if 'testemail' in config_text.lower() or 'TEST_EMAIL' in language_text:
-    raise SystemExit('LoginGuard Test Email UI or language remains')
-
-workflow = Path('.github/workflows/build.yml').read_text(encoding='utf-8')
-for token in ['contents: read', 'contents: write', "github.ref == 'refs/heads/main'", 'TAG="v${VERSION}"', 'test -f "packages/pkg_loginguard_v${VERSION}.zip"', 'packages/pkg_loginguard_v${{ env.VERSION }}.zip']:
-    if token not in workflow:
-        raise SystemExit(f'Release workflow contract missing: {token}')
-if 'files: packages/*.zip' in workflow:
-    raise SystemExit('Release workflow must never publish a wildcard package')
-
-audit_service = Path('administrator/components/com_loginguard/src/Service/AuditAlertService.php').read_text(encoding='utf-8')
-for token in ['AuditAlertService', 'buildAlertHtmlBody', 'formatConfiguredDateTime']:
-    if token not in audit_service:
-        raise SystemExit(f'Shared audit alert pipeline missing: {token}')
-if '(new AuditAlertService())->send' not in login_guard:
-    raise SystemExit('Primary-login outcomes must call the shared audit alert service')
-for forbidden in ['mfa_method', 'mfa_status', 'mfa_reason', 'MFA_PENDING']:
-    if forbidden in audit_service or forbidden in config_text:
-        raise SystemExit(f'Retired MFA alert surface remains: {forbidden}')
-for update in Path('plugins/user/loginguard/sql/updates/mysql').glob('*.sql'):
-    if 'audit_alert_success_body' in update.read_text(encoding='utf-8') or 'audit_alert_failed_body' in update.read_text(encoding='utf-8'):
-        raise SystemExit('Upgrades must preserve administrator-saved alert templates')
-
-# Critical retained UI references must always have MFA-free translations.
-definitions = {line.split('=', 1)[0] for line in language_text.splitlines() if '=' in line}
-critical_keys = {
-    'COM_LOGINGUARD_CONFIG_WHITELISTED_IPS_DESC',
-    'COM_LOGINGUARD_CONFIG_AUDIT_ALERT_TEMPLATE_DESC',
-    'COM_LOGINGUARD_XML_DESCRIPTION',
-    'COM_LOGINGUARD_FILTER_SEARCH_DESC',
-    'COM_LOGINGUARD_STATUS_BANNER_PROTECTION_ACTIVE_DESC',
-    'COM_LOGINGUARD_ABOUT_OPERATIONAL_GUIDANCE_DESC',
-    'COM_LOGINGUARD_BLOCKEDIPS_POLICY_NOTE_DESC',
-}
-missing = critical_keys - definitions
-if missing:
-    raise SystemExit(f'Critical language definitions missing: {sorted(missing)}')
-for line in language_text.splitlines():
-    if line.split('=', 1)[0] in critical_keys and 'mfa' in line.lower():
-        raise SystemExit(f'Critical non-MFA language definition mentions MFA: {line}')
-
-for obsolete in ['name="trusted_proxies"', 'name="logging_level"', 'name="export_requires_permission"']:
-    if obsolete in config_text:
-        raise SystemExit(f'Unused/misleading configuration remains: {obsolete}')
-
-attempts_controller = Path('administrator/components/com_loginguard/src/Controller/AttemptsController.php').read_text(encoding='utf-8')
-for token in ["requirePermission('loginguard.export')", 'checkToken()', 'sanitiseCsvCell', "['=', '+', '-', '@']", 'AUDIT_EXPORTED']:
-    if token not in attempts_controller:
-        raise SystemExit(f'CSV/export hardening missing {token}')
-
-blocked_controller = Path('administrator/components/com_loginguard/src/Controller/BlockedipsController.php').read_text(encoding='utf-8')
-for token in ['OperationalAudit::recordAdminAction', 'BLOCK_CREATED', 'BLOCK_UPDATED', 'BLOCK_DISABLED', 'BLOCK_UNBLOCKED', 'active_key', 'disabled_at']:
-    if token not in blocked_controller:
-        raise SystemExit(f'Blocked IP lifecycle hardening missing {token}')
-if '->delete($db->quoteName(\'#__loginguard_blocked_ips\'))' in blocked_controller:
-    raise SystemExit('Normal blocked-IP controller flow must not hard-delete security history')
-
-cleanup = Path('administrator/components/com_loginguard/src/Service/CleanupService.php').read_text(encoding='utf-8')
-for token in ['disabled_at', 'OperationalAudit::recordHealth', 'OperationalAudit::logFailure', 'MAX_BATCHES_PER_RUN']:
-    if token not in cleanup:
-        raise SystemExit(f'Cleanup hardening missing {token}')
-cleanup_catch = cleanup.index('} catch (Throwable $exception) {')
-cleanup_return = cleanup.index('return $metrics;', cleanup_catch)
-cleanup_failure = cleanup[cleanup_catch:cleanup_return]
-if 'throw $exception;' not in cleanup_failure:
-    raise SystemExit('Cleanup failures must propagate to scheduler and manual callers')
-
-dashboard_view = Path('administrator/components/com_loginguard/src/View/Dashboard/HtmlView.php').read_text(encoding='utf-8')
-dashboard_template = Path('administrator/components/com_loginguard/tmpl/dashboard/default.php').read_text(encoding='utf-8')
-for token in ['loadHealthStatus']:
-    if token not in dashboard_view:
-        raise SystemExit(f'Dashboard view missing {token}')
-for token in ['COM_LOGINGUARD_DASHBOARD_SYSTEM_HEALTH']:
-    if token not in dashboard_template:
-        raise SystemExit(f'Dashboard template missing {token}')
-
-package_text = Path('pkg_loginguard/pkg_loginguard.xml').read_text(encoding='utf-8')
-package_script = Path('pkg_loginguard/script.php').read_text(encoding='utf-8')
-build_text = Path('scripts/build.sh').read_text(encoding='utf-8')
-for token in ['plg_user_loginguard.zip', 'plg_task_loginguardcleanup.zip', 'com_loginguard.zip']:
-    if token not in build_text:
-        raise SystemExit(f'Build script missing {token}')
-if 'plg_system_loginguardmfa.zip' in package_text or 'plg_system_loginguardmfa.zip' in build_text:
-    raise SystemExit('Retired System MFA plugin remains in package/build inputs')
-for token in ["'loginguardmfa', 'system'", 'removeLegacyMfaPlugin', "uninstall('plugin',"]:
-    if token not in package_script:
-        raise SystemExit(f'Legacy MFA cleanup contract missing: {token}')
-
-readme = Path('README.md').read_text(encoding='utf-8')
-for token in ['Joomla 5.2+', 'PHP 8.1+', f'pkg_loginguard_v{VERSION}.zip', 'REMOTE_ADDR']:
-    if token not in readme:
-        raise SystemExit(f'README missing {token}')
-
-about = Path('administrator/components/com_loginguard/tmpl/about/default.php').read_text(encoding='utf-8')
-for token in ["'0.2.25'", "'Joomla 5.2+'", "'PHP 8.1+'"]:
-    if token not in about:
-        raise SystemExit(f'About metadata missing {token}')
-
-workflow = Path('.github/workflows/build.yml').read_text(encoding='utf-8')
-for token in ["'8.1'", "'8.2'", "'8.3'", "'8.4'", 'contents: read', 'contents: write', 'codex/**']:
-    if token not in workflow:
-        raise SystemExit(f'CI hardening missing {token}')
-if workflow.count('contents: write') != 1:
-    raise SystemExit('CI write permission must be limited to the release publishing job')
-
-print('LoginGuard v0.2.25 validation completed successfully')
+if '#__loginguard_blocked_ips' not in install_sql:
+    print('Install SQL missing blocked IP table', file=sys.stderr)
+    sys.exit(1)
+if missing_block_columns:
+    print(f'Install SQL missing blocked IP columns: {", ".join(missing_block_columns)}', file=sys.stderr)
+    sys.exit(1)
+if missing_columns:
+    print(f'Install SQL missing required columns: {", ".join(missing_columns)}', file=sys.stderr)
+    sys.exit(1)
 PY
+
+echo "Validation completed successfully"

@@ -1,3 +1,0 @@
--- GeoIP is inactive in 0.2.23. Its legacy columns are intentionally retained:
--- an unconditional DROP can fail on schema drift, while a conditional DROP
--- COLUMN form is not portable across the MySQL/MariaDB targets Joomla supports.

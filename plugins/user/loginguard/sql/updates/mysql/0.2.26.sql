@@ -1,0 +1,1 @@
+-- Version marker only: runtime and schema remain at the v0.2.20 compatibility baseline.
