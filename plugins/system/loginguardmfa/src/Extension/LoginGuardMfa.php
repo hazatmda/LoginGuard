@@ -69,10 +69,6 @@ final class LoginGuardMfa extends CMSPlugin implements SubscriberInterface
     public function onMfaSuccess(Event $event): void
     {
         try {
-            if (!$this->isMfaAuditingEnabled()) {
-                return;
-            }
-
             $user = $this->getApplication()->getIdentity();
             if (!$user || $user->guest || (int) $user->id <= 0) {
                 return;
@@ -80,7 +76,11 @@ final class LoginGuardMfa extends CMSPlugin implements SubscriberInterface
 
             $context = $this->buildContext();
             $method = $this->getMfaMethod((int) $user->id);
-            $this->insertAttempt($user, $context, 'MFA_SUCCESS', 'MFA_COMPLETED', $method);
+            if ($this->isMfaAuditingEnabled()) {
+                $this->insertAttempt($user, $context, 'MFA_SUCCESS', 'MFA_COMPLETED', $method);
+            }
+            $this->insertAttempt($user, $context, 'SUCCESS_LOGIN', '', $method, 'login');
+            $this->sendSharedAuditAlert($user, $context, 'SUCCESS_LOGIN', '', $method);
             $this->recordHealth('mfa', 'healthy', 'Last MFA validation completed successfully.');
         } catch (Throwable $exception) {
             $this->recordFailure('mfa', $exception);

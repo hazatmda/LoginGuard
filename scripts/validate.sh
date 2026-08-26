@@ -259,8 +259,16 @@ for token in ['AuditAlertService', 'buildAlertHtmlBody', 'formatConfiguredDateTi
         raise SystemExit(f'Shared audit alert pipeline missing: {token}')
 if '(new AuditAlertService())->send' not in login_guard or '(new AuditAlertService())->send' not in mfa_plugin:
     raise SystemExit('Password and MFA outcomes must call the same audit alert service')
-if 'hasCaptiveMfa(' in login_guard or '#__user_mfa' in login_guard:
-    raise SystemExit('Primary success audit must not query MFA state before core routing')
+for token in ['hasActiveMfaMethod(', "'status' => $requiresMfa ? 'MFA_PENDING' : 'SUCCESS_LOGIN'"]:
+    if token not in login_guard:
+        raise SystemExit(f'Primary success must defer captive MFA via read-only classification: {token}')
+after_login = login_guard[login_guard.index('public function onUserAfterLogin'):login_guard.index('public function onUserLoginFailure')]
+if "getSession()" in after_login or 'sendAuditAlert(' in after_login:
+    raise SystemExit('Primary MFA classification must not couple to Joomla session state or directly alert')
+mfa_success = mfa_plugin[mfa_plugin.index('public function onMfaSuccess'):mfa_plugin.index('private function recordMfaEvent')]
+for token in ["'MFA_SUCCESS'", "'SUCCESS_LOGIN'", 'sendSharedAuditAlert(']:
+    if token not in mfa_success:
+        raise SystemExit(f'MFA completion must deliver one normal success outcome: {token}')
 
 for obsolete in ['name="trusted_proxies"', 'name="logging_level"', 'name="export_requires_permission"']:
     if obsolete in config_text:
