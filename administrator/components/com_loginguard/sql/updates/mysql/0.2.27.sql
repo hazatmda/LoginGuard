@@ -12,3 +12,6 @@ CREATE TABLE IF NOT EXISTS `#__loginguard_admin_audit` (
   KEY `idx_loginguard_admin_audit_action` (`action`),
   KEY `idx_loginguard_admin_audit_created` (`created`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 DEFAULT COLLATE=utf8mb4_unicode_ci;
+
+ALTER TABLE `#__loginguard_admin_audit`
+  MODIFY `target_id` text NULL DEFAULT NULL;

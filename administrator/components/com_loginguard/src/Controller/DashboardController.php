@@ -10,6 +10,7 @@ use Joomla\CMS\Language\Text;
 use Joomla\CMS\MVC\Controller\BaseController;
 use Joomla\Database\DatabaseInterface;
 use LoginGuard\Component\LoginGuard\Administrator\Helper\LoginGuardHelper;
+use LoginGuard\Component\LoginGuard\Administrator\Service\AdminAuditService;
 use LoginGuard\Component\LoginGuard\Administrator\Service\CleanupService;
 
 final class DashboardController extends BaseController
@@ -20,11 +21,27 @@ final class DashboardController extends BaseController
         $this->checkToken();
 
         $container = Factory::getContainer();
+        $db = $container->get(DatabaseInterface::class);
         $service = new CleanupService(
-            $container->get(DatabaseInterface::class),
+            $db,
             ComponentHelper::getParams('com_loginguard')
         );
-        $metrics = $service->execute();
+        $db->transactionStart();
+
+        try {
+            $metrics = $service->execute();
+            (new AdminAuditService($db))->append(
+                Factory::getApplication()->getIdentity(),
+                'cleanup.execute',
+                'cleanup_run',
+                null,
+                $metrics
+            );
+            $db->transactionCommit();
+        } catch (\Throwable $exception) {
+            $db->transactionRollback();
+            throw $exception;
+        }
 
         $this->setMessage(Text::sprintf('COM_LOGINGUARD_DASHBOARD_CLEANUP_RUN_COMPLETE', (int) $metrics['total_deleted'], (int) $metrics['batches']));
         $this->setRedirect('index.php?option=com_loginguard&view=dashboard');

@@ -29,6 +29,7 @@ $attempts = file_get_contents($root . '/administrator/components/com_loginguard/
 $blocked = file_get_contents($root . '/administrator/components/com_loginguard/src/Controller/BlockedipsController.php');
 $audit = file_get_contents($root . '/administrator/components/com_loginguard/src/Service/AdminAuditService.php');
 $cleanup = file_get_contents($root . '/administrator/components/com_loginguard/src/Service/CleanupService.php');
+$dashboard = file_get_contents($root . '/administrator/components/com_loginguard/src/Controller/DashboardController.php');
 $manifest = file_get_contents($root . '/administrator/components/com_loginguard/loginguard.xml');
 $runtimeBaseline = file_get_contents($root . '/tests/v020_runtime_baseline.php');
 
@@ -44,6 +45,7 @@ foreach ([$attempts, $blocked] as $controller) {
     }
 }
 if (str_contains($cleanup, '#__loginguard_admin_audit')) throw new RuntimeException('Cleanup must exclude admin audit');
+if (!str_contains($dashboard, "'cleanup.execute'") || !str_contains($dashboard, 'transactionStart()')) throw new RuntimeException('Administrator cleanup must be transactionally audited');
 if (!str_contains($audit, 'FORBIDDEN_DETAIL_KEYS') || !str_contains($audit, 'JSON_THROW_ON_ERROR')) throw new RuntimeException('Audit detail filtering missing');
 if (!str_contains($manifest, '<menu view="adminaudit">') || is_file($root . '/administrator/components/com_loginguard/src/Controller/AdminauditController.php')) {
     throw new RuntimeException('Audit must have a read-only view and no mutation controller');

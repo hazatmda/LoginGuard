@@ -7,6 +7,24 @@
     <element>com_loginguard</element>
     <description>COM_LOGINGUARD_XML_DESCRIPTION</description>
 
+    <install>
+        <sql>
+            <file driver="mysql" charset="utf8">sql/install.mysql.utf8.sql</file>
+        </sql>
+    </install>
+
+    <update>
+        <schemas>
+            <schemapath type="mysql">sql/updates/mysql</schemapath>
+        </schemas>
+    </update>
+
+    <uninstall>
+        <sql>
+            <file driver="mysql" charset="utf8">sql/uninstall.mysql.utf8.sql</file>
+        </sql>
+    </uninstall>
+
     <updateservers>
         <server type="extension" priority="1" name="LoginGuard Updates">https://raw.githubusercontent.com/hazatmda/LoginGuard/main/updates/loginguard.xml</server>
     </updateservers>
@@ -31,6 +49,7 @@
             <folder>forms</folder>
             <folder>language</folder>
             <folder>services</folder>
+            <folder>sql</folder>
             <folder>src</folder>
             <folder>tmpl</folder>
         </files>

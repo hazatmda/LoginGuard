@@ -6,10 +6,14 @@ $baseline = '9e94e922f5c66ea1b4b4feecafe340dad7f43b19';
 $allowed = [
     'CHANGELOG.md', 'README.md', 'VERSION',
     'administrator/components/com_loginguard/loginguard.xml',
+    'administrator/components/com_loginguard/sql/install.mysql.utf8.sql',
+    'administrator/components/com_loginguard/sql/uninstall.mysql.utf8.sql',
+    'administrator/components/com_loginguard/sql/updates/mysql/0.2.27.sql',
     'administrator/components/com_loginguard/language/en-GB/en-GB.com_loginguard.ini',
     'administrator/components/com_loginguard/language/en-GB/en-GB.com_loginguard.sys.ini',
     'administrator/components/com_loginguard/src/Controller/AttemptsController.php',
     'administrator/components/com_loginguard/src/Controller/BlockedipsController.php',
+    'administrator/components/com_loginguard/src/Controller/DashboardController.php',
     'administrator/components/com_loginguard/src/Model/AdminauditModel.php',
     'administrator/components/com_loginguard/src/Service/AdminAuditService.php',
     'administrator/components/com_loginguard/src/Service/CsvCellNeutralizer.php',
@@ -24,7 +28,8 @@ $allowed = [
     'plugins/user/loginguard/sql/uninstall.mysql.utf8.sql',
     'plugins/user/loginguard/sql/updates/mysql/0.2.26.sql',
     'plugins/user/loginguard/sql/updates/mysql/0.2.27.sql',
-    'scripts/validate.sh', 'tests/security_regressions.php', 'tests/v020_runtime_baseline.php',
+    'scripts/validate.sh', 'tests/admin_audit_service.php', 'tests/package_migration.php',
+    'tests/security_regressions.php', 'tests/v020_runtime_baseline.php',
     'updates/loginguard.xml',
 ];
 

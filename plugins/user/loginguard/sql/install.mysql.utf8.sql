@@ -70,7 +70,7 @@ CREATE TABLE IF NOT EXISTS `#__loginguard_admin_audit` (
   `actor_username` varchar(255) NOT NULL DEFAULT '',
   `action` varchar(64) NOT NULL,
   `target_type` varchar(64) NOT NULL,
-  `target_id` varchar(255) NULL DEFAULT NULL,
+  `target_id` text NULL DEFAULT NULL,
   `details` text NOT NULL,
   `created` datetime NOT NULL,
   PRIMARY KEY (`id`),
