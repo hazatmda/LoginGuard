@@ -3,7 +3,32 @@
 declare(strict_types=1);
 
 $source = file_get_contents(dirname(__DIR__) . '/plugins/user/loginguard/src/Extension/LoginGuard.php');
-if ($source === false) throw new RuntimeException('Unable to read User LoginGuard source');
+if ($source === false) {
+    throw new RuntimeException('Unable to read User LoginGuard source');
+}
+
+if (!str_contains($source, 'implements SubscriberInterface')) {
+    throw new RuntimeException('User LoginGuard must use Joomla typed subscriber registration');
+}
+
+$expectedSubscriptions = [
+    'onUserAuthorisation',
+    'onUserAfterLogin',
+    'onUserLoginFailure',
+    'onUserAfterLogout',
+];
+foreach ($expectedSubscriptions as $eventName) {
+    if (!preg_match("/'{$eventName}'\\s*=>\\s*'{$eventName}'/", $source)) {
+        throw new RuntimeException("Missing typed subscription for {$eventName}");
+    }
+    if (!preg_match('/public function ' . $eventName . '\\(Event \\$event\\): void/', $source)) {
+        throw new RuntimeException("{$eventName} must consume the typed event and return void");
+    }
+}
+
+if (preg_match('/function\\s+onUserLogin\\s*\\(/', $source)) {
+    throw new RuntimeException('LoginGuard must not contribute a result to Joomla onUserLogin aggregation');
+}
 
 $afterStart = strpos($source, 'public function onUserAfterLogin');
 $failureStart = strpos($source, 'public function onUserLoginFailure', $afterStart);
@@ -11,24 +36,38 @@ $afterLogin = substr($source, $afterStart, $failureStart - $afterStart);
 if (substr_count($afterLogin, "'status' => 'SUCCESS_LOGIN'") !== 1 || substr_count($afterLogin, '$this->storeAttempt(') !== 1) {
     throw new RuntimeException('Accepted primary login must record SUCCESS_LOGIN exactly once');
 }
-if (!str_contains($afterLogin, '): void')) {
-    throw new RuntimeException('Post-login observer must not contribute an authentication result');
+if (str_contains($afterLogin, 'addResult(')) {
+    throw new RuntimeException('Post-login auditing must not alter event results');
 }
 
-$storeStart = strpos($source, 'private function storeAttempt');
-$databaseStart = strpos($source, 'private function getDatabase', $storeStart);
-$storeAttempt = substr($source, $storeStart, $databaseStart - $storeStart);
-if (!str_contains($storeAttempt, 'try {') || !str_contains($storeAttempt, 'catch (Throwable $exception)')) {
-    throw new RuntimeException('Post-login telemetry must remain fail-open');
+// Model the relevant Joomla handoff boundary. A typed void observer receives
+// the event without CMSPlugin's legacy result adapter, so the core session fork
+// survives onUserAfterLogin and the next request can select captive MFA.
+$state = ['session_forked' => false, 'mfa_checked' => null, 'results' => []];
+$onUserLogin = static function (array &$state): void {
+    $state['session_forked'] = true;
+    $state['mfa_checked'] = 0;
+};
+$onUserAfterLogin = static function (array &$state): void {
+    // LoginGuard's typed observer performs telemetry but contributes no result
+    // and does not touch the core handoff state.
+};
+$nextRequestMfaHandler = static function (array $state): string {
+    return $state['session_forked'] && $state['mfa_checked'] === 0
+        ? 'com_users&view=captive'
+        : 'administrator/index.php';
+};
+
+$onUserLogin($state);
+$onUserAfterLogin($state);
+if ($state['results'] !== [] || $nextRequestMfaHandler($state) !== 'com_users&view=captive') {
+    throw new RuntimeException('Typed audit observer disrupted Joomla automatic captive-MFA handoff');
 }
 
 foreach (['bootComponent(', 'redirect(', 'route(', 'com_users.mfa_checked'] as $forbidden) {
     if (str_contains($source, $forbidden)) {
-        throw new RuntimeException("User login lifecycle contains routing/MFA side effect: $forbidden");
+        throw new RuntimeException("User login lifecycle contains routing/MFA side effect: {$forbidden}");
     }
 }
-if (preg_match('/function\s+onUserLogin\s*\(/', $source)) {
-    throw new RuntimeException('Neutral onUserLogin observer must not be restored');
-}
 
-echo "User LoginGuard accepted-login path is fail-open and routing-neutral.\n";
+echo "User LoginGuard preserves Joomla's automatic typed-event MFA handoff.\n";

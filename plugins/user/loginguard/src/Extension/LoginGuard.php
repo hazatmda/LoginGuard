@@ -14,10 +14,11 @@ use Joomla\CMS\Plugin\CMSPlugin;
 use Joomla\CMS\User\UserHelper;
 use Joomla\Database\DatabaseDriver;
 use Joomla\Event\Event;
+use Joomla\Event\SubscriberInterface;
 use Joomla\Plugin\User\LoginGuard\Service\IpResolver;
 use Throwable;
 
-final class LoginGuard extends CMSPlugin
+final class LoginGuard extends CMSPlugin implements SubscriberInterface
 {
     protected $autoloadLanguage = true;
 
@@ -28,35 +29,39 @@ final class LoginGuard extends CMSPlugin
     private const MAX_USER_AGENT = 2048;
 
     /**
+     * Use Joomla's typed event surface instead of CMSPlugin's legacy listener
+     * adapter.  In particular, a void onUserAfterLogin observer must not be
+     * aggregated into the login event's results after the core User - Joomla
+     * listener has forked the authenticated session for captive MFA.
+     *
+     * @return array<string, string>
+     */
+    public static function getSubscribedEvents(): array
+    {
+        return [
+            'onUserAuthorisation' => 'onUserAuthorisation',
+            'onUserAfterLogin' => 'onUserAfterLogin',
+            'onUserLoginFailure' => 'onUserLoginFailure',
+            'onUserAfterLogout' => 'onUserAfterLogout',
+        ];
+    }
+
+    /**
      * Enforce LoginGuard IP blocking before Joomla creates an authenticated session.
      *
      * @return AuthenticationResponse|null
      */
-    public function onUserAuthorisation($response = null, $options = [])
+    public function onUserAuthorisation(Event $event): void
     {
-        if ($response instanceof Event) {
-            $event = $response;
-            $authResponse = $this->getAuthenticationResponseFromEvent($event);
+        $authResponse = $this->getAuthenticationResponseFromEvent($event);
 
-            if ($authResponse === null || !$this->enforceBlockedIp($authResponse)) {
-                return null;
-            }
-
-            $deniedResponse = $this->markAuthenticationResponseDenied($authResponse);
-            $event->addResult($deniedResponse);
-            $this->enqueueBlockedLoginMessage();
-
-            return null;
+        if ($authResponse === null || !$this->enforceBlockedIp($authResponse)) {
+            return;
         }
 
-        if (!$response instanceof AuthenticationResponse || !$this->enforceBlockedIp($response)) {
-            return null;
-        }
-
-        $deniedResponse = $this->markAuthenticationResponseDenied($response);
+        $deniedResponse = $this->markAuthenticationResponseDenied($authResponse);
+        $event->addResult($deniedResponse);
         $this->enqueueBlockedLoginMessage();
-
-        return $deniedResponse;
     }
 
     private function enforceBlockedIp($payload = []): bool
@@ -146,9 +151,9 @@ final class LoginGuard extends CMSPlugin
     }
 
     /** Record a successful primary Joomla login immediately. */
-    public function onUserAfterLogin($options = []): void
+    public function onUserAfterLogin(Event $event): void
     {
-        $payload = $this->normaliseEventPayload($options);
+        $payload = $this->normaliseEventPayload($event);
         $user = $payload['user'] ?? $payload;
 
         $this->storeAttempt([
@@ -162,9 +167,9 @@ final class LoginGuard extends CMSPlugin
     }
 
     /** Log a failed Joomla username/password login without storing plaintext passwords. */
-    public function onUserLoginFailure($response = []): void
+    public function onUserLoginFailure(Event $event): void
     {
-        $payload = $this->normaliseEventPayload($response);
+        $payload = $this->normaliseEventPayload($event);
 
         $this->storeAttempt([
             'name' => $this->readPayloadValue($payload, 'name', ''),
@@ -176,7 +181,7 @@ final class LoginGuard extends CMSPlugin
         ]);
     }
 
-    public function onUserAfterLogout($options = []): void
+    public function onUserAfterLogout(Event $event): void
     {
         // LoginGuard only audits login attempts; logout must never interrupt Joomla.
     }
@@ -408,10 +413,8 @@ final class LoginGuard extends CMSPlugin
             return;
         }
 
-        // Component booting mutates the active administrator application's
-        // component/router state.  onUserAfterLogin runs before Joomla selects
-        // the captive MFA route, so alerts must remain a plugin-local,
-        // non-routing side effect throughout this event.
+        // Alert delivery does not need the component container. Keep it local
+        // so this observer remains independent of application routing state.
         $params = ComponentHelper::getParams('com_loginguard');
         if (!$params->get('audit_alerts_enabled', 0)) {
             return;
