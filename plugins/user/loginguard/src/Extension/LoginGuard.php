@@ -60,20 +60,6 @@ final class LoginGuard extends CMSPlugin
         return $deniedResponse;
     }
 
-    /**
-     * Participate neutrally in Joomla's result-aggregating user login event.
-     *
-     * Joomla's application login lifecycle aggregates the boolean results from
-     * user plugins before its MultiFactorAuthenticationHandler can take over the
-     * authenticated session. Keep the result contributed by LoginGuard
-     * explicitly successful, as it was in the known-good v0.2.20 boundary;
-     * auditing and enforcement are deliberately handled by other callbacks.
-     */
-    public function onUserLogin($user = [], $options = []): bool
-    {
-        return true;
-    }
-
     private function enforceBlockedIp($payload = []): bool
     {
         if (PHP_SAPI === 'cli') {

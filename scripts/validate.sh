@@ -4,7 +4,7 @@ set -euo pipefail
 find plugins administrator pkg_loginguard -name "*.php" -exec php -l {} \;
 
 php scripts/checks/mfa_provider_instantiation.php
-php tests/user_login_lifecycle.php
+php tests/joomla_login_event_aggregation.php
 
 php <<'PHP'
 <?php
@@ -60,8 +60,8 @@ from pathlib import Path
 import xml.etree.ElementTree as ET
 
 VERSION = Path('VERSION').read_text(encoding='utf-8').strip()
-if VERSION != '0.2.25':
-    raise SystemExit(f'Expected VERSION 0.2.25, got {VERSION}')
+if VERSION != '0.2.24':
+    raise SystemExit(f'Expected VERSION 0.2.24, got {VERSION}')
 if '-' in VERSION:
     raise SystemExit('Canonical release version must be stable semantic version')
 
@@ -214,12 +214,10 @@ for method, next_method in [
         if side_effect in body and gate > body.index(side_effect):
             raise SystemExit(f'{method} reads MFA context before the master auditing gate')
 
-# Login observers must not write session state before Joomla completes captive
-# MFA routing. onUserLogin is intentionally the known-good neutral true result.
-if 'public function onUserLogin(' not in login_guard or 'return true;' not in login_guard:
-    raise SystemExit('User plugin must participate neutrally in Joomla login result aggregation')
-for forbidden in ['public function onUserLogout(', 'MFA_ATTEMPT_SESSION_KEY',
-                  'pending_attempt.', 'getSession()->set(']:
+# Login observers must be passive: no result-returning legacy callbacks and no
+# post-login session writes before Joomla completes captive MFA routing.
+for forbidden in ['public function onUserLogin(', 'public function onUserLogout(',
+                  'MFA_ATTEMPT_SESSION_KEY', 'pending_attempt.', 'getSession()->set(']:
     if forbidden in login_guard:
         raise SystemExit(f'User plugin can interfere with Joomla login/MFA lifecycle: {forbidden}')
 for forbidden in ['com_users.mfa_checked', 'com_users.mandatory_mfa_setup',
@@ -357,7 +355,7 @@ for token in ['Joomla 5.2+', 'PHP 8.1+', f'pkg_loginguard_v{VERSION}.zip', 'REMO
         raise SystemExit(f'README missing {token}')
 
 about = Path('administrator/components/com_loginguard/tmpl/about/default.php').read_text(encoding='utf-8')
-for token in ["'0.2.25'", "'Joomla 5.2+'", "'PHP 8.1+'"]:
+for token in ["'0.2.24'", "'Joomla 5.2+'", "'PHP 8.1+'"]:
     if token not in about:
         raise SystemExit(f'About metadata missing {token}')
 
@@ -368,7 +366,7 @@ for token in ["'8.1'", "'8.2'", "'8.3'", "'8.4'", 'contents: read', 'contents: w
 if workflow.count('contents: write') != 1:
     raise SystemExit('CI write permission must be limited to the release publishing job')
 
-print('LoginGuard v0.2.25 validation completed successfully')
+print('LoginGuard v0.2.24 validation completed successfully')
 PY
 
 php tests/mfa_template_compatibility.php
