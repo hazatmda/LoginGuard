@@ -3,6 +3,9 @@ set -euo pipefail
 
 find plugins administrator -name "*.php" -exec php -l {} \;
 php tests/v020_runtime_baseline.php
+php tests/security_regressions.php
+php tests/admin_audit_service.php
+php tests/admin_audit_migration.php
 
 
 php <<'PHP'
@@ -121,6 +124,25 @@ if schema_path != 'sql/updates/mysql':
 
 if not (plugin_manifest.parent / schema_path / f"{versions['VERSION']}.sql").is_file():
     print(f"Missing update migration for {versions['VERSION']}", file=sys.stderr)
+    sys.exit(1)
+
+component_manifest = Path('administrator/components/com_loginguard/loginguard.xml')
+component_root = roots.get(component_manifest)
+if component_root is None:
+    print(f'Missing component manifest: {component_manifest}', file=sys.stderr)
+    sys.exit(1)
+component_sql = {
+    './install/sql/file': 'sql/install.mysql.utf8.sql',
+    './uninstall/sql/file': 'sql/uninstall.mysql.utf8.sql',
+}
+for xpath, relative_path in component_sql.items():
+    node = component_root.find(xpath)
+    if node is None or (node.text or '').strip() != relative_path or not (component_manifest.parent / relative_path).is_file():
+        print(f'Component manifest missing SQL lifecycle mapping {xpath} -> {relative_path}', file=sys.stderr)
+        sys.exit(1)
+component_schema_path = component_root.findtext('./update/schemas/schemapath')
+if component_schema_path != 'sql/updates/mysql' or not (component_manifest.parent / component_schema_path / f"{versions['VERSION']}.sql").is_file():
+    print('Component manifest must own the current admin-audit update migration', file=sys.stderr)
     sys.exit(1)
 
 package_manifest = Path('pkg_loginguard/pkg_loginguard.xml')

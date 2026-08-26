@@ -3,9 +3,27 @@
     <name>com_loginguard</name>
     <author>Hazim</author>
     <creationDate>2026-05-15</creationDate>
-    <version>0.2.26</version>
+    <version>0.2.27</version>
     <element>com_loginguard</element>
     <description>COM_LOGINGUARD_XML_DESCRIPTION</description>
+
+    <install>
+        <sql>
+            <file driver="mysql" charset="utf8">sql/install.mysql.utf8.sql</file>
+        </sql>
+    </install>
+
+    <update>
+        <schemas>
+            <schemapath type="mysql">sql/updates/mysql</schemapath>
+        </schemas>
+    </update>
+
+    <uninstall>
+        <sql>
+            <file driver="mysql" charset="utf8">sql/uninstall.mysql.utf8.sql</file>
+        </sql>
+    </uninstall>
 
     <updateservers>
         <server type="extension" priority="1" name="LoginGuard Updates">https://raw.githubusercontent.com/hazatmda/LoginGuard/main/updates/loginguard.xml</server>
@@ -19,6 +37,7 @@
             <menu view="dashboard">COM_LOGINGUARD_SUBMENU_DASHBOARD</menu>
             <menu view="attempts">COM_LOGINGUARD_SUBMENU_LOGIN_INFORMATION</menu>
             <menu view="blockedips">COM_LOGINGUARD_SUBMENU_BLOCKED_IPS</menu>
+            <menu view="adminaudit">COM_LOGINGUARD_SUBMENU_ADMIN_AUDIT</menu>
             <menu link="option=com_config&amp;view=component&amp;component=com_loginguard">COM_LOGINGUARD_SUBMENU_CONFIGURATION</menu>
             <menu view="about">COM_LOGINGUARD_SUBMENU_ABOUT</menu>
         </submenu>
@@ -30,6 +49,7 @@
             <folder>forms</folder>
             <folder>language</folder>
             <folder>services</folder>
+            <folder>sql</folder>
             <folder>src</folder>
             <folder>tmpl</folder>
         </files>

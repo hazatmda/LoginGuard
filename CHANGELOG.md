@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.2.27
+- Neutralized spreadsheet formula prefixes only when rendering text values into CSV exports.
+- Added an append-only administrator audit trail and read-only audit view for sensitive LoginGuard operations.
+- Added install/update schema support and focused security regressions.
+
 ## 0.2.26
 - Restored all package runtime, backend, installer, and plugin behavior to the v0.2.20 compatibility baseline.
 - Retained only dashboard presentation refinements while keeping the v0.2.20 dashboard data contract.
