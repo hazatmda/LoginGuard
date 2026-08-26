@@ -265,6 +265,16 @@ for token in ['hasActiveMfaMethod(', "'status' => $requiresMfa ? 'MFA_PENDING' :
 after_login = login_guard[login_guard.index('public function onUserAfterLogin'):login_guard.index('public function onUserLoginFailure')]
 if "getSession()" in after_login or 'sendAuditAlert(' in after_login:
     raise SystemExit('Primary MFA classification must not couple to Joomla session state or directly alert')
+store_attempt = login_guard[login_guard.index('private function storeAttempt'):login_guard.index('private function getDatabase')]
+pending_guard = "if (($record['status'] ?? '') === 'MFA_PENDING')"
+if pending_guard not in store_attempt:
+    raise SystemExit('MFA_PENDING must be explicitly isolated as non-terminal telemetry')
+pending_guard_offset = store_attempt.index(pending_guard)
+for terminal_pipeline in ['maybeAutoBlockIp(', 'sendAuditAlert(']:
+    if terminal_pipeline not in store_attempt[pending_guard_offset:]:
+        raise SystemExit(f'MFA_PENDING guard must precede the terminal pipeline: {terminal_pipeline}')
+    if terminal_pipeline in store_attempt[:pending_guard_offset]:
+        raise SystemExit(f'MFA_PENDING must not enter the terminal pipeline: {terminal_pipeline}')
 mfa_success = mfa_plugin[mfa_plugin.index('public function onMfaSuccess'):mfa_plugin.index('private function recordMfaEvent')]
 for token in ["'MFA_SUCCESS'", "'SUCCESS_LOGIN'", 'sendSharedAuditAlert(']:
     if token not in mfa_success:

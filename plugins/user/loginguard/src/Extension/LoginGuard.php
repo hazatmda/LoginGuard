@@ -226,6 +226,13 @@ final class LoginGuard extends CMSPlugin
 
             $this->insertAttemptRecord($record, $db);
             $this->recordHealth($db, 'database', 'healthy', 'Login audit write completed.');
+
+            // Captive MFA has not reached an authentication outcome yet. Keep
+            // this telemetry out of both alert pipelines and failure blocking.
+            if (($record['status'] ?? '') === 'MFA_PENDING') {
+                return;
+            }
+
             $this->maybeAutoBlockIp($record, $db);
             $this->sendAuditAlert($record, $db);
         } catch (Throwable $exception) {
