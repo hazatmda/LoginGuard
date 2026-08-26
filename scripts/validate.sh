@@ -7,6 +7,11 @@ php tests/security_regressions.php
 php tests/admin_audit_service.php
 php tests/admin_audit_migration.php
 
+if rg -n -i '\b(PREPARE|EXECUTE|DEALLOCATE[[:space:]]+PREPARE)\b|@[A-Za-z_][A-Za-z0-9_]*' plugins administrator --glob '*.sql'; then
+    echo 'Joomla SQL contains a forbidden prepared/dynamic statement construct' >&2
+    exit 1
+fi
+
 
 php <<'PHP'
 <?php

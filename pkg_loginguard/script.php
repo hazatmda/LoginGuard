@@ -29,7 +29,102 @@ class Pkg_LoginguardInstallerScript
             return true;
         }
 
+        if ($type !== 'uninstall') {
+            try {
+                $this->reconcileAdminAuditSchema($this->getDatabase());
+            } catch (\Throwable $exception) {
+                throw new \RuntimeException(
+                    'LoginGuard could not repair the administrator audit schema: ' . $exception->getMessage(),
+                    0,
+                    $exception
+                );
+            }
+        }
+
         return $this->synchroniseChildExtensions($type === 'uninstall');
+    }
+
+    /**
+     * Repair legacy audit tables before Joomla runs the component SQL updates.
+     *
+     * Fresh installs intentionally return when the table is absent: the child
+     * component's install SQL remains responsible for creating it.
+     */
+    private function reconcileAdminAuditSchema(DatabaseDriver $db): void
+    {
+        $table = $db->replacePrefix('#__loginguard_admin_audit');
+
+        if (!in_array($table, $db->getTableList(), true)) {
+            return;
+        }
+
+        $columns = $db->getTableColumns($table, false);
+
+        if (!isset($columns['actor_username'])) {
+            $this->runSchemaStatement($db, 'ALTER TABLE ' . $db->quoteName('#__loginguard_admin_audit')
+                . ' ADD COLUMN ' . $db->quoteName('actor_username')
+                . " varchar(255) NOT NULL DEFAULT '' AFTER " . $db->quoteName('actor_user_id'));
+            $columns = $db->getTableColumns($table, false);
+        }
+
+        $this->runSchemaStatement($db, 'UPDATE ' . $db->quoteName('#__loginguard_admin_audit', 'audit')
+            . ' LEFT JOIN ' . $db->quoteName('#__users', 'users')
+            . ' ON ' . $db->quoteName('users.id') . ' = ' . $db->quoteName('audit.actor_user_id')
+            . ' SET ' . $db->quoteName('audit.actor_username') . ' = COALESCE('
+            . $db->quoteName('users.username') . ", '')"
+            . ' WHERE ' . $db->quoteName('audit.actor_username') . " = ''");
+
+        $modifications = [];
+        if (!$this->columnMatches($columns['target_id'] ?? null, 'text', true)) {
+            $modifications[] = 'MODIFY ' . $db->quoteName('target_id') . ' text NULL DEFAULT NULL';
+        }
+        if (!$this->columnMatches($columns['action'] ?? null, 'varchar(64)', false)) {
+            $modifications[] = 'MODIFY ' . $db->quoteName('action') . ' varchar(64) NOT NULL';
+        }
+        if (!$this->columnMatches($columns['target_type'] ?? null, 'varchar(64)', false)) {
+            $modifications[] = 'MODIFY ' . $db->quoteName('target_type') . ' varchar(64) NOT NULL';
+        }
+        if ($modifications !== []) {
+            $this->runSchemaStatement($db, 'ALTER TABLE ' . $db->quoteName('#__loginguard_admin_audit')
+                . ' ' . implode(', ', $modifications));
+        }
+
+        $keys = $db->getTableKeys($table);
+        $existingKeys = [];
+        foreach ($keys as $key) {
+            $name = $key->Key_name ?? $key->key_name ?? null;
+            if (is_string($name)) {
+                $existingKeys[$name] = true;
+            }
+        }
+        $requiredKeys = [
+            'idx_loginguard_admin_audit_actor' => 'actor_user_id',
+            'idx_loginguard_admin_audit_action' => 'action',
+            'idx_loginguard_admin_audit_created' => 'created',
+        ];
+        foreach ($requiredKeys as $name => $column) {
+            if (!isset($existingKeys[$name])) {
+                $this->runSchemaStatement($db, 'ALTER TABLE ' . $db->quoteName('#__loginguard_admin_audit')
+                    . ' ADD INDEX ' . $db->quoteName($name) . ' (' . $db->quoteName($column) . ')');
+            }
+        }
+    }
+
+    private function columnMatches(?object $column, string $type, bool $nullable): bool
+    {
+        if ($column === null) {
+            return false;
+        }
+
+        $actualType = strtolower((string) ($column->Type ?? $column->type ?? ''));
+        $actualNullable = strtoupper((string) ($column->Null ?? $column->null ?? 'NO')) === 'YES';
+
+        return $actualType === $type && $actualNullable === $nullable;
+    }
+
+    private function runSchemaStatement(DatabaseDriver $db, string $sql): void
+    {
+        $db->setQuery($sql)->execute();
     }
 
     /**

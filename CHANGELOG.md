@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.2.28
+- Moved conditional legacy administrator-audit schema repair into package preflight so Joomla never receives nested prepared statements.
+- Preserved legacy audit rows and `target_ip` evidence while idempotently widening canonical columns and adding only missing indexes.
+- Added packaged-SQL protocol safety and installer-state regression validation.
+
 ## 0.2.27
 - Neutralized spreadsheet formula prefixes only when rendering text values into CSV exports.
 - Added an append-only administrator audit trail and read-only audit view for sensitive LoginGuard operations.

@@ -1,0 +1,1 @@
+-- Installer-only release; no user-plugin schema change is required.

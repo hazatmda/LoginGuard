@@ -1,0 +1,1 @@
+-- Audit-table schema is reconciled by the package preflight lifecycle before component updates.

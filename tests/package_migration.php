@@ -12,9 +12,10 @@ if ($outer->open($package) !== true) {
 }
 
 $componentBytes = $outer->getFromName('com_loginguard.zip');
+$packageScript = $outer->getFromName('script.php');
 $outer->close();
-if ($componentBytes === false) {
-    throw new RuntimeException('Package does not contain com_loginguard.zip');
+if ($componentBytes === false || $packageScript === false) {
+    throw new RuntimeException('Package does not contain component archive and lifecycle script');
 }
 
 $temporary = tempnam(sys_get_temp_dir(), 'loginguard-component-');
@@ -27,6 +28,7 @@ $required = [
     'administrator/components/com_loginguard/sql/install.mysql.utf8.sql',
     'administrator/components/com_loginguard/sql/updates/mysql/0.2.27.sql',
     'administrator/components/com_loginguard/sql/updates/mysql/0.2.27.1.sql',
+    'administrator/components/com_loginguard/sql/updates/mysql/0.2.28.sql',
     'administrator/components/com_loginguard/src/Model/AdminauditModel.php',
     'administrator/components/com_loginguard/src/View/Adminaudit/HtmlView.php',
     'administrator/components/com_loginguard/tmpl/adminaudit/default.php',
@@ -53,8 +55,12 @@ foreach ([$migration, $install] as $sql) {
         throw new RuntimeException('Component artifact schema does not create the lossless admin audit table');
     }
 }
-if (!str_contains($repairMigration, 'actor_username') || !str_contains($repairMigration, 'MODIFY `target_id` text NULL DEFAULT NULL')) {
-    throw new RuntimeException('Component artifact does not contain the post-0.2.27 legacy repair migration');
+if (!str_contains($repairMigration, 'no executable migration statement')) {
+    throw new RuntimeException('Component artifact does not contain the safe replay marker');
+}
+
+if (!str_contains($packageScript, 'reconcileAdminAuditSchema') || !str_contains($packageScript, 'getTableColumns')) {
+    throw new RuntimeException('Package artifact does not contain preflight audit reconciliation');
 }
 
 echo "Built package migration wiring verified successfully\n";
