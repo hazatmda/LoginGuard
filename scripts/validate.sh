@@ -59,8 +59,8 @@ from pathlib import Path
 import xml.etree.ElementTree as ET
 
 VERSION = Path('VERSION').read_text(encoding='utf-8').strip()
-if VERSION != '0.2.23':
-    raise SystemExit(f'Expected VERSION 0.2.23, got {VERSION}')
+if VERSION != '0.2.24':
+    raise SystemExit(f'Expected VERSION 0.2.24, got {VERSION}')
 if '-' in VERSION:
     raise SystemExit('Canonical release version must be stable semantic version')
 
@@ -157,7 +157,6 @@ for token in [
     'MAX_USER_AGENT = 2048',
     'Log::add(',
     'recordHealth(',
-    'MFA_PENDING',
     'MFA_FAILED',
     'MFA_SUCCESS',
     'MFA_TRY_LIMIT',
@@ -186,7 +185,6 @@ for token in [
     'onComUsersCaptiveValidateTryLimitReached',
     'onComUsersCaptiveValidateInvalidMethod',
     'onComUsersCaptiveValidateSuccess',
-    'MFA_PENDING',
     'MFA_FAILED',
     'MFA_SUCCESS',
     'MFA_TRY_LIMIT',
@@ -215,145 +213,37 @@ for method, next_method in [
         if side_effect in body and gate > body.index(side_effect):
             raise SystemExit(f'{method} reads MFA context before the master auditing gate')
 
-# Success is the sole exception: with auditing off it may finalise only the
-# exact session-owned pending row and send the already-deferred success mail.
-success = mfa_plugin[mfa_plugin.index('public function onMfaSuccess'):mfa_plugin.index('private function recordMfaEvent')]
-disabled = success[success.index('if (!$this->isMfaAuditingEnabled())'):success.index('return;', success.index('if (!$this->isMfaAuditingEnabled())'))]
-for token in ['finalisePendingLogin(', 'sendFinalSuccessAlert(']:
-    if token not in disabled:
-        raise SystemExit(f'ON-to-OFF in-flight MFA completion missing {token}')
-for forbidden in ['insertAttempt(', 'maybeAutoBlockMfa(', 'sendMfaFailureAlert(', 'recordHealth(']:
-    if forbidden in disabled:
-        raise SystemExit(f'Disabled in-flight completion introduced MFA side effect: {forbidden}')
+# Login observers must be passive: no result-returning legacy callbacks and no
+# post-login session writes before Joomla completes captive MFA routing.
+for forbidden in ['public function onUserLogin(', 'public function onUserLogout(',
+                  'MFA_ATTEMPT_SESSION_KEY', 'pending_attempt.', 'getSession()->set(']:
+    if forbidden in login_guard:
+        raise SystemExit(f'User plugin can interfere with Joomla login/MFA lifecycle: {forbidden}')
+for forbidden in ['com_users.mfa_checked', 'com_users.mandatory_mfa_setup',
+                  'com_users.return_url', 'option=com_users&view=captive']:
+    if forbidden in login_guard or forbidden in mfa_plugin:
+        raise SystemExit(f'LoginGuard must not own Joomla MFA state/routing: {forbidden}')
+for forbidden in ['ATTEMPT_SESSION_KEY', 'pending_attempt.', 'markPrimarySuccessPending(',
+                  'finalisePendingLogin(']:
+    if forbidden in mfa_plugin:
+        raise SystemExit(f'MFA observer retains login-session correlation: {forbidden}')
+if '$this->insertAttemptRecord($record, $db);' not in login_guard:
+    raise SystemExit('Normal successful/failed primary audit storage is missing')
+if "'onComUsersCaptiveValidateSuccess' => 'onMfaSuccess'" not in mfa_plugin or 'insertAttempt(' not in mfa_plugin:
+    raise SystemExit('MFA success/failure event auditing is missing')
 
-# The primary login path must bind its newly inserted attempt to the Joomla
-# session. Captive MFA may only reclassify and finalise that exact row.
-for token in ['MFA_ATTEMPT_SESSION_KEY', '$attemptId = $this->insertAttemptRecord', 'insertid()', 'set(', '$attemptId']:
-    if token not in login_guard:
-        raise SystemExit(f'Primary pending-attempt association missing: {token}')
-for token in ['ATTEMPT_SESSION_KEY', 'get($sessionKey, 0)', 'clear($sessionKey)']:
-    if token not in mfa_plugin:
-        raise SystemExit(f'MFA pending-attempt association missing: {token}')
-pending_start = mfa_plugin.index('private function markPrimarySuccessPending')
-pending_end = mfa_plugin.index('private function finalisePendingLogin', pending_start)
-pending_code = mfa_plugin[pending_start:pending_end]
-for token in [
-    '$id = (int) $session->get($sessionKey, 0)',
-    "->where($db->quoteName('id') . ' = ' . (string) $id)",
-    "->where($db->quoteName('user_id') . ' = ' . (string) $userId)",
-    "->where($db->quoteName('status') . ' = ' . $db->quote('SUCCESS_LOGIN'))",
+# LoginGuard test mail is intentionally absent; Joomla Global Configuration is
+# the sole test-mail interface.
+for removed in [
+    Path('administrator/components/com_loginguard/src/Controller/TestemailController.php'),
+    Path('administrator/components/com_loginguard/src/Field/TestemailField.php'),
 ]:
-    if token not in pending_code:
-        raise SystemExit(f'Exact captive-attempt reclassification missing: {token}')
-for forbidden in ["gmdate('Y-m-d H:i:s', time() - 600)", "order($db->quoteName('created')"]:
-    if forbidden in pending_code:
-        raise SystemExit(f'Captive flow must not infer a primary attempt: {forbidden}')
-
-# GeoIP enrichment is deliberately deferred in 0.2.23. Runtime code, alert
-# templates, and component configuration must not contain a lookup path or
-# expose derived location/network-provider fields. Legacy schema is retained
-# because portable, drift-safe conditional column drops are unavailable.
-audit_service_geoip = Path('administrator/components/com_loginguard/src/Service/AuditAlertService.php').read_text(encoding='utf-8')
-config_xml_geoip = Path('administrator/components/com_loginguard/config.xml').read_text(encoding='utf-8')
-runtime_geoip_tokens = [
-    'detectGeoIp', 'detectPhpGeoIp', 'detectMaxMindGeoIp',
-    'detectConfiguredGeoIpMap', 'GeoIp2\\Database\\Reader',
-    'geoip_country_name_by_name', 'geoip_country_map',
-]
-for token in runtime_geoip_tokens:
-    if token in login_guard or token in mfa_plugin or token in audit_service_geoip or token in config_xml_geoip:
-        raise SystemExit(f'Runtime GeoIP lookup/config remains: {token}')
-geoip_fields = ['country', 'country_code', 'region', 'city', 'isp', 'asn']
-for field in geoip_fields:
-    variable = '{' + field + '}'
-    if variable in login_guard or variable in mfa_plugin or variable in audit_service_geoip or variable in config_xml_geoip:
-        raise SystemExit(f'GeoIP alert variable remains: {variable}')
-install_sql = Path('plugins/user/loginguard/sql/install.mysql.utf8.sql').read_text(encoding='utf-8')
-migration_sql = Path('plugins/user/loginguard/sql/updates/mysql/0.2.23.sql').read_text(encoding='utf-8')
-for field in geoip_fields:
-    if f'`{field}`' not in install_sql:
-        raise SystemExit(f'Drift-safe legacy GeoIP schema strategy changed unexpectedly: {field}')
-executable_migration_sql = '\n'.join(
-    line for line in migration_sql.splitlines() if not line.lstrip().startswith('--')
-).strip()
-if executable_migration_sql:
-    raise SystemExit('v0.2.23 must not use a non-portable destructive GeoIP migration')
-
-# Previously saved params can contain the old rows even though the current XML
-# defaults do not. Model the narrow render-time cleanup and ensure it removes
-# all six tokens/rows without resetting unrelated administrator text.
-import re
-legacy_names = '|'.join(geoip_fields)
-saved_template = (
-    'Custom administrator introduction.\n\n'
-    + '\n'.join(f'{name.replace("_", " ").title()}: {{{name}}}' for name in geoip_fields)
-    + '\nTicket: SEC-42\nIP Address: {ip}\nCustom footer.'
-)
-normalised = re.sub(
-    rf'^[ \t]*[^{{}}\r\n:]{{1,80}}:[ \t]*\{{(?:{legacy_names})\}}[ \t]*(?:\r?\n|$)',
-    '', saved_template, flags=re.I | re.M,
-)
-normalised = re.sub(rf'\{{(?:{legacy_names})\}}', '', normalised, flags=re.I)
-if any('{' + field + '}' in normalised for field in geoip_fields):
-    raise SystemExit('Saved alert template normalization left a legacy GeoIP placeholder')
-for custom_text in ['Custom administrator introduction.', 'Ticket: SEC-42', 'IP Address: {ip}', 'Custom footer.']:
-    if custom_text not in normalised:
-        raise SystemExit(f'Saved alert template normalization removed customization: {custom_text}')
-for source in [login_guard, audit_service_geoip]:
-    if 'normaliseLegacyGeoIpTemplate($bodyTemplate)' not in source:
-        raise SystemExit('An alert renderer does not normalize saved legacy GeoIP templates')
-
-# Regression model: concurrent sessions retain independent attempt ownership;
-# refreshes are idempotent and abandoning one flow cannot affect the other.
-attempts = {101: 'SUCCESS_LOGIN', 102: 'SUCCESS_LOGIN'}
-sessions = {'first': 101, 'second': 102}
-def show_captive(session):
-    attempt_id = sessions.get(session, 0)
-    if attempts.get(attempt_id) == 'SUCCESS_LOGIN':
-        attempts[attempt_id] = 'MFA_PENDING'
-def complete_captive(session):
-    attempt_id = sessions.get(session, 0)
-    if attempts.get(attempt_id) == 'MFA_PENDING':
-        attempts[attempt_id] = 'SUCCESS_LOGIN'
-        sessions.pop(session, None)
-show_captive('first')
-show_captive('second')
-show_captive('first')
-if attempts != {101: 'MFA_PENDING', 102: 'MFA_PENDING'}:
-    raise SystemExit('Concurrent captive flows or captive refresh are not isolated')
-complete_captive('second')
-if attempts != {101: 'MFA_PENDING', 102: 'SUCCESS_LOGIN'}:
-    raise SystemExit('A captive flow finalised an attempt owned by another session')
-sessions.pop('first')
-if attempts[102] != 'SUCCESS_LOGIN' or attempts[101] != 'MFA_PENDING':
-    raise SystemExit('Abandoning one captive flow changed another flow')
-
-# Normal single-session MFA still transitions pending to final exactly once.
-attempts = {201: 'SUCCESS_LOGIN'}
-sessions = {'single': 201}
-show_captive('single')
-complete_captive('single')
-complete_captive('single')
-if attempts != {201: 'SUCCESS_LOGIN'} or 'single' in sessions:
-    raise SystemExit('Single-session captive MFA finalisation is not idempotent')
-
-# ON -> OFF after captive reclassification still completes the owned attempt;
-# it creates no new MFA event and cannot touch a row owned by another session.
-attempts = {301: 'MFA_PENDING', 302: 'MFA_PENDING'}
-sessions = {'disabled_mid_flow': 301, 'other': 302}
-complete_captive('disabled_mid_flow')
-if attempts != {301: 'SUCCESS_LOGIN', 302: 'MFA_PENDING'} or 'disabled_mid_flow' in sessions:
-    raise SystemExit('Disabled mid-flow MFA completion did not finalise only its owned row')
-
-test_controller = Path('administrator/components/com_loginguard/src/Controller/TestemailController.php').read_text(encoding='utf-8')
-test_field = Path('administrator/components/com_loginguard/src/Field/TestemailField.php').read_text(encoding='utf-8')
-for token in ["checkToken('post')", "authorise('core.admin', 'com_loginguard')", "sendTestMail()", 'MailerFactoryInterface::class', "recordHealth($db, 'mail', 'degraded'"]:
-    if token not in test_controller:
-        raise SystemExit(f'Test-email controller security/health contract missing: {token}')
-if Path('administrator/components/com_loginguard/src/Service/TestEmailService.php').exists():
-    raise SystemExit('Parallel LoginGuard test email service must be removed')
-if 'formmethod="post"' not in test_field or 'testemail.send' not in test_field:
-    raise SystemExit('Test-email configuration control must submit the protected POST action')
+    if removed.exists():
+        raise SystemExit(f'Removed Test Email artifact returned: {removed}')
+config_text = Path('administrator/components/com_loginguard/config.xml').read_text(encoding='utf-8')
+language_text = Path('administrator/components/com_loginguard/language/en-GB/en-GB.com_loginguard.ini').read_text(encoding='utf-8')
+if 'testemail' in config_text.lower() or 'TEST_EMAIL' in language_text:
+    raise SystemExit('LoginGuard Test Email UI or language remains')
 
 workflow = Path('.github/workflows/build.yml').read_text(encoding='utf-8')
 for token in ['contents: read', 'contents: write', "github.ref == 'refs/heads/main'", 'TAG="v${VERSION}"', 'test -f "packages/pkg_loginguard_v${VERSION}.zip"', 'packages/pkg_loginguard_v${{ env.VERSION }}.zip']:
@@ -362,9 +252,6 @@ for token in ['contents: read', 'contents: write', "github.ref == 'refs/heads/ma
 if 'files: packages/*.zip' in workflow:
     raise SystemExit('Release workflow must never publish a wildcard package')
 
-for token in ['hasCaptiveMfa(', "#__user_mfa", "(string) ($record['status'] ?? '') === 'SUCCESS_LOGIN'", 'shared pipeline sends this outcome only after MFA completes']:
-    if token not in login_guard:
-        raise SystemExit(f'Primary success-alert deferral missing: {token}')
 audit_service = Path('administrator/components/com_loginguard/src/Service/AuditAlertService.php').read_text(encoding='utf-8')
 mfa_plugin = Path('plugins/system/loginguardmfa/src/Extension/LoginGuardMfa.php').read_text(encoding='utf-8')
 for token in ['AuditAlertService', 'buildAlertHtmlBody', 'formatConfiguredDateTime', 'mfa_method', 'mfa_status', 'mfa_reason']:
@@ -372,53 +259,38 @@ for token in ['AuditAlertService', 'buildAlertHtmlBody', 'formatConfiguredDateTi
         raise SystemExit(f'Shared audit alert pipeline missing: {token}')
 if '(new AuditAlertService())->send' not in login_guard or '(new AuditAlertService())->send' not in mfa_plugin:
     raise SystemExit('Password and MFA outcomes must call the same audit alert service')
-if 'sendConfiguredAuditAlert' in mfa_plugin or 'sendTemplatedAlert' in mfa_plugin:
-    raise SystemExit('Parallel MFA audit-alert rendering pipeline must not exist')
+for token in ["in_array($client, ['frontend', 'backend'], true)", "'status' => $requiresMfa ? 'MFA_PENDING' : 'SUCCESS_LOGIN'"]:
+    if token not in login_guard:
+        raise SystemExit(f'Interactive primary success must remain pending under mandatory MFA policy: {token}')
+after_login = login_guard[login_guard.index('public function onUserAfterLogin'):login_guard.index('public function onUserLoginFailure')]
+if "getSession()" in after_login or 'sendAuditAlert(' in after_login or '#__user_mfa' in after_login:
+    raise SystemExit('Primary MFA classification must not couple to Joomla session state or directly alert')
+store_attempt = login_guard[login_guard.index('private function storeAttempt'):login_guard.index('private function getDatabase')]
+pending_guard = "if (($record['status'] ?? '') === 'MFA_PENDING')"
+if pending_guard not in store_attempt:
+    raise SystemExit('MFA_PENDING must be explicitly isolated as non-terminal telemetry')
+pending_guard_offset = store_attempt.index(pending_guard)
+for terminal_pipeline in ['maybeAutoBlockIp(', 'sendAuditAlert(']:
+    if terminal_pipeline not in store_attempt[pending_guard_offset:]:
+        raise SystemExit(f'MFA_PENDING guard must precede the terminal pipeline: {terminal_pipeline}')
+    if terminal_pipeline in store_attempt[:pending_guard_offset]:
+        raise SystemExit(f'MFA_PENDING must not enter the terminal pipeline: {terminal_pipeline}')
+mfa_success = mfa_plugin[mfa_plugin.index('public function onMfaSuccess'):mfa_plugin.index('private function recordMfaEvent')]
+for token in ["'MFA_SUCCESS'", "'SUCCESS_LOGIN'", 'sendSharedAuditAlert(']:
+    if token not in mfa_success:
+        raise SystemExit(f'MFA completion must deliver one normal success outcome: {token}')
+for token in ["'MFA_SUCCESS',", "'MFA_COMPLETED'"]:
+    if token not in mfa_success:
+        raise SystemExit(f'Final Success Alert must retain captive MFA metadata: {token}')
+if "if ($status === 'MFA_PENDING')" not in audit_service:
+    raise SystemExit('Shared alert service must reject neutral MFA_PENDING telemetry defensively')
+for token in ['MFA Method: {mfa_method}', 'MFA Status: {mfa_status}', 'MFA Result: {mfa_reason}']:
+    if token not in audit_service or token.replace('\n', '&#10;') not in config_text:
+        raise SystemExit(f'Default Success/Failed templates must expose MFA metadata: {token}')
+for update in Path('plugins/user/loginguard/sql/updates/mysql').glob('*.sql'):
+    if 'audit_alert_success_body' in update.read_text(encoding='utf-8') or 'audit_alert_failed_body' in update.read_text(encoding='utf-8'):
+        raise SystemExit('Upgrades must preserve administrator-saved alert templates')
 
-config_text = Path('administrator/components/com_loginguard/config.xml').read_text(encoding='utf-8')
-for token in [
-    'mfa_automatic_blocking_enabled', 'mfa_failed_attempt_threshold', 'mfa_threshold_window_minutes',
-    'mfa_cooldown_duration_minutes', 'mfa_alert_threshold',
-]:
-    if token not in config_text:
-        raise SystemExit(f'MFA configuration missing {token}')
-if 'name="mfa_auditing_enabled"' not in config_text or 'name="mfa_auditing_enabled" type="radio"' not in config_text:
-    raise SystemExit('MFA master auditing switch is missing')
-master_field = config_text[config_text.index('name="mfa_auditing_enabled"'):config_text.index('</field>', config_text.index('name="mfa_auditing_enabled"'))]
-if 'default="1"' not in master_field:
-    raise SystemExit('MFA auditing must default to enabled for upgrades')
-for field in ['mfa_policy_note', 'mfa_automatic_blocking_enabled', 'mfa_failed_attempt_threshold',
-              'mfa_threshold_window_minutes', 'mfa_cooldown_duration_minutes', 'mfa_alert_threshold']:
-    field_text = config_text[config_text.index(f'name="{field}"'):config_text.index('/>', config_text.index(f'name="{field}"')) + 2]
-    if 'mfa_auditing_enabled:1' not in field_text:
-        raise SystemExit(f'MFA-specific setting is not gated by master switch: {field}')
-
-# Behaviour model covers MFA and non-MFA users with auditing both on and off.
-def primary_login(has_mfa, auditing_enabled):
-    result = {'primary': 'SUCCESS_LOGIN', 'session_bound': auditing_enabled, 'success_alert_deferred': False,
-              'mfa_rows': [], 'mfa_blocking': False, 'mfa_alerts': False}
-    if auditing_enabled and has_mfa:
-        result['primary'] = 'MFA_PENDING'
-        result['success_alert_deferred'] = True
-        result['mfa_rows'] = ['MFA_FAILED', 'MFA_TRY_LIMIT', 'MFA_SUCCESS']
-        result['mfa_blocking'] = True
-        result['mfa_alerts'] = True
-    return result
-
-for has_mfa in (False, True):
-    off = primary_login(has_mfa, False)
-    if off['primary'] != 'SUCCESS_LOGIN' or off['success_alert_deferred'] or off['mfa_rows'] or off['mfa_blocking'] or off['mfa_alerts']:
-        raise SystemExit('Auditing-off login entered an MFA-specific path')
-    on = primary_login(has_mfa, True)
-    if has_mfa and (on['primary'] != 'MFA_PENDING' or on['mfa_rows'] != ['MFA_FAILED', 'MFA_TRY_LIMIT', 'MFA_SUCCESS']):
-        raise SystemExit('Auditing-on MFA lifecycle regression')
-    if not has_mfa and (on['primary'] != 'SUCCESS_LOGIN' or on['success_alert_deferred']):
-        raise SystemExit('Non-MFA primary login behaviour changed')
-
-if "if ($mfaAuditingEnabled && $record['status'] === 'SUCCESS_LOGIN'" not in login_guard:
-    raise SystemExit('Primary attempt session binding is not gated by MFA auditing')
-if "$params->get('mfa_auditing_enabled', 1)" not in login_guard:
-    raise SystemExit('Primary successful-login alert deferral is not gated by MFA auditing')
 for obsolete in ['name="trusted_proxies"', 'name="logging_level"', 'name="export_requires_permission"']:
     if obsolete in config_text:
         raise SystemExit(f'Unused/misleading configuration remains: {obsolete}')
@@ -482,7 +354,7 @@ for token in ['Joomla 5.2+', 'PHP 8.1+', f'pkg_loginguard_v{VERSION}.zip', 'REMO
         raise SystemExit(f'README missing {token}')
 
 about = Path('administrator/components/com_loginguard/tmpl/about/default.php').read_text(encoding='utf-8')
-for token in ["'0.2.23'", "'Joomla 5.2+'", "'PHP 8.1+'"]:
+for token in ["'0.2.24'", "'Joomla 5.2+'", "'PHP 8.1+'"]:
     if token not in about:
         raise SystemExit(f'About metadata missing {token}')
 
@@ -493,5 +365,7 @@ for token in ["'8.1'", "'8.2'", "'8.3'", "'8.4'", 'contents: read', 'contents: w
 if workflow.count('contents: write') != 1:
     raise SystemExit('CI write permission must be limited to the release publishing job')
 
-print('LoginGuard v0.2.23 validation completed successfully')
+print('LoginGuard v0.2.24 validation completed successfully')
 PY
+
+php tests/mfa_template_compatibility.php

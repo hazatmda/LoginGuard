@@ -21,7 +21,6 @@ final class LoginGuardMfa extends CMSPlugin implements SubscriberInterface
 
     private const MAX_USER_AGENT = 2048;
     private const MAX_TEXT = 255;
-    private const ATTEMPT_SESSION_KEY = 'plg_system_loginguardmfa.pending_attempt.';
 
     public static function getSubscribedEvents(): array
     {
@@ -46,9 +45,6 @@ final class LoginGuardMfa extends CMSPlugin implements SubscriberInterface
                 return;
             }
 
-            $context = $this->buildContext();
-            $method = $this->getMfaMethod((int) $user->id);
-            $this->markPrimarySuccessPending((int) $user->id, $method);
             $this->recordHealth('mfa', 'healthy', 'MFA captive auditing is operational.');
         } catch (Throwable $exception) {
             $this->recordFailure('mfa', $exception);
@@ -73,20 +69,6 @@ final class LoginGuardMfa extends CMSPlugin implements SubscriberInterface
     public function onMfaSuccess(Event $event): void
     {
         try {
-            if (!$this->isMfaAuditingEnabled()) {
-                // Auditing may be disabled while a captive flow which LoginGuard
-                // already owns is in progress. Complete only that exact row and
-                // deliver the general success notification deferred by the user
-                // plugin; do not create an MFA row or run MFA policy/alerts.
-                $user = $this->getApplication()->getIdentity();
-                if ($user && !$user->guest && (int) $user->id > 0) {
-                    if ($this->finalisePendingLogin((int) $user->id, '')) {
-                        $this->sendFinalSuccessAlert($user, $this->buildContext(), '');
-                    }
-                }
-                return;
-            }
-
             $user = $this->getApplication()->getIdentity();
             if (!$user || $user->guest || (int) $user->id <= 0) {
                 return;
@@ -94,10 +76,19 @@ final class LoginGuardMfa extends CMSPlugin implements SubscriberInterface
 
             $context = $this->buildContext();
             $method = $this->getMfaMethod((int) $user->id);
-            $this->insertAttempt($user, $context, 'MFA_SUCCESS', 'MFA_COMPLETED', $method);
-            if ($this->finalisePendingLogin((int) $user->id, $method)) {
-                $this->sendFinalSuccessAlert($user, $context, $method);
+            if ($this->isMfaAuditingEnabled()) {
+                $this->insertAttempt($user, $context, 'MFA_SUCCESS', 'MFA_COMPLETED', $method);
             }
+            $this->insertAttempt($user, $context, 'SUCCESS_LOGIN', '', $method, 'login');
+            $this->sendSharedAuditAlert(
+                $user,
+                $context,
+                'SUCCESS_LOGIN',
+                '',
+                $method,
+                'MFA_SUCCESS',
+                'MFA_COMPLETED'
+            );
             $this->recordHealth('mfa', 'healthy', 'Last MFA validation completed successfully.');
         } catch (Throwable $exception) {
             $this->recordFailure('mfa', $exception);
@@ -174,66 +165,6 @@ final class LoginGuardMfa extends CMSPlugin implements SubscriberInterface
         $db->setQuery($query, 0, 1);
 
         return $this->truncate((string) $db->loadResult(), 100);
-    }
-
-    private function markPrimarySuccessPending(int $userId, string $method): void
-    {
-        $session = $this->getApplication()->getSession();
-        $sessionKey = self::ATTEMPT_SESSION_KEY . $userId;
-        $id = (int) $session->get($sessionKey, 0);
-        if ($id <= 0) {
-            return;
-        }
-
-        $db = $this->getDatabase();
-        $update = $db->getQuery(true)
-            ->update($db->quoteName('#__loginguard_attempts'))
-            ->set($db->quoteName('status') . ' = ' . $db->quote('MFA_PENDING'))
-            ->set($db->quoteName('attempt_type') . ' = ' . $db->quote('mfa'))
-            ->set($db->quoteName('mfa_method') . ' = ' . $db->quote($method))
-            ->set($db->quoteName('reason') . ' = ' . $db->quote('MFA_REQUIRED'))
-            ->where($db->quoteName('id') . ' = ' . (string) $id)
-            ->where($db->quoteName('user_id') . ' = ' . (string) $userId)
-            ->where($db->quoteName('status') . ' = ' . $db->quote('SUCCESS_LOGIN'));
-        $db->setQuery($update)->execute();
-    }
-
-    private function finalisePendingLogin(int $userId, string $method): bool
-    {
-        $session = $this->getApplication()->getSession();
-        $sessionKey = self::ATTEMPT_SESSION_KEY . $userId;
-        $pendingAttemptId = (int) $session->get($sessionKey, 0);
-        if ($pendingAttemptId <= 0) {
-            return false;
-        }
-
-        $db = $this->getDatabase();
-        $query = $db->getQuery(true)
-            ->select($db->quoteName('id'))
-            ->from($db->quoteName('#__loginguard_attempts'))
-            ->where($db->quoteName('user_id') . ' = ' . (string) $userId)
-            ->where($db->quoteName('status') . ' = ' . $db->quote('MFA_PENDING'))
-            ->where($db->quoteName('id') . ' = ' . (string) $pendingAttemptId);
-        $db->setQuery($query, 0, 1);
-        $id = (int) $db->loadResult();
-
-        if ($id > 0) {
-            $update = $db->getQuery(true)
-                ->update($db->quoteName('#__loginguard_attempts'))
-                ->set($db->quoteName('status') . ' = ' . $db->quote('SUCCESS_LOGIN'))
-                ->set($db->quoteName('attempt_type') . ' = ' . $db->quote('login'))
-                ->set($db->quoteName('reason') . ' = ' . $db->quote('MFA_COMPLETED'))
-                ->where($db->quoteName('id') . ' = ' . (string) $id);
-            if ($method !== '') {
-                $update->set($db->quoteName('mfa_method') . ' = ' . $db->quote($method));
-            }
-            $db->setQuery($update)->execute();
-            $session->clear($sessionKey);
-            return true;
-        }
-
-        $session->clear($sessionKey);
-        return false;
     }
 
     private function insertAttempt($user, array $context, string $status, string $reason, string $method, string $attemptType = 'mfa'): void
@@ -365,17 +296,15 @@ final class LoginGuardMfa extends CMSPlugin implements SubscriberInterface
         ], (string) $params->get('audit_alert_recipients', ''));
     }
 
-    private function sendFinalSuccessAlert($user, array $context, string $method): void
-    {
-        $params = ComponentHelper::getParams('com_loginguard');
-        if (!(int) $params->get('audit_alerts_enabled', 0) || !(int) $params->get('audit_alert_success', 0)) {
-            return;
-        }
-
-        $this->sendSharedAuditAlert($user, $context, 'SUCCESS_LOGIN', 'MFA_COMPLETED', $method);
-    }
-
-    private function sendSharedAuditAlert($user, array $context, string $status, string $reason, string $method): void
+    private function sendSharedAuditAlert(
+        $user,
+        array $context,
+        string $status,
+        string $reason,
+        string $method,
+        ?string $mfaStatus = null,
+        ?string $mfaReason = null
+    ): void
     {
         $record = [
             'user_id' => (int) ($user->id ?? 0),
@@ -390,8 +319,8 @@ final class LoginGuardMfa extends CMSPlugin implements SubscriberInterface
             'status' => $status,
             'reason' => $reason,
             'mfa_method' => $method !== '' ? $method : 'Unknown',
-            'mfa_status' => $status,
-            'mfa_reason' => $reason,
+            'mfa_status' => $mfaStatus ?? $status,
+            'mfa_reason' => $mfaReason ?? $reason,
             'created' => gmdate('Y-m-d H:i:s'),
         ];
 

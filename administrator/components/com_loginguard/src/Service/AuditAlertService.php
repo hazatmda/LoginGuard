@@ -26,6 +26,12 @@ final class AuditAlertService
         }
 
         $status = (string) ($record['status'] ?? '');
+        // Pending captive MFA is observational telemetry, never an outcome.
+        // Keep it out of both configured alert paths and failed throttling even
+        // if a caller accidentally forwards it to this shared service.
+        if ($status === 'MFA_PENDING') {
+            return;
+        }
         $isSuccess = $status === 'SUCCESS_LOGIN';
         if ($isSuccess && !(int) $params->get('audit_alert_success', 0)) {
             return;
@@ -52,6 +58,7 @@ final class AuditAlertService
     {
         $subjectTemplate = $this->normaliseLegacyGeoIpTemplate($subjectTemplate);
         $bodyTemplate = $this->normaliseLegacyGeoIpTemplate($bodyTemplate);
+        $bodyTemplate = $this->includeMissingMfaTemplateRows($bodyTemplate, $variables);
         $subject = strtoupper($this->replaceAlertTemplateVariables($subjectTemplate, $variables));
         $plainBody = $this->withAlertFooter($this->replaceAlertTemplateVariables($bodyTemplate, $variables));
         $htmlBody = $this->buildAlertHtmlBody($subject, $bodyTemplate, $variables, $status);
@@ -140,7 +147,7 @@ final class AuditAlertService
             'full_name' => (string) ($record['name'] ?? ''),
             'email' => (string) ($record['email'] ?? ''),
             'user_agent' => (string) ($record['user_agent'] ?? ''),
-            'mfa_method' => (string) ($record['mfa_method'] ?? ''),
+            'mfa_method' => $this->formatMfaMethod((string) ($record['mfa_method'] ?? '')),
             'mfa_status' => $this->formatAlertStatus((string) ($record['mfa_status'] ?? '')),
             'mfa_reason' => $this->formatAlertFailureReason((string) ($record['mfa_reason'] ?? '')),
         ];
@@ -202,9 +209,46 @@ final class AuditAlertService
         return preg_replace('/\{(?:' . $legacyNames . ')\}/i', '', $template) ?? $template;
     }
 
+    /**
+     * Add populated MFA details which an older administrator-saved template
+     * cannot know about. This only changes the in-memory rendering template;
+     * Joomla's saved component parameters remain untouched.
+     *
+     * @param array<string, string> $variables
+     */
+    private function includeMissingMfaTemplateRows(string $template, array $variables): string
+    {
+        $labels = [
+            'mfa_method' => 'MFA Method',
+            'mfa_status' => 'MFA Status',
+            'mfa_reason' => 'MFA Result',
+        ];
+        $present = array_fill_keys($this->extractAlertTemplateVariableNames($template), true);
+        $rows = [];
+
+        foreach ($labels as $name => $label) {
+            if (!isset($present[$name]) && trim((string) ($variables[$name] ?? '')) !== '') {
+                $rows[] = $label . ': {' . $name . '}';
+            }
+        }
+
+        if ($rows === []) {
+            return $template;
+        }
+
+        $injection = implode("\n", $rows);
+        // Keep a final custom footer in its original position when one exists.
+        if (preg_match('/\R{2,}([^{}]*)$/s', $template, $match, PREG_OFFSET_CAPTURE)) {
+            $offset = $match[0][1];
+            return substr($template, 0, $offset) . "\n\n" . $injection . substr($template, $offset);
+        }
+
+        return rtrim($template) . "\n" . $injection;
+    }
+
     private function getDefaultAlertBodyTemplate(): string
     {
-        return "LoginGuard recorded a {status} event on {site_name}.\n\nFull Name: {full_name}\nUsername: {username}\nEmail: {email}\nIP Address: {ip}\nWhere: {where}\nBrowser: {browser}\nOperating System: {os}\nFailure Reason: {failure_reason}\nUser Agent: {user_agent}\nDate/Time: {datetime}\n\nGenerated automatically by Login Guard MDA.";
+        return "LoginGuard recorded a {status} event on {site_name}.\n\nFull Name: {full_name}\nUsername: {username}\nEmail: {email}\nIP Address: {ip}\nWhere: {where}\nBrowser: {browser}\nOperating System: {os}\nFailure Reason: {failure_reason}\nMFA Method: {mfa_method}\nMFA Status: {mfa_status}\nMFA Result: {mfa_reason}\nUser Agent: {user_agent}\nDate/Time: {datetime}\n\nGenerated automatically by Login Guard MDA.";
     }
 
     private function getDefaultBlockedIpAlertBodyTemplate(): string
@@ -380,6 +424,12 @@ final class AuditAlertService
             'MFA_TRY_LIMIT' => 'MFA TRY LIMIT',
             default => str_replace('_', ' ', strtoupper($status)),
         };
+    }
+
+    private function formatMfaMethod(string $method): string
+    {
+        $method = trim($method);
+        return $method === '' ? '' : ucwords(strtolower(str_replace(['_', '-'], ' ', $method)));
     }
 
     private function formatAlertFailureReason(string $reason): string

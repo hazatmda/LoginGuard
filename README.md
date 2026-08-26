@@ -4,7 +4,7 @@ Joomla 5 package for login attempt detection, MFA-aware auditing, IP enforcement
 
 ## Status
 
-Current development version: `0.2.23`.
+Current development version: `0.2.24`.
 
 ## Core capabilities
 
@@ -12,13 +12,12 @@ Current development version: `0.2.23`.
 - Record failed username/password login attempts
 - Record blocked login attempts
 - Audit Joomla captive Multi-factor Authentication outcomes without storing MFA codes
-- Reclassify primary-auth success as `MFA_PENDING` when captive MFA is required and finalize `SUCCESS_LOGIN` only after MFA succeeds
+- Treat frontend/backend primary authentication as `MFA_PENDING` under this site's mandatory-MFA policy and finalize `SUCCESS_LOGIN` only after Joomla emits captive success
 - Capture server-established `REMOTE_ADDR`, name, username, status, failure reason, location metadata, browser, operating system, user agent, and UTC datetime without storing plaintext passwords
 - Provide Dashboard telemetry, Login Information, Configuration, Blocked IPs, and About views
 - Apply manual and threshold-based IP enforcement with whitelist support
 - Use separate configurable MFA-failure blocking thresholds
 - Send optional Joomla mail alerts for login, block, and MFA security events
-- Send an administrator-triggered, fixed diagnostic email to saved alert recipients without creating security telemetry
 - Run scheduled bounded retention cleanup
 - Export complete audit data with spreadsheet-formula protection applied only at export time
 - Record administrator block-management and audit-export actions
@@ -47,13 +46,15 @@ SUCCESS primary authentication
         -> SUCCESS_LOGIN finalized
 ```
 
-Users without a captive MFA requirement continue to be recorded as `SUCCESS_LOGIN` normally.
+For this mandatory-MFA deployment, every frontend/backend primary-authentication event remains pending, including first-time MFA setup where no active method row exists. LoginGuard does not inspect or mutate Joomla MFA session/routing state and does not redirect. API and CLI authentication cannot enter Joomla's interactive captive flow, so those clients continue to record `SUCCESS_LOGIN` immediately.
 
-## Network-origin telemetry in 0.2.23
+`MFA_PENDING` is neutral telemetry only: it is excluded from success and failed alerts, throttling, automatic blocking, and threshold notifications. Captive success records optional `MFA_SUCCESS` telemetry plus exactly one final `SUCCESS_LOGIN`, and uses the shared Success Alert with MFA metadata. Captive failures use the shared Failed Alert with the same MFA variables.
 
-GeoIP enrichment is deferred and is not included in 0.2.23. LoginGuard records only the trusted-proxy-aware public client IP for network origin; it performs no PHP GeoIP, MaxMind/MMDB, or configured-map lookup and does not derive country, region, city, ISP, or ASN data. Previously saved alert templates are normalized narrowly at render time to remove retired GeoIP rows and placeholders without resetting other custom text.
+## Network-origin telemetry in 0.2.24
 
-Existing GeoIP database columns and historical values are retained. Joomla's MySQL update files are declarative SQL, and the MySQL/MariaDB versions supported by Joomla do not share a portable conditional `DROP COLUMN` form. An unconditional drop could fail an upgrade on a drifted schema, so v0.2.23 deliberately avoids that destructive migration.
+GeoIP enrichment is deferred and is not included in 0.2.24. LoginGuard records only the trusted-proxy-aware public client IP for network origin; it performs no PHP GeoIP, MaxMind/MMDB, or configured-map lookup and does not derive country, region, city, ISP, or ASN data. Previously saved alert templates are normalized narrowly at render time to remove retired GeoIP rows and placeholders without resetting other custom text.
+
+Existing GeoIP database columns and historical values are retained. Joomla's MySQL update files are declarative SQL, and the MySQL/MariaDB versions supported by Joomla do not share a portable conditional `DROP COLUMN` form. An unconditional drop could fail an upgrade on a drifted schema, so v0.2.24 deliberately avoids that destructive migration.
 
 ## Requirements
 
@@ -88,7 +89,7 @@ bash scripts/build.sh
 Generated package:
 
 ```text
-packages/pkg_loginguard_v0.2.23.zip
+packages/pkg_loginguard_v0.2.24.zip
 ```
 
 ## Versioning policy
@@ -105,15 +106,15 @@ Before release, these must match:
 - release notes
 
 ```text
-version: 0.2.23
-tag: v0.2.23
-package: pkg_loginguard_v0.2.23.zip
+version: 0.2.24
+tag: v0.2.24
+package: pkg_loginguard_v0.2.24.zip
 ```
 
 ### Stable release sequence
 
 1. Obtain a clean PR review and green GitHub CI validation on PHP 8.1, 8.2, 8.3, and 8.4.
-2. Merge the validated v0.2.23 version to `main`.
+2. Merge the validated v0.2.24 version to `main`.
 3. GitHub Actions validates and builds the merged commit, then automatically creates the exact `v${VERSION}` release if it does not already exist.
 4. The workflow attaches the exact `pkg_loginguard_v${VERSION}.zip` package to that release.
 5. The workflow verifies that the Joomla updater can retrieve the exact release asset referenced by `updates/loginguard.xml`.

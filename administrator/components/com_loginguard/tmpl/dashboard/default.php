@@ -24,13 +24,16 @@ $timeframeOptions = [
 ];
 
 $kpiCards = [
+    ['success_login', 'COM_LOGINGUARD_DASHBOARD_SUCCESSFUL_LOGINS', 'success'],
+    ['failed_login', 'COM_LOGINGUARD_DASHBOARD_FAILED_LOGINS', 'danger'],
+    ['blocked_login', 'COM_LOGINGUARD_DASHBOARD_BLOCKED_LOGINS', 'warning'],
+];
+
+$breakdownCards = [
     ['frontend_success', 'COM_LOGINGUARD_DASHBOARD_FRONTEND_SUCCESS', 'success'],
     ['frontend_failed', 'COM_LOGINGUARD_DASHBOARD_FRONTEND_FAILED', 'danger'],
     ['backend_success', 'COM_LOGINGUARD_DASHBOARD_BACKEND_SUCCESS', 'success'],
     ['backend_failed', 'COM_LOGINGUARD_DASHBOARD_BACKEND_FAILED', 'danger'],
-    ['success_login', 'COM_LOGINGUARD_DASHBOARD_SUCCESSFUL_LOGINS', 'success'],
-    ['failed_login', 'COM_LOGINGUARD_DASHBOARD_FAILED_LOGINS', 'danger'],
-    ['blocked_login', 'COM_LOGINGUARD_DASHBOARD_BLOCKED_LOGINS', 'warning'],
 ];
 
 $mfaCards = [
@@ -67,7 +70,7 @@ $failureReasonLabels = [
 ];
 ?>
 <style>
-.loginguard-dashboard{--lg-gap:.75rem}.loginguard-dashboard .card{box-shadow:none}.lg-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(145px,1fr));gap:var(--lg-gap)}.lg-metric{border-left:.22rem solid var(--bs-secondary);text-align:center}.lg-metric--success{border-left-color:var(--bs-success)}.lg-metric--danger{border-left-color:var(--bs-danger)}.lg-metric--warning{border-left-color:var(--bs-warning)}.lg-metric--info{border-left-color:var(--bs-info)}.lg-value{font-size:1.7rem;font-weight:700;line-height:1}.lg-label{font-size:.72rem;letter-spacing:.04em}.lg-health-message{max-width:420px;word-break:break-word}.lg-status-healthy{color:var(--bs-success)}.lg-status-degraded{color:var(--bs-danger)}.lg-status-unknown{color:var(--bs-secondary)}
+.loginguard-dashboard{--lg-gap:.75rem}.loginguard-dashboard .card{box-shadow:none}.lg-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(145px,1fr));gap:var(--lg-gap)}.lg-metric{border-left:.22rem solid var(--bs-secondary);text-align:center}.lg-metric--success{border-left-color:var(--bs-success)}.lg-metric--danger{border-left-color:var(--bs-danger)}.lg-metric--warning{border-left-color:var(--bs-warning)}.lg-metric--info{border-left-color:var(--bs-info)}.lg-value{font-size:1.7rem;font-weight:700;line-height:1}.lg-label{font-size:.72rem;letter-spacing:.04em}.lg-health-message{max-width:420px;word-break:break-word}.lg-time-range{flex-wrap:wrap}.lg-status{font-size:.75rem}.lg-status-healthy{background:var(--bs-success)}.lg-status-degraded{background:var(--bs-danger)}.lg-status-unknown{background:var(--bs-secondary)}
 </style>
 <form action="<?php echo Route::_('index.php?option=com_loginguard&view=dashboard'); ?>" method="post" name="adminForm" id="adminForm">
 <div id="j-main-container" class="j-main-container loginguard-dashboard">
@@ -76,11 +79,11 @@ $failureReasonLabels = [
             <h2 class="h4 mb-0"><?php echo Text::_('COM_LOGINGUARD_DASHBOARD_TITLE'); ?></h2>
             <p class="text-muted small mb-0"><?php echo Text::sprintf('COM_LOGINGUARD_DASHBOARD_TIMEFRAME_ACTIVE', Text::_($timeframeOptions[$timeframe][0] ?? $timeframeOptions['today'][0])); ?></p>
         </div>
-        <div class="btn-group btn-group-sm" role="group" aria-label="<?php echo Text::_('COM_LOGINGUARD_DASHBOARD_TIMEFRAME'); ?>">
+        <div><div class="small fw-semibold mb-1"><?php echo Text::_('COM_LOGINGUARD_DASHBOARD_TIMEFRAME'); ?></div><div class="btn-group btn-group-sm lg-time-range" role="group" aria-label="<?php echo Text::_('COM_LOGINGUARD_DASHBOARD_TIMEFRAME'); ?>">
             <?php foreach ($timeframeOptions as $range => $option) : ?>
-                <button type="submit" class="btn <?php echo $timeframe === $range ? 'btn-primary' : 'btn-outline-primary'; ?>" name="task" value="<?php echo $this->escape($option[1]); ?>"><?php echo Text::_($option[0]); ?></button>
+                <button type="submit" class="btn <?php echo $timeframe === $range ? 'btn-primary' : 'btn-outline-primary'; ?>" name="task" value="<?php echo $this->escape($option[1]); ?>" aria-pressed="<?php echo $timeframe === $range ? 'true' : 'false'; ?>"><?php echo Text::_($option[0]); ?></button>
             <?php endforeach; ?>
-        </div>
+        </div></div>
     </div>
 
     <div class="lg-grid mb-3">
@@ -91,6 +94,11 @@ $failureReasonLabels = [
             </div></div>
         <?php endforeach; ?>
     </div>
+
+    <div class="card mb-3"><div class="card-body py-3">
+        <h2 class="h6 mb-3"><?php echo Text::_('COM_LOGINGUARD_DASHBOARD_CLIENT_BREAKDOWN'); ?></h2>
+        <div class="lg-grid"><?php foreach ($breakdownCards as $card) : ?><div class="text-center"><div class="text-muted small"><?php echo Text::_($card[1]); ?></div><strong class="h5 text-<?php echo $this->escape($card[2]); ?>"><?php echo (int) ($this->telemetryCounts[$card[0]] ?? 0); ?></strong></div><?php endforeach; ?></div>
+    </div></div>
 
     <div class="alert alert-<?php echo $this->escape($banner[0]); ?> py-2 mb-3" role="status">
         <strong><?php echo Text::_($banner[1]); ?></strong> — <?php echo Text::_($banner[2]); ?>
@@ -123,7 +131,7 @@ $failureReasonLabels = [
                         <?php $health = $healthStatus[$key] ?? ['status' => 'unknown', 'updated' => '', 'message' => '']; $healthState = strtolower((string) ($health['status'] ?? 'unknown')); ?>
                         <tr>
                             <td><?php echo Text::_($label); ?></td>
-                            <td><strong class="lg-status-<?php echo $this->escape(in_array($healthState, ['healthy','degraded'], true) ? $healthState : 'unknown'); ?>"><?php echo $this->escape(strtoupper($healthState)); ?></strong></td>
+                            <td><span class="badge rounded-pill lg-status lg-status-<?php echo $this->escape(in_array($healthState, ['healthy','degraded'], true) ? $healthState : 'unknown'); ?>"><?php echo $this->escape(strtoupper($healthState)); ?></span></td>
                             <td><?php echo $this->escape(LoginGuardHelper::formatConfiguredDateTime((string) ($health['updated'] ?? '')) ?: '—'); ?></td>
                             <td class="small text-muted lg-health-message"><?php echo $this->escape((string) ($health['message'] ?? '')); ?></td>
                         </tr>

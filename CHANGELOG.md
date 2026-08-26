@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.2.24
+
+- Removed LoginGuard's redundant Test Email control; use Joomla Global Configuration for mail testing.
+- Restored a passive post-login boundary by removing session correlation and pre-captive MFA database checks from the User plugin.
+- Deferred every interactive frontend/backend primary success until Joomla's captive-success event, conservatively covering mandatory first-time setup without querying MFA records or touching Joomla session/routing state; API and CLI outcomes remain immediate.
+- Kept `MFA_PENDING` as neutral telemetry outside alerts, throttling, blocking, and thresholds, and added accurate method/status/result metadata to the shared Success/Failed Alert defaults without replacing saved templates.
+- Kept MFA event auditing observational and independent of Joomla captive routing state.
+- Simplified dashboard hierarchy, time-range controls, and runtime-health presentation.
+
 ## 0.2.23
 
 - Unified final Joomla MFA success and failure mail with the configured general audit alert templates, toggles, recipients, and failure throttling; MFA context is available through `{mfa_method}`, `{mfa_status}`, and `{mfa_reason}`.
@@ -14,7 +23,6 @@
 - Preserved immediate normal successful-login auditing and alerts when LoginGuard MFA auditing is disabled, including for Joomla users who have MFA configured.
 - Gated MFA policy and alert controls behind the master switch and expanded regression validation for MFA/non-MFA users in both switch states and credential/code non-access.
 - Finalized session-owned MFA attempts already in flight when auditing is switched off, without creating new MFA audit, blocking, or MFA-alert side effects.
-- Added a protected administrator Send Test Email action using saved normalized recipients, fixed diagnostic data, the LoginGuard notification layout, and mail-health reporting.
 - Hardened release publishing around canonical `VERSION`, the exact matching tag, updater URLs, and versioned package asset.
 - Synchronized release metadata and package naming for `pkg_loginguard_v0.2.22.zip`.
 
