@@ -12,6 +12,7 @@ use Joomla\Database\DatabaseAwareTrait;
 use Joomla\Event\Event;
 use Joomla\Event\SubscriberInterface;
 use Joomla\Plugin\User\LoginGuard\Service\IpResolver;
+use LoginGuard\Component\LoginGuard\Administrator\Service\AuditAlertService;
 use Throwable;
 
 final class LoginGuardMfa extends CMSPlugin implements SubscriberInterface
@@ -345,10 +346,7 @@ final class LoginGuardMfa extends CMSPlugin implements SubscriberInterface
         if (!(int) $params->get('audit_alerts_enabled', 0) || !(int) $params->get('audit_alert_failed', 1)) {
             return;
         }
-        if ($this->isFailedAlertThrottled($context['ip_address'], $params)) {
-            return;
-        }
-        $this->sendConfiguredAuditAlert($user, $context, $status, $reason, $method, false, $params);
+        $this->sendSharedAuditAlert($user, $context, $status, $reason, $method);
     }
 
     private function sendMfaThresholdAlert(string $ipAddress, string $client, int $failureCount, string $blockedUntil): void
@@ -374,60 +372,51 @@ final class LoginGuardMfa extends CMSPlugin implements SubscriberInterface
             return;
         }
 
-        $this->sendConfiguredAuditAlert($user, $context, 'SUCCESS_LOGIN', 'MFA_COMPLETED', $method, true, $params);
+        $this->sendSharedAuditAlert($user, $context, 'SUCCESS_LOGIN', 'MFA_COMPLETED', $method);
     }
 
-    private function isFailedAlertThrottled(string $ipAddress, $params): bool
+    private function sendSharedAuditAlert($user, array $context, string $status, string $reason, string $method): void
     {
-        if (!(int) $params->get('failed_alert_throttling_enabled', 0)) {
-            return false;
+        $record = $this->loadAvailableTelemetry((int) ($user->id ?? 0), $context['ip_address']);
+        $record = array_merge($record, [
+            'user_id' => (int) ($user->id ?? 0),
+            'name' => (string) ($user->name ?? ''),
+            'username' => (string) ($user->username ?? ''),
+            'email' => (string) ($user->email ?? ''),
+            'ip_address' => $context['ip_address'],
+            'where_at' => $context['where_at'],
+            'browser' => $context['browser'],
+            'operating_system' => $context['operating_system'],
+            'user_agent' => $context['user_agent'],
+            'status' => $status,
+            'reason' => $reason,
+            'mfa_method' => $method !== '' ? $method : 'Unknown',
+            'mfa_status' => $status,
+            'mfa_reason' => $reason,
+            'created' => gmdate('Y-m-d H:i:s'),
+        ]);
+
+        $this->getApplication()->bootComponent('com_loginguard');
+        (new AuditAlertService())->send($record, $this->getDatabase());
+    }
+
+    /** @return array<string, mixed> */
+    private function loadAvailableTelemetry(int $userId, string $ipAddress): array
+    {
+        if ($userId <= 0) {
+            return [];
         }
-        $threshold = max(1, (int) $params->get('failed_alert_threshold', 10));
-        $since = gmdate('Y-m-d H:i:s', time() - max(1, (int) $params->get('failed_alert_throttle_window_minutes', 15)) * 60);
+
         $db = $this->getDatabase();
-        $query = $db->getQuery(true)->select('COUNT(*)')->from($db->quoteName('#__loginguard_attempts'))
+        $query = $db->getQuery(true)
+            ->select($db->quoteName(['country', 'country_code', 'region', 'city', 'isp', 'asn']))
+            ->from($db->quoteName('#__loginguard_attempts'))
+            ->where($db->quoteName('user_id') . ' = ' . (string) $userId)
             ->where($db->quoteName('ip_address') . ' = ' . $db->quote($ipAddress))
-            ->where($db->quoteName('status') . ' IN (' . $db->quote('FAILED_LOGIN') . ',' . $db->quote('MFA_FAILED') . ',' . $db->quote('MFA_TRY_LIMIT') . ')')
-            ->where($db->quoteName('created') . ' >= ' . $db->quote($since));
-        $db->setQuery($query);
-        return (int) $db->loadResult() > $threshold;
-    }
+            ->order($db->quoteName('id') . ' DESC');
+        $db->setQuery($query, 0, 1);
 
-    private function sendConfiguredAuditAlert($user, array $context, string $status, string $reason, string $method, bool $success, $params): void
-    {
-        $variables = [
-            'full_name' => (string) ($user->name ?? ''), 'name' => (string) ($user->name ?? ''),
-            'username' => (string) ($user->username ?? ''), 'email' => (string) ($user->email ?? ''),
-            'ip' => $context['ip_address'], 'where' => ucfirst($context['where_at']),
-            'browser' => $context['browser'], 'os' => $context['operating_system'],
-            'user_agent' => $context['user_agent'], 'status' => str_replace('_', ' ', $status),
-            'failure_reason' => $success ? '' : str_replace('_', ' ', $reason),
-            'mfa_method' => $method !== '' ? $method : 'Unknown', 'mfa_reason' => str_replace('_', ' ', $reason),
-            'mfa_status' => str_replace('_', ' ', $status), 'datetime' => gmdate('Y-m-d H:i:s'),
-            'site_name' => (string) Factory::getConfig()->get('sitename', ''),
-            'country' => '', 'country_code' => '', 'region' => '', 'city' => '', 'isp' => '', 'asn' => '',
-        ];
-        $replace = [];
-        foreach ($variables as $key => $value) {
-            $replace['{' . $key . '}'] = $value;
-        }
-        $subject = strtr((string) $params->get($success ? 'audit_alert_success_subject' : 'audit_alert_failed_subject', ''), $replace);
-        $body = strtr((string) $params->get($success ? 'audit_alert_success_body' : 'audit_alert_failed_body', ''), $replace);
-        $this->sendTemplatedAlert($subject, $body, (string) $params->get('audit_alert_recipients', ''));
-    }
-
-    private function sendTemplatedAlert(string $subject, string $body, string $recipientConfig): void
-    {
-        $recipients = preg_split('/[\s,;]+/', $recipientConfig, -1, PREG_SPLIT_NO_EMPTY) ?: [];
-        $recipients = array_values(array_unique(array_filter(array_map('trim', $recipients), static fn ($email) => filter_var($email, FILTER_VALIDATE_EMAIL))));
-        if ($recipients === []) return;
-        try {
-            $mailer = Factory::getMailer();
-            $mailer->addRecipient($recipients); $mailer->setSubject($subject);
-            $mailer->setBody('<div style="font-family:Arial,sans-serif">' . nl2br(htmlspecialchars($body, ENT_QUOTES, 'UTF-8')) . '</div>');
-            $mailer->AltBody = $body; $mailer->isHtml(true); $mailer->Send();
-            $this->recordHealth('mail', 'healthy', 'Last configured LoginGuard audit alert was sent successfully.');
-        } catch (Throwable $exception) { $this->recordFailure('mail', $exception); }
+        return (array) ($db->loadAssoc() ?: []);
     }
 
     /** @param array<string, string> $rows */

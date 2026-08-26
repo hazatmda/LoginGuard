@@ -111,10 +111,10 @@ package: pkg_loginguard_v0.2.23.zip
 ### Stable release sequence
 
 1. Obtain a clean PR review and green GitHub CI validation on PHP 8.1, 8.2, 8.3, and 8.4.
-2. Merge v0.2.23 to `main`.
-3. Create and publish a GitHub Release with the exact tag `v0.2.23`, targeting the merged `main` commit.
-4. The release workflow verifies that the tag is exactly `v${VERSION}`, rebuilds, checks, and attaches only `pkg_loginguard_v0.2.23.zip`.
-5. Verify that the release asset URL in `updates/loginguard.xml` is available for Joomla downloads.
+2. Merge the validated v0.2.23 version to `main`.
+3. GitHub Actions validates and builds the merged commit, then automatically creates the exact `v${VERSION}` release if it does not already exist.
+4. The workflow attaches the exact `pkg_loginguard_v${VERSION}.zip` package to that release.
+5. The workflow verifies that the Joomla updater can retrieve the exact release asset referenced by `updates/loginguard.xml`.
 
 The release job intentionally fails before upload if the release tag, canonical
 version, update-stream URLs, or exact package asset do not agree. Only that job

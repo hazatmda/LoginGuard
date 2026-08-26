@@ -15,6 +15,7 @@ use Joomla\CMS\User\UserHelper;
 use Joomla\Database\DatabaseDriver;
 use Joomla\Event\Event;
 use Joomla\Plugin\User\LoginGuard\Service\IpResolver;
+use LoginGuard\Component\LoginGuard\Administrator\Service\AuditAlertService;
 use Throwable;
 
 final class LoginGuard extends CMSPlugin
@@ -438,53 +439,17 @@ final class LoginGuard extends CMSPlugin
     /** @param array<string, mixed> $record */
     private function sendAuditAlert(array $record, DatabaseDriver $db): void
     {
-        if (PHP_SAPI === 'cli') {
-            return;
-        }
-
         $params = ComponentHelper::getParams('com_loginguard');
-        if (!$params->get('audit_alerts_enabled', 0)) {
-            return;
-        }
-
-        $status = (string) ($record['status'] ?? '');
         if ($params->get('mfa_auditing_enabled', 1)
-            && $status === 'SUCCESS_LOGIN'
+            && (string) ($record['status'] ?? '') === 'SUCCESS_LOGIN'
             && $this->hasCaptiveMfa((int) ($record['user_id'] ?? 0), $db)
         ) {
-            // Captive MFA is not a successful login until Joomla validates the second factor.
-            // The MFA system plugin sends the single final success alert after MFA_SUCCESS.
-            return;
-        }
-        if ($status === 'SUCCESS_LOGIN' && !$params->get('audit_alert_success', 0)) {
-            return;
-        }
-        if ($status === 'FAILED_LOGIN' && !$params->get('audit_alert_failed', 1)) {
-            return;
-        }
-        if ($status === 'BLOCKED_LOGIN' && !$params->get('blocked_ip_alerts_enabled', 1)) {
-            return;
-        }
-        if ($status === 'FAILED_LOGIN' && $this->isFailedAlertThrottled($record, $db)) {
+            // The shared pipeline sends this outcome only after MFA completes.
             return;
         }
 
-        $recipients = $this->normaliseAlertRecipients((string) $params->get('audit_alert_recipients', ''));
-        if ($recipients === []) {
-            return;
-        }
-
-        $isSuccess = $status === 'SUCCESS_LOGIN';
-        $subjectTemplate = (string) $params->get(
-            $isSuccess ? 'audit_alert_success_subject' : 'audit_alert_failed_subject',
-            $isSuccess ? '[LOGIN GUARD] SUCCESSFUL BACKEND LOGIN' : '[LOGIN GUARD] FAILED LOGIN ATTEMPT'
-        );
-        $bodyTemplate = (string) $params->get(
-            $isSuccess ? 'audit_alert_success_body' : 'audit_alert_failed_body',
-            $this->getDefaultAlertBodyTemplate()
-        );
-
-        $this->sendMail($recipients, $subjectTemplate, $bodyTemplate, $this->buildAlertTemplateVariables($record), $status, $db);
+        $this->getApplication()->bootComponent('com_loginguard');
+        (new AuditAlertService())->send($record, $db);
     }
 
     private function hasCaptiveMfa(int $userId, DatabaseDriver $db): bool

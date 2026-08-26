@@ -302,20 +302,24 @@ if 'formmethod="post"' not in test_field or 'testemail.send' not in test_field:
     raise SystemExit('Test-email configuration control must submit the protected POST action')
 
 workflow = Path('.github/workflows/build.yml').read_text(encoding='utf-8')
-for token in ['contents: read', 'contents: write', 'github.event.release.tag_name', '"v${VERSION}"', 'test -f "packages/pkg_loginguard_v${VERSION}.zip"', 'packages/pkg_loginguard_v${{ env.VERSION }}.zip']:
+for token in ['contents: read', 'contents: write', "github.ref == 'refs/heads/main'", 'TAG="v${VERSION}"', 'test -f "packages/pkg_loginguard_v${VERSION}.zip"', 'packages/pkg_loginguard_v${{ env.VERSION }}.zip']:
     if token not in workflow:
         raise SystemExit(f'Release workflow contract missing: {token}')
 if 'files: packages/*.zip' in workflow:
     raise SystemExit('Release workflow must never publish a wildcard package')
 
-for token in ['hasCaptiveMfa(', "#__user_mfa", "status === 'SUCCESS_LOGIN'", 'The MFA system plugin sends the single final success alert']:
+for token in ['hasCaptiveMfa(', "#__user_mfa", "(string) ($record['status'] ?? '') === 'SUCCESS_LOGIN'", 'shared pipeline sends this outcome only after MFA completes']:
     if token not in login_guard:
         raise SystemExit(f'Primary success-alert deferral missing: {token}')
-defer_start = login_guard.index("if ($params->get('mfa_auditing_enabled', 1)")
-has_mfa_check = login_guard.index('$this->hasCaptiveMfa(', defer_start)
-audit_success_check = login_guard.index("if ($status === 'SUCCESS_LOGIN' && !$params->get('audit_alert_success'", defer_start)
-if has_mfa_check > audit_success_check:
-    raise SystemExit('Captive MFA success alert must be suppressed before primary success mail handling')
+audit_service = Path('administrator/components/com_loginguard/src/Service/AuditAlertService.php').read_text(encoding='utf-8')
+mfa_plugin = Path('plugins/system/loginguardmfa/src/Extension/LoginGuardMfa.php').read_text(encoding='utf-8')
+for token in ['AuditAlertService', 'buildAlertHtmlBody', 'formatConfiguredDateTime', 'mfa_method', 'mfa_status', 'mfa_reason']:
+    if token not in audit_service:
+        raise SystemExit(f'Shared audit alert pipeline missing: {token}')
+if '(new AuditAlertService())->send' not in login_guard or '(new AuditAlertService())->send' not in mfa_plugin:
+    raise SystemExit('Password and MFA outcomes must call the same audit alert service')
+if 'sendConfiguredAuditAlert' in mfa_plugin or 'sendTemplatedAlert' in mfa_plugin:
+    raise SystemExit('Parallel MFA audit-alert rendering pipeline must not exist')
 
 config_text = Path('administrator/components/com_loginguard/config.xml').read_text(encoding='utf-8')
 for token in [

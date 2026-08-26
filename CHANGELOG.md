@@ -15,7 +15,7 @@
 - Finalized session-owned MFA attempts already in flight when auditing is switched off, without creating new MFA audit, blocking, or MFA-alert side effects.
 - Added a protected administrator Send Test Email action using saved normalized recipients, fixed diagnostic data, the LoginGuard notification layout, and mail-health reporting.
 - Hardened release publishing around canonical `VERSION`, the exact matching tag, updater URLs, and versioned package asset.
-- Synchronized release metadata and package naming for `pkg_loginguard_v0.2.23.zip`.
+- Synchronized release metadata and package naming for `pkg_loginguard_v0.2.22.zip`.
 
 ## 0.2.21
 

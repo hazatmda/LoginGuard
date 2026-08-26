@@ -25,7 +25,24 @@ final class TestemailController extends BaseController
         try {
             $component = $app->bootComponent('com_config');
             $model = $component->getMVCFactory()->createModel('Application', 'Administrator', ['ignore_request' => true]);
-            if (!$model || !method_exists($model, 'sendTestMail') || $model->sendTestMail() !== true) {
+            $config = Factory::getConfig();
+            $mailConfig = [];
+            foreach (['smtpauth', 'smtpuser', 'smtppass', 'smtphost', 'smtpsecure', 'smtpport', 'mailfrom', 'fromname', 'mailer', 'mailonline'] as $key) {
+                $mailConfig[$key] = $config->get($key);
+            }
+
+            // Joomla's native com_config model reads its mail contract exclusively
+            // from the JSON input bag. Populate it from the saved Global
+            // Configuration so this control exercises the exact persisted setup.
+            foreach ($mailConfig as $key => $value) {
+                $app->getInput()->json->set($key, $value);
+            }
+
+            if ($model && method_exists($model, 'sendTestMail')) {
+                if ($model->sendTestMail() !== true) {
+                    throw new \RuntimeException('Joomla native test mail reported a delivery failure.');
+                }
+            } else {
                 // Joomla 5.2 compatibility: exercise Joomla's configured mailer
                 // directly, addressed to the current administrator.
                 $recipient = (string) ($app->getIdentity()->email ?? '');
