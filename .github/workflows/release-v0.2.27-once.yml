@@ -1,0 +1,45 @@
+name: Publish LoginGuard v0.2.27 Once
+
+on:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: write
+
+jobs:
+  release-v027:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout exact release target
+        uses: actions/checkout@v4
+        with:
+          ref: b909a1a4d2b5d04b4a1d4ec1bf21c3882aade832
+
+      - name: Setup PHP
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.2'
+
+      - name: Validate
+        run: bash scripts/validate.sh
+
+      - name: Build Joomla package
+        run: bash scripts/build.sh
+
+      - name: Create v0.2.27 release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -eu
+          if gh release view v0.2.27 --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            echo "Release v0.2.27 already exists; leaving it unchanged."
+            exit 0
+          fi
+          gh release create v0.2.27 \
+            packages/pkg_loginguard_v0.2.27.zip \
+            --repo "$GITHUB_REPOSITORY" \
+            --target b909a1a4d2b5d04b4a1d4ec1bf21c3882aade832 \
+            --title "LoginGuard v0.2.27" \
+            --notes "Adds CSV formula-injection neutralization for login telemetry exports, append-only administrator audit logging for sensitive administrator actions, audit cleanup coverage, UTF-8-safe audit handling, lossless bulk-target recording, and component-owned schema migration/legacy audit-table repair for Joomla upgrades."
