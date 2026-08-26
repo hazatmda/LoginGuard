@@ -249,31 +249,28 @@ for forbidden in ["gmdate('Y-m-d H:i:s', time() - 600)", "order($db->quoteName('
     if forbidden in pending_code:
         raise SystemExit(f'Captive flow must not infer a primary attempt: {forbidden}')
 
-# MFA alerts must inherit GeoIP from their session-owned primary attempt. The
-# MFA audit row itself intentionally has blank telemetry, and a newest-row or
-# user/IP lookup could bind a different concurrent login flow.
-telemetry_start = mfa_plugin.index('private function loadPendingAttemptTelemetry')
-telemetry_end = mfa_plugin.index('private function sendAlert', telemetry_start)
-telemetry_code = mfa_plugin[telemetry_start:telemetry_end]
-for token in [
-    'self::ATTEMPT_SESSION_KEY . $userId',
-    '$pendingAttemptId',
-    "->where($db->quoteName('id') . ' = ' . (string) $pendingAttemptId)",
-    "->where($db->quoteName('user_id') . ' = ' . (string) $userId)",
-    "'country', 'country_code', 'region', 'city', 'isp', 'asn'",
-]:
-    if token not in telemetry_code:
-        raise SystemExit(f'Exact pending-attempt alert telemetry missing: {token}')
-for forbidden in ["order(", "ip_address') . ' = '"]:
-    if forbidden in telemetry_code:
-        raise SystemExit(f'MFA alert telemetry must not use a historical heuristic: {forbidden}')
-
-success_code = mfa_plugin[mfa_plugin.index('public function onMfaSuccess'):mfa_plugin.index('private function recordMfaEvent')]
-if success_code.index('loadPendingAttemptTelemetry(') > success_code.index('finalisePendingLogin('):
-    raise SystemExit('MFA success must capture primary telemetry before finalisation clears its session id')
-failure_code = mfa_plugin[mfa_plugin.index('private function recordMfaEvent'):mfa_plugin.index('private function isMfaAuditingEnabled')]
-if failure_code.index('loadPendingAttemptTelemetry(') > failure_code.index('insertAttempt('):
-    raise SystemExit('MFA failure must capture primary telemetry before inserting its blank MFA audit row')
+# GeoIP enrichment is deliberately deferred in 0.2.23. Runtime code, alert
+# templates, and component configuration must not contain a lookup path or
+# expose derived location/network-provider fields. Legacy schema is retained.
+audit_service_geoip = Path('administrator/components/com_loginguard/src/Service/AuditAlertService.php').read_text(encoding='utf-8')
+config_xml_geoip = Path('administrator/components/com_loginguard/config.xml').read_text(encoding='utf-8')
+runtime_geoip_tokens = [
+    'detectGeoIp', 'detectPhpGeoIp', 'detectMaxMindGeoIp',
+    'detectConfiguredGeoIpMap', 'GeoIp2\\Database\\Reader',
+    'geoip_country_name_by_name', 'geoip_country_map',
+]
+for token in runtime_geoip_tokens:
+    if token in login_guard or token in mfa_plugin or token in audit_service_geoip or token in config_xml_geoip:
+        raise SystemExit(f'Runtime GeoIP lookup/config remains: {token}')
+geoip_fields = ['country', 'country_code', 'region', 'city', 'isp', 'asn']
+for field in geoip_fields:
+    variable = '{' + field + '}'
+    if variable in login_guard or variable in mfa_plugin or variable in audit_service_geoip or variable in config_xml_geoip:
+        raise SystemExit(f'GeoIP alert variable remains: {variable}')
+install_sql = Path('plugins/user/loginguard/sql/install.mysql.utf8.sql').read_text(encoding='utf-8')
+for field in geoip_fields:
+    if f'`{field}`' not in install_sql:
+        raise SystemExit(f'Legacy GeoIP schema column was destructively removed: {field}')
 
 # Regression model: concurrent sessions retain independent attempt ownership;
 # refreshes are idempotent and abandoning one flow cannot affect the other.
@@ -308,23 +305,6 @@ complete_captive('single')
 complete_captive('single')
 if attempts != {201: 'SUCCESS_LOGIN'} or 'single' in sessions:
     raise SystemExit('Single-session captive MFA finalisation is not idempotent')
-
-# Regression model: success and failure alerts select telemetry by each
-# session's exact primary attempt id, even when another attempt is newer and
-# has the same user and IP. MFA event rows contain deliberately blank GeoIP.
-telemetry = {
-    201: {'country': 'Firstland', 'city': 'First City'},
-    202: {'country': 'Secondland', 'city': 'Second City'},
-    203: {'country': '', 'city': ''},  # newest MFA_SUCCESS row
-    204: {'country': '', 'city': ''},  # newest MFA_FAILED row
-}
-sessions = {'success_flow': 201, 'failure_flow': 202}
-def alert_telemetry(session):
-    return telemetry.get(sessions.get(session, 0), {})
-if alert_telemetry('success_flow') != {'country': 'Firstland', 'city': 'First City'}:
-    raise SystemExit('MFA Success Alert did not inherit its exact primary attempt telemetry')
-if alert_telemetry('failure_flow') != {'country': 'Secondland', 'city': 'Second City'}:
-    raise SystemExit('MFA Failed Alert cross-bound concurrent primary attempt telemetry')
 
 # ON -> OFF after captive reclassification still completes the owned attempt;
 # it creates no new MFA event and cannot touch a row owned by another session.

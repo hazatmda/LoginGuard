@@ -134,12 +134,6 @@ final class AuditAlertService
             'os' => (string) ($record['operating_system'] ?? 'unknown'),
             'datetime' => $this->formatConfiguredDateTime((string) ($record['created'] ?? gmdate('Y-m-d H:i:s'))),
             'site_name' => (string) $config->get('sitename', ''),
-            'country' => (string) ($record['country'] ?? ''),
-            'country_code' => (string) ($record['country_code'] ?? ''),
-            'region' => (string) ($record['region'] ?? ''),
-            'city' => (string) ($record['city'] ?? ''),
-            'isp' => (string) ($record['isp'] ?? ''),
-            'asn' => (string) ($record['asn'] ?? ''),
             'name' => (string) ($record['name'] ?? ''),
             'full_name' => (string) ($record['name'] ?? ''),
             'email' => (string) ($record['email'] ?? ''),
@@ -188,12 +182,12 @@ final class AuditAlertService
 
     private function getDefaultAlertBodyTemplate(): string
     {
-        return "LoginGuard recorded a {status} event on {site_name}.\n\nFull Name: {full_name}\nUsername: {username}\nEmail: {email}\nIP Address: {ip}\nWhere: {where}\nBrowser: {browser}\nOperating System: {os}\nFailure Reason: {failure_reason}\nCountry: {country}\nCountry Code: {country_code}\nRegion: {region}\nCity: {city}\nISP: {isp}\nASN: {asn}\nUser Agent: {user_agent}\nDate/Time: {datetime}\n\nGenerated automatically by Login Guard MDA.";
+        return "LoginGuard recorded a {status} event on {site_name}.\n\nFull Name: {full_name}\nUsername: {username}\nEmail: {email}\nIP Address: {ip}\nWhere: {where}\nBrowser: {browser}\nOperating System: {os}\nFailure Reason: {failure_reason}\nUser Agent: {user_agent}\nDate/Time: {datetime}\n\nGenerated automatically by Login Guard MDA.";
     }
 
     private function getDefaultBlockedIpAlertBodyTemplate(): string
     {
-        return "LoginGuard recorded a {status} event on {site_name}.\n\nFull Name: {full_name}\nUsername: {username}\nEmail: {email}\nIP Address: {ip}\nWhere: {where}\nBrowser: {browser}\nOperating System: {os}\nFailure Reason: {failure_reason}\nBlock Type: {block_type}\nBlock Reason: {block_reason}\nBlocked Until: {block_until}\nFailure Count: {failure_count}\nCountry: {country}\nCountry Code: {country_code}\nRegion: {region}\nCity: {city}\nISP: {isp}\nASN: {asn}\nUser Agent: {user_agent}\nDate/Time: {datetime}\n\nGenerated automatically by Login Guard MDA.";
+        return "LoginGuard recorded a {status} event on {site_name}.\n\nFull Name: {full_name}\nUsername: {username}\nEmail: {email}\nIP Address: {ip}\nWhere: {where}\nBrowser: {browser}\nOperating System: {os}\nFailure Reason: {failure_reason}\nBlock Type: {block_type}\nBlock Reason: {block_reason}\nBlocked Until: {block_until}\nFailure Count: {failure_count}\nUser Agent: {user_agent}\nDate/Time: {datetime}\n\nGenerated automatically by Login Guard MDA.";
     }
 
     private function withAlertFooter(string $body): string
@@ -260,7 +254,7 @@ final class AuditAlertService
         $variableNames = $this->extractAlertTemplateVariableNames($bodyTemplate);
 
         if ($variableNames === []) {
-            $variableNames = ['full_name', 'username', 'email', 'ip', 'status', 'failure_reason', 'where', 'browser', 'os', 'country', 'country_code', 'region', 'city', 'isp', 'asn', 'user_agent', 'datetime'];
+            $variableNames = ['full_name', 'username', 'email', 'ip', 'status', 'failure_reason', 'where', 'browser', 'os', 'user_agent', 'datetime'];
         }
         if (in_array($status, ['SUCCESS_LOGIN', 'MFA_SUCCESS'], true)) {
             $variableNames = array_values(array_filter($variableNames, static fn ($name) => $name !== 'failure_reason'));
@@ -288,8 +282,7 @@ final class AuditAlertService
         return [
             'full_name' => 'Full Name', 'name' => 'Full Name', 'username' => 'Username', 'email' => 'Email',
             'ip' => 'IP Address', 'status' => 'Status', 'failure_reason' => 'Failure Reason', 'where' => 'Where',
-            'browser' => 'Browser', 'os' => 'Operating System', 'country' => 'Country', 'country_code' => 'Country Code',
-            'region' => 'Region', 'city' => 'City', 'isp' => 'ISP', 'asn' => 'ASN', 'user_agent' => 'User Agent',
+            'browser' => 'Browser', 'os' => 'Operating System', 'user_agent' => 'User Agent',
             'datetime' => 'Date/Time', 'block_type' => 'Block Type', 'block_reason' => 'Block Reason',
             'block_until' => 'Blocked Until', 'failure_count' => 'Failure Count', 'mfa_method' => 'MFA Method',
             'mfa_status' => 'MFA Status', 'mfa_reason' => 'MFA Reason',

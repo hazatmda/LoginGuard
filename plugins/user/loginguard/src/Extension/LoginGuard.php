@@ -27,12 +27,6 @@ final class LoginGuard extends CMSPlugin
     private const MAX_EMAIL = 255;
     private const MAX_IP = 45;
     private const MAX_USER_AGENT = 2048;
-    private const MAX_COUNTRY = 100;
-    private const MAX_COUNTRY_CODE = 10;
-    private const MAX_REGION = 100;
-    private const MAX_CITY = 100;
-    private const MAX_ISP = 255;
-    private const MAX_ASN = 50;
     private const MFA_ATTEMPT_SESSION_KEY = 'plg_system_loginguardmfa.pending_attempt.';
 
     /**
@@ -249,8 +243,6 @@ final class LoginGuard extends CMSPlugin
     private function buildAttemptRecord(array $attempt, string $ipAddress, string $client): array
     {
         $userAgent = $this->truncate((string) ($_SERVER['HTTP_USER_AGENT'] ?? 'unknown'), self::MAX_USER_AGENT);
-        $geoip = $this->detectGeoIp($ipAddress);
-
         return [
             'username' => $this->normaliseTelemetryUsername($attempt['username'] ?? null),
             'user_id' => (int) ($attempt['user_id'] ?? 0),
@@ -259,12 +251,6 @@ final class LoginGuard extends CMSPlugin
             'status' => $this->normaliseStatus((string) ($attempt['status'] ?? 'FAILED_LOGIN')),
             'ip_address' => $this->cleanString($ipAddress, 'unknown', self::MAX_IP),
             'user_agent' => $userAgent,
-            'country' => $this->truncate((string) $geoip['country'], self::MAX_COUNTRY),
-            'country_code' => $this->truncate((string) $geoip['country_code'], self::MAX_COUNTRY_CODE),
-            'region' => $this->truncate((string) $geoip['region'], self::MAX_REGION),
-            'city' => $this->truncate((string) $geoip['city'], self::MAX_CITY),
-            'isp' => $this->truncate((string) $geoip['isp'], self::MAX_ISP),
-            'asn' => $this->truncate((string) $geoip['asn'], self::MAX_ASN),
             'browser' => $this->detectBrowser($userAgent),
             'operating_system' => $this->detectOperatingSystem($userAgent),
             'where_at' => $client,
@@ -582,12 +568,6 @@ final class LoginGuard extends CMSPlugin
             'os' => (string) ($record['operating_system'] ?? 'unknown'),
             'datetime' => $this->formatConfiguredDateTime((string) ($record['created'] ?? gmdate('Y-m-d H:i:s'))),
             'site_name' => (string) $config->get('sitename', ''),
-            'country' => (string) ($record['country'] ?? ''),
-            'country_code' => (string) ($record['country_code'] ?? ''),
-            'region' => (string) ($record['region'] ?? ''),
-            'city' => (string) ($record['city'] ?? ''),
-            'isp' => (string) ($record['isp'] ?? ''),
-            'asn' => (string) ($record['asn'] ?? ''),
             'name' => (string) ($record['name'] ?? ''),
             'full_name' => (string) ($record['name'] ?? ''),
             'email' => (string) ($record['email'] ?? ''),
@@ -633,12 +613,12 @@ final class LoginGuard extends CMSPlugin
 
     private function getDefaultAlertBodyTemplate(): string
     {
-        return "LoginGuard recorded a {status} event on {site_name}.\n\nFull Name: {full_name}\nUsername: {username}\nEmail: {email}\nIP Address: {ip}\nWhere: {where}\nBrowser: {browser}\nOperating System: {os}\nFailure Reason: {failure_reason}\nCountry: {country}\nCountry Code: {country_code}\nRegion: {region}\nCity: {city}\nISP: {isp}\nASN: {asn}\nUser Agent: {user_agent}\nDate/Time: {datetime}\n\nGenerated automatically by Login Guard MDA.";
+        return "LoginGuard recorded a {status} event on {site_name}.\n\nFull Name: {full_name}\nUsername: {username}\nEmail: {email}\nIP Address: {ip}\nWhere: {where}\nBrowser: {browser}\nOperating System: {os}\nFailure Reason: {failure_reason}\nUser Agent: {user_agent}\nDate/Time: {datetime}\n\nGenerated automatically by Login Guard MDA.";
     }
 
     private function getDefaultBlockedIpAlertBodyTemplate(): string
     {
-        return "LoginGuard recorded a {status} event on {site_name}.\n\nFull Name: {full_name}\nUsername: {username}\nEmail: {email}\nIP Address: {ip}\nWhere: {where}\nBrowser: {browser}\nOperating System: {os}\nFailure Reason: {failure_reason}\nBlock Type: {block_type}\nBlock Reason: {block_reason}\nBlocked Until: {block_until}\nFailure Count: {failure_count}\nCountry: {country}\nCountry Code: {country_code}\nRegion: {region}\nCity: {city}\nISP: {isp}\nASN: {asn}\nUser Agent: {user_agent}\nDate/Time: {datetime}\n\nGenerated automatically by Login Guard MDA.";
+        return "LoginGuard recorded a {status} event on {site_name}.\n\nFull Name: {full_name}\nUsername: {username}\nEmail: {email}\nIP Address: {ip}\nWhere: {where}\nBrowser: {browser}\nOperating System: {os}\nFailure Reason: {failure_reason}\nBlock Type: {block_type}\nBlock Reason: {block_reason}\nBlocked Until: {block_until}\nFailure Count: {failure_count}\nUser Agent: {user_agent}\nDate/Time: {datetime}\n\nGenerated automatically by Login Guard MDA.";
     }
 
     private function withAlertFooter(string $body): string
@@ -705,7 +685,7 @@ final class LoginGuard extends CMSPlugin
         $variableNames = $this->extractAlertTemplateVariableNames($bodyTemplate);
 
         if ($variableNames === []) {
-            $variableNames = ['full_name', 'username', 'email', 'ip', 'status', 'failure_reason', 'where', 'browser', 'os', 'country', 'country_code', 'region', 'city', 'isp', 'asn', 'user_agent', 'datetime'];
+            $variableNames = ['full_name', 'username', 'email', 'ip', 'status', 'failure_reason', 'where', 'browser', 'os', 'user_agent', 'datetime'];
         }
         if (in_array($status, ['SUCCESS_LOGIN', 'MFA_SUCCESS'], true)) {
             $variableNames = array_values(array_filter($variableNames, static fn ($name) => $name !== 'failure_reason'));
@@ -733,8 +713,7 @@ final class LoginGuard extends CMSPlugin
         return [
             'full_name' => 'Full Name', 'name' => 'Full Name', 'username' => 'Username', 'email' => 'Email',
             'ip' => 'IP Address', 'status' => 'Status', 'failure_reason' => 'Failure Reason', 'where' => 'Where',
-            'browser' => 'Browser', 'os' => 'Operating System', 'country' => 'Country', 'country_code' => 'Country Code',
-            'region' => 'Region', 'city' => 'City', 'isp' => 'ISP', 'asn' => 'ASN', 'user_agent' => 'User Agent',
+            'browser' => 'Browser', 'os' => 'Operating System', 'user_agent' => 'User Agent',
             'datetime' => 'Date/Time', 'block_type' => 'Block Type', 'block_reason' => 'Block Reason',
             'block_until' => 'Blocked Until', 'failure_count' => 'Failure Count',
         ];
@@ -961,171 +940,6 @@ final class LoginGuard extends CMSPlugin
             'MFA_COMPLETED', 'MFA_THRESHOLD_EXCEEDED',
         ];
         return in_array($reason, $allowed, true) ? $reason : 'INVALID_CREDENTIALS';
-    }
-
-    /** @return array{country: string, country_code: string, region: string, city: string, isp: string, asn: string} */
-    private function detectGeoIp(string $ipAddress): array
-    {
-        $empty = $this->emptyGeoIpTelemetry();
-        if ($ipAddress === '' || $ipAddress === 'unknown' || !filter_var($ipAddress, FILTER_VALIDATE_IP, FILTER_FLAG_NO_PRIV_RANGE | FILTER_FLAG_NO_RES_RANGE)) {
-            return $empty;
-        }
-
-        foreach ([$this->detectPhpGeoIp($ipAddress), $this->detectMaxMindGeoIp($ipAddress), $this->detectConfiguredGeoIpMap($ipAddress)] as $geoip) {
-            if ($this->hasGeoIpTelemetry($geoip)) {
-                return $geoip;
-            }
-        }
-        return $empty;
-    }
-
-    /** @return array{country: string, country_code: string, region: string, city: string, isp: string, asn: string} */
-    private function emptyGeoIpTelemetry(): array
-    {
-        return ['country' => '', 'country_code' => '', 'region' => '', 'city' => '', 'isp' => '', 'asn' => ''];
-    }
-
-    /** @param array{country: string, country_code: string, region: string, city: string, isp: string, asn: string} $geoip */
-    private function hasGeoIpTelemetry(array $geoip): bool
-    {
-        foreach ($geoip as $value) {
-            if (trim((string) $value) !== '') {
-                return true;
-            }
-        }
-        return false;
-    }
-
-    /** @return array{country: string, country_code: string, region: string, city: string, isp: string, asn: string} */
-    private function detectPhpGeoIp(string $ipAddress): array
-    {
-        $geoip = $this->emptyGeoIpTelemetry();
-        try {
-            if (function_exists('geoip_country_name_by_name')) {
-                $geoip['country'] = (string) (@geoip_country_name_by_name($ipAddress) ?: '');
-            }
-            if (function_exists('geoip_country_code_by_name')) {
-                $geoip['country_code'] = strtoupper((string) (@geoip_country_code_by_name($ipAddress) ?: ''));
-            }
-            if (function_exists('geoip_record_by_name')) {
-                $record = @geoip_record_by_name($ipAddress);
-                if (is_array($record)) {
-                    $geoip['country'] = $geoip['country'] !== '' ? $geoip['country'] : (string) ($record['country_name'] ?? '');
-                    $geoip['country_code'] = $geoip['country_code'] !== '' ? $geoip['country_code'] : strtoupper((string) ($record['country_code'] ?? ''));
-                    $geoip['region'] = (string) ($record['region'] ?? '');
-                    $geoip['city'] = (string) ($record['city'] ?? '');
-                }
-            }
-            if (function_exists('geoip_org_by_name')) {
-                $geoip['isp'] = (string) (@geoip_org_by_name($ipAddress) ?: '');
-            }
-            if (preg_match('/\bAS(\d+)\b/i', $geoip['isp'], $match)) {
-                $geoip['asn'] = 'AS' . $match[1];
-            }
-        } catch (Throwable $exception) {
-            $this->recordFailure('geoip', $exception);
-            return $this->emptyGeoIpTelemetry();
-        }
-        return $geoip;
-    }
-
-    /** @return array{country: string, country_code: string, region: string, city: string, isp: string, asn: string} */
-    private function detectMaxMindGeoIp(string $ipAddress): array
-    {
-        if (!class_exists('GeoIp2\\Database\\Reader')) {
-            return $this->emptyGeoIpTelemetry();
-        }
-
-        foreach ($this->getGeoIpDatabaseCandidates() as $databasePath) {
-            if (!is_readable($databasePath)) {
-                continue;
-            }
-
-            try {
-                $readerClass = 'GeoIp2\\Database\\Reader';
-                $reader = new $readerClass($databasePath);
-                $record = str_contains(strtolower(basename($databasePath)), 'city') ? $reader->city($ipAddress) : $reader->country($ipAddress);
-                return [
-                    'country' => (string) ($record->country->name ?? ''),
-                    'country_code' => strtoupper((string) ($record->country->isoCode ?? '')),
-                    'region' => (string) ($record->mostSpecificSubdivision->name ?? ''),
-                    'city' => (string) ($record->city->name ?? ''),
-                    'isp' => '', 'asn' => '',
-                ];
-            } catch (Throwable $exception) {
-                $this->recordFailure('geoip', $exception);
-                continue;
-            }
-        }
-        return $this->emptyGeoIpTelemetry();
-    }
-
-    /** @return list<string> */
-    private function getGeoIpDatabaseCandidates(): array
-    {
-        $root = defined('JPATH_ROOT') ? JPATH_ROOT : '';
-        $administrator = defined('JPATH_ADMINISTRATOR') ? JPATH_ADMINISTRATOR : ($root !== '' ? $root . '/administrator' : '');
-        $candidates = [];
-        foreach ([$root, $administrator, '/usr/share/GeoIP', '/usr/local/share/GeoIP', '/var/lib/GeoIP'] as $basePath) {
-            if ($basePath === '') {
-                continue;
-            }
-            foreach (['GeoLite2-City.mmdb', 'GeoIP2-City.mmdb', 'GeoLite2-Country.mmdb', 'GeoIP2-Country.mmdb'] as $filename) {
-                $candidates[] = rtrim($basePath, '/\\') . '/GeoIP/' . $filename;
-                $candidates[] = rtrim($basePath, '/\\') . '/' . $filename;
-            }
-        }
-        return array_values(array_unique($candidates));
-    }
-
-    /** @return array{country: string, country_code: string, region: string, city: string, isp: string, asn: string} */
-    private function detectConfiguredGeoIpMap(string $ipAddress): array
-    {
-        $params = ComponentHelper::getParams('com_loginguard');
-        $map = (string) $params->get('geoip_country_map', '');
-        $entries = preg_split('/\R+/', $map, -1, PREG_SPLIT_NO_EMPTY) ?: [];
-
-        foreach ($entries as $entry) {
-            [$rule, $metadata] = array_pad(array_map('trim', explode('=', $entry, 2)), 2, '');
-            if ($metadata === '' || !$this->ipMatchesRule($ipAddress, $rule)) {
-                continue;
-            }
-            [$country, $countryCode, $region, $city, $isp, $asn] = array_pad(array_map('trim', explode('|', $metadata, 6)), 6, '');
-            return [
-                'country' => $country, 'country_code' => strtoupper($countryCode), 'region' => $region,
-                'city' => $city, 'isp' => $isp, 'asn' => strtoupper($asn),
-            ];
-        }
-        return $this->emptyGeoIpTelemetry();
-    }
-
-    private function normaliseTelemetryUsername($value): ?string
-    {
-        if ($value === null) {
-            return null;
-        }
-        $value = (string) $value;
-        return $value === '' ? null : $this->truncate($value, self::MAX_USERNAME);
-    }
-
-    private function formatNullableUsername($value): string
-    {
-        return $value === null || (is_string($value) && $value === '') ? 'NULL (empty)' : (string) $value;
-    }
-
-    private function cleanString(string $value, string $fallback = '', int $maxLength = 255): string
-    {
-        $value = trim($value);
-        $value = $value === '' ? $fallback : $value;
-        return $this->truncate($value, $maxLength);
-    }
-
-    private function truncate(string $value, int $maxLength): string
-    {
-        if (function_exists('mb_substr')) {
-            return mb_substr($value, 0, $maxLength, 'UTF-8');
-        }
-        return substr($value, 0, $maxLength);
     }
 
     private function detectBrowser(string $userAgent): string

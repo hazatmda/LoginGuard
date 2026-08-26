@@ -46,7 +46,6 @@ $healthLabels = [
     'automatic_block' => 'COM_LOGINGUARD_HEALTH_AUTOMATIC_BLOCK',
     'mfa' => 'COM_LOGINGUARD_HEALTH_MFA',
     'mail' => 'COM_LOGINGUARD_HEALTH_MAIL',
-    'geoip' => 'COM_LOGINGUARD_HEALTH_GEOIP',
     'cleanup' => 'COM_LOGINGUARD_HEALTH_CLEANUP',
 ];
 
@@ -183,19 +182,11 @@ $failureReasonLabels = [
     </div>
 
     <div class="row g-3">
-        <div class="col-xl-6"><div class="card h-100"><div class="card-body">
+        <div class="col-12"><div class="card h-100"><div class="card-body">
             <h2 class="h5"><?php echo Text::_('COM_LOGINGUARD_DASHBOARD_TOP_IPS'); ?></h2>
             <div class="table-responsive"><table class="<?php echo $tableClass; ?>"><thead><tr><th><?php echo Text::_('COM_LOGINGUARD_HEADING_IP_ADDRESS'); ?></th><th class="text-end"><?php echo Text::_('COM_LOGINGUARD_DASHBOARD_FAILED_LOGIN_COUNT'); ?></th></tr></thead><tbody>
                 <?php if (empty($this->topFailedIps)) : ?><tr><td colspan="2" class="text-center text-muted"><?php echo Text::_('COM_LOGINGUARD_EMPTY_TOP_IPS'); ?></td></tr><?php else : ?>
                 <?php foreach ($this->topFailedIps as $item) : ?><tr><td><?php echo $this->escape((string) $item->ip_address); ?></td><td class="text-end"><?php echo (int) $item->total; ?></td></tr><?php endforeach; ?>
-                <?php endif; ?>
-            </tbody></table></div>
-        </div></div></div>
-        <div class="col-xl-6"><div class="card h-100"><div class="card-body">
-            <h2 class="h5"><?php echo Text::_('COM_LOGINGUARD_DASHBOARD_TOP_COUNTRIES'); ?></h2>
-            <div class="table-responsive"><table class="<?php echo $tableClass; ?>"><thead><tr><th><?php echo Text::_('COM_LOGINGUARD_HEADING_COUNTRY'); ?></th><th class="text-end"><?php echo Text::_('COM_LOGINGUARD_DASHBOARD_FAILED_LOGIN_COUNT'); ?></th></tr></thead><tbody>
-                <?php if (empty($this->topCountries)) : ?><tr><td colspan="2" class="text-center text-muted"><?php echo Text::_('COM_LOGINGUARD_EMPTY_TOP_COUNTRIES'); ?></td></tr><?php else : ?>
-                <?php foreach ($this->topCountries as $item) : ?><tr><td><?php echo $this->escape((string) $item->country); ?></td><td class="text-end"><?php echo (int) $item->total; ?></td></tr><?php endforeach; ?>
                 <?php endif; ?>
             </tbody></table></div>
         </div></div></div>

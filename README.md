@@ -22,7 +22,7 @@ Current development version: `0.2.23`.
 - Run scheduled bounded retention cleanup
 - Export complete audit data with spreadsheet-formula protection applied only at export time
 - Record administrator block-management and audit-export actions
-- Surface runtime health/degraded states for database, enforcement, MFA, mail, GeoIP, and cleanup operations
+- Surface runtime health/degraded states for database, enforcement, MFA, mail and cleanup operations
 - Publish Joomla update-server metadata from the component lifecycle
 - Integrate Joomla-native ACL permissions
 - Generate an installable package ZIP from GitHub Actions
@@ -49,9 +49,9 @@ SUCCESS primary authentication
 
 Users without a captive MFA requirement continue to be recorded as `SUCCESS_LOGIN` normally.
 
-## GeoIP enrichment
+## Network-origin telemetry in 0.2.23
 
-LoginGuard automatically enriches login telemetry when a local GeoIP capability is available. No remote lookup is required during authentication. The plugin detects PHP GeoIP functions, common local MaxMind database locations, and legacy offline maps from upgraded installations. If no local provider is available, LoginGuard stores empty location fields while preserving the audit flow.
+GeoIP enrichment is deferred and is not included in 0.2.23. LoginGuard records only the trusted-proxy-aware public client IP for network origin; it performs no PHP GeoIP, MaxMind/MMDB, or configured-map lookup and does not derive country, region, city, ISP, or ASN data. Existing database columns and historical values are retained for upgrade compatibility.
 
 ## Requirements
 

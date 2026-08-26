@@ -80,9 +80,8 @@ final class LoginGuardMfa extends CMSPlugin implements SubscriberInterface
                 // plugin; do not create an MFA row or run MFA policy/alerts.
                 $user = $this->getApplication()->getIdentity();
                 if ($user && !$user->guest && (int) $user->id > 0) {
-                    $telemetry = $this->loadPendingAttemptTelemetry((int) $user->id);
                     if ($this->finalisePendingLogin((int) $user->id, '')) {
-                        $this->sendFinalSuccessAlert($user, $this->buildContext(), '', $telemetry);
+                        $this->sendFinalSuccessAlert($user, $this->buildContext(), '');
                     }
                 }
                 return;
@@ -95,12 +94,9 @@ final class LoginGuardMfa extends CMSPlugin implements SubscriberInterface
 
             $context = $this->buildContext();
             $method = $this->getMfaMethod((int) $user->id);
-            // Capture the session-owned primary attempt before finalisation clears
-            // its id. Never infer ownership from another recent user/IP row.
-            $telemetry = $this->loadPendingAttemptTelemetry((int) $user->id);
             $this->insertAttempt($user, $context, 'MFA_SUCCESS', 'MFA_COMPLETED', $method);
             if ($this->finalisePendingLogin((int) $user->id, $method)) {
-                $this->sendFinalSuccessAlert($user, $context, $method, $telemetry);
+                $this->sendFinalSuccessAlert($user, $context, $method);
             }
             $this->recordHealth('mfa', 'healthy', 'Last MFA validation completed successfully.');
         } catch (Throwable $exception) {
@@ -122,14 +118,13 @@ final class LoginGuardMfa extends CMSPlugin implements SubscriberInterface
 
             $context = $this->buildContext();
             $method = $this->getMfaMethod((int) $user->id);
-            $telemetry = $this->loadPendingAttemptTelemetry((int) $user->id);
             $this->insertAttempt($user, $context, $status, $reason, $method);
 
             if ($countForBlocking) {
                 $this->maybeAutoBlockMfa($context['ip_address'], $context['where_at']);
             }
 
-            $this->sendMfaFailureAlert($user, $context, $status, $reason, $method, $telemetry);
+            $this->sendMfaFailureAlert($user, $context, $status, $reason, $method);
             $this->recordHealth('mfa', 'healthy', 'MFA audit event recorded.');
         } catch (Throwable $exception) {
             $this->recordFailure('mfa', $exception);
@@ -247,7 +242,7 @@ final class LoginGuardMfa extends CMSPlugin implements SubscriberInterface
         $username = (string) ($user->username ?? '');
         $columns = [
             'user_id', 'name', 'username', 'email', 'ip_address', 'status', 'browser', 'operating_system',
-            'country', 'country_code', 'region', 'city', 'isp', 'asn', 'where_at', 'user_agent',
+            'where_at', 'user_agent',
             'attempt_type', 'mfa_method', 'client', 'reason', 'created',
         ];
         $values = [
@@ -259,7 +254,6 @@ final class LoginGuardMfa extends CMSPlugin implements SubscriberInterface
             $db->quote($status),
             $db->quote($this->truncate($context['browser'], 100)),
             $db->quote($this->truncate($context['operating_system'], 100)),
-            $db->quote(''), $db->quote(''), $db->quote(''), $db->quote(''), $db->quote(''), $db->quote(''),
             $db->quote($context['where_at']), $db->quote($context['user_agent']), $db->quote($attemptType),
             $db->quote($this->truncate($method, 100)), $db->quote($context['where_at']), $db->quote($reason),
             $db->quote(gmdate('Y-m-d H:i:s')),
@@ -346,13 +340,13 @@ final class LoginGuardMfa extends CMSPlugin implements SubscriberInterface
         }
     }
 
-    private function sendMfaFailureAlert($user, array $context, string $status, string $reason, string $method, array $telemetry): void
+    private function sendMfaFailureAlert($user, array $context, string $status, string $reason, string $method): void
     {
         $params = ComponentHelper::getParams('com_loginguard');
         if (!(int) $params->get('audit_alerts_enabled', 0) || !(int) $params->get('audit_alert_failed', 1)) {
             return;
         }
-        $this->sendSharedAuditAlert($user, $context, $status, $reason, $method, $telemetry);
+        $this->sendSharedAuditAlert($user, $context, $status, $reason, $method);
     }
 
     private function sendMfaThresholdAlert(string $ipAddress, string $client, int $failureCount, string $blockedUntil): void
@@ -371,19 +365,19 @@ final class LoginGuardMfa extends CMSPlugin implements SubscriberInterface
         ], (string) $params->get('audit_alert_recipients', ''));
     }
 
-    private function sendFinalSuccessAlert($user, array $context, string $method, array $telemetry): void
+    private function sendFinalSuccessAlert($user, array $context, string $method): void
     {
         $params = ComponentHelper::getParams('com_loginguard');
         if (!(int) $params->get('audit_alerts_enabled', 0) || !(int) $params->get('audit_alert_success', 0)) {
             return;
         }
 
-        $this->sendSharedAuditAlert($user, $context, 'SUCCESS_LOGIN', 'MFA_COMPLETED', $method, $telemetry);
+        $this->sendSharedAuditAlert($user, $context, 'SUCCESS_LOGIN', 'MFA_COMPLETED', $method);
     }
 
-    private function sendSharedAuditAlert($user, array $context, string $status, string $reason, string $method, array $telemetry): void
+    private function sendSharedAuditAlert($user, array $context, string $status, string $reason, string $method): void
     {
-        $record = array_merge($telemetry, [
+        $record = [
             'user_id' => (int) ($user->id ?? 0),
             'name' => (string) ($user->name ?? ''),
             'username' => (string) ($user->username ?? ''),
@@ -399,33 +393,10 @@ final class LoginGuardMfa extends CMSPlugin implements SubscriberInterface
             'mfa_status' => $status,
             'mfa_reason' => $reason,
             'created' => gmdate('Y-m-d H:i:s'),
-        ]);
+        ];
 
         $this->getApplication()->bootComponent('com_loginguard');
         (new AuditAlertService())->send($record, $this->getDatabase());
-    }
-
-    /** @return array<string, mixed> */
-    private function loadPendingAttemptTelemetry(int $userId): array
-    {
-        if ($userId <= 0) {
-            return [];
-        }
-
-        $pendingAttemptId = (int) $this->getApplication()->getSession()->get(self::ATTEMPT_SESSION_KEY . $userId, 0);
-        if ($pendingAttemptId <= 0) {
-            return [];
-        }
-
-        $db = $this->getDatabase();
-        $query = $db->getQuery(true)
-            ->select($db->quoteName(['country', 'country_code', 'region', 'city', 'isp', 'asn']))
-            ->from($db->quoteName('#__loginguard_attempts'))
-            ->where($db->quoteName('user_id') . ' = ' . (string) $userId)
-            ->where($db->quoteName('id') . ' = ' . (string) $pendingAttemptId);
-        $db->setQuery($query, 0, 1);
-
-        return (array) ($db->loadAssoc() ?: []);
     }
 
     /** @param array<string, string> $rows */
