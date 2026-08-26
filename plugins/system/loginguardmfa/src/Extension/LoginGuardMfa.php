@@ -11,6 +11,8 @@ use Joomla\CMS\Plugin\CMSPlugin;
 use Joomla\Database\DatabaseAwareTrait;
 use Joomla\Event\Event;
 use Joomla\Event\SubscriberInterface;
+use Joomla\Plugin\User\LoginGuard\Service\IpResolver;
+use LoginGuard\Component\LoginGuard\Administrator\Service\AuditAlertService;
 use Throwable;
 
 final class LoginGuardMfa extends CMSPlugin implements SubscriberInterface
@@ -77,9 +79,10 @@ final class LoginGuardMfa extends CMSPlugin implements SubscriberInterface
                 // deliver the general success notification deferred by the user
                 // plugin; do not create an MFA row or run MFA policy/alerts.
                 $user = $this->getApplication()->getIdentity();
-                if ($user && !$user->guest && (int) $user->id > 0
-                    && $this->finalisePendingLogin((int) $user->id, '')) {
-                    $this->sendFinalSuccessAlert($user, $this->buildContext(), '');
+                if ($user && !$user->guest && (int) $user->id > 0) {
+                    if ($this->finalisePendingLogin((int) $user->id, '')) {
+                        $this->sendFinalSuccessAlert($user, $this->buildContext(), '');
+                    }
                 }
                 return;
             }
@@ -139,10 +142,8 @@ final class LoginGuardMfa extends CMSPlugin implements SubscriberInterface
     private function buildContext(): array
     {
         $server = $_SERVER;
-        $ip = isset($server['REMOTE_ADDR']) && is_scalar($server['REMOTE_ADDR']) ? trim((string) $server['REMOTE_ADDR']) : '';
-        if ($ip === '' || filter_var($ip, FILTER_VALIDATE_IP) === false) {
-            $ip = 'unknown';
-        }
+        $params = ComponentHelper::getParams('com_loginguard');
+        $ip = IpResolver::resolve($server, (string) $params->get('trusted_proxy_ips', ''), (string) $params->get('forwarded_ip_header', 'none'));
 
         $userAgent = $this->truncate((string) ($server['HTTP_USER_AGENT'] ?? 'unknown'), self::MAX_USER_AGENT);
         $app = $this->getApplication();
@@ -241,7 +242,7 @@ final class LoginGuardMfa extends CMSPlugin implements SubscriberInterface
         $username = (string) ($user->username ?? '');
         $columns = [
             'user_id', 'name', 'username', 'email', 'ip_address', 'status', 'browser', 'operating_system',
-            'country', 'country_code', 'region', 'city', 'isp', 'asn', 'where_at', 'user_agent',
+            'where_at', 'user_agent',
             'attempt_type', 'mfa_method', 'client', 'reason', 'created',
         ];
         $values = [
@@ -253,7 +254,6 @@ final class LoginGuardMfa extends CMSPlugin implements SubscriberInterface
             $db->quote($status),
             $db->quote($this->truncate($context['browser'], 100)),
             $db->quote($this->truncate($context['operating_system'], 100)),
-            $db->quote(''), $db->quote(''), $db->quote(''), $db->quote(''), $db->quote(''), $db->quote(''),
             $db->quote($context['where_at']), $db->quote($context['user_agent']), $db->quote($attemptType),
             $db->quote($this->truncate($method, 100)), $db->quote($context['where_at']), $db->quote($reason),
             $db->quote(gmdate('Y-m-d H:i:s')),
@@ -343,19 +343,10 @@ final class LoginGuardMfa extends CMSPlugin implements SubscriberInterface
     private function sendMfaFailureAlert($user, array $context, string $status, string $reason, string $method): void
     {
         $params = ComponentHelper::getParams('com_loginguard');
-        if (!(int) $params->get('audit_alerts_enabled', 0) || !(int) $params->get('mfa_alert_failed', 0)) {
+        if (!(int) $params->get('audit_alerts_enabled', 0) || !(int) $params->get('audit_alert_failed', 1)) {
             return;
         }
-
-        $this->sendAlert('[LOGIN GUARD] MFA VERIFICATION FAILED', [
-            'Username' => (string) ($user->username ?? ''),
-            'IP Address' => $context['ip_address'],
-            'Where' => ucfirst($context['where_at']),
-            'MFA Method' => $method !== '' ? $method : 'Unknown',
-            'Result' => str_replace('_', ' ', $status),
-            'Reason' => str_replace('_', ' ', $reason),
-            'Date/Time (UTC)' => gmdate('Y-m-d H:i:s'),
-        ], (string) $params->get('audit_alert_recipients', ''));
+        $this->sendSharedAuditAlert($user, $context, $status, $reason, $method);
     }
 
     private function sendMfaThresholdAlert(string $ipAddress, string $client, int $failureCount, string $blockedUntil): void
@@ -381,16 +372,31 @@ final class LoginGuardMfa extends CMSPlugin implements SubscriberInterface
             return;
         }
 
-        $this->sendAlert('[LOGIN GUARD] SUCCESSFUL LOGIN - MFA VERIFIED', [
-            'Full Name' => (string) ($user->name ?? ''),
-            'Username' => (string) ($user->username ?? ''),
-            'Email' => (string) ($user->email ?? ''),
-            'IP Address' => $context['ip_address'],
-            'Where' => ucfirst($context['where_at']),
-            'MFA Method' => $method !== '' ? $method : 'Unknown',
-            'Status' => 'SUCCESS LOGIN',
-            'Date/Time (UTC)' => gmdate('Y-m-d H:i:s'),
-        ], (string) $params->get('audit_alert_recipients', ''));
+        $this->sendSharedAuditAlert($user, $context, 'SUCCESS_LOGIN', 'MFA_COMPLETED', $method);
+    }
+
+    private function sendSharedAuditAlert($user, array $context, string $status, string $reason, string $method): void
+    {
+        $record = [
+            'user_id' => (int) ($user->id ?? 0),
+            'name' => (string) ($user->name ?? ''),
+            'username' => (string) ($user->username ?? ''),
+            'email' => (string) ($user->email ?? ''),
+            'ip_address' => $context['ip_address'],
+            'where_at' => $context['where_at'],
+            'browser' => $context['browser'],
+            'operating_system' => $context['operating_system'],
+            'user_agent' => $context['user_agent'],
+            'status' => $status,
+            'reason' => $reason,
+            'mfa_method' => $method !== '' ? $method : 'Unknown',
+            'mfa_status' => $status,
+            'mfa_reason' => $reason,
+            'created' => gmdate('Y-m-d H:i:s'),
+        ];
+
+        $this->getApplication()->bootComponent('com_loginguard');
+        (new AuditAlertService())->send($record, $this->getDatabase());
     }
 
     /** @param array<string, string> $rows */
@@ -427,43 +433,7 @@ final class LoginGuardMfa extends CMSPlugin implements SubscriberInterface
 
     private function isWhitelistedIp(string $ipAddress, string $configured): bool
     {
-        $rules = preg_split('/[\r\n,;\s]+/', $configured, -1, PREG_SPLIT_NO_EMPTY) ?: [];
-        foreach ($rules as $rule) {
-            $rule = trim($rule);
-            if ($rule === $ipAddress) {
-                return true;
-            }
-            if ($rule === '' || !str_contains($rule, '/')) {
-                continue;
-            }
-
-            [$network, $bitsRaw] = array_pad(explode('/', $rule, 2), 2, '');
-            $ipBinary = @inet_pton($ipAddress);
-            $networkBinary = @inet_pton($network);
-            if ($ipBinary === false || $networkBinary === false || strlen($ipBinary) !== strlen($networkBinary) || $bitsRaw === '' || !ctype_digit($bitsRaw)) {
-                continue;
-            }
-
-            $maxBits = strlen($ipBinary) * 8;
-            $bits = (int) $bitsRaw;
-            if ($bits < 0 || $bits > $maxBits) {
-                continue;
-            }
-
-            $bytes = intdiv($bits, 8);
-            $remainder = $bits % 8;
-            if ($bytes > 0 && substr($ipBinary, 0, $bytes) !== substr($networkBinary, 0, $bytes)) {
-                continue;
-            }
-            if ($remainder === 0) {
-                return true;
-            }
-            $mask = chr((0xff << (8 - $remainder)) & 0xff);
-            if (($ipBinary[$bytes] & $mask) === ($networkBinary[$bytes] & $mask)) {
-                return true;
-            }
-        }
-        return false;
+        return IpResolver::matchesAnyRule($ipAddress, $configured);
     }
 
     private function recordHealth(string $key, string $status, string $message): void

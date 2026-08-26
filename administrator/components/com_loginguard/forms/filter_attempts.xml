@@ -31,7 +31,6 @@
             <option value="reason ASC">COM_LOGINGUARD_HEADING_FAILURE_REASON_ASC</option><option value="reason DESC">COM_LOGINGUARD_HEADING_FAILURE_REASON_DESC</option>
             <option value="where_at ASC">COM_LOGINGUARD_HEADING_WHERE_ASC</option><option value="where_at DESC">COM_LOGINGUARD_HEADING_WHERE_DESC</option>
             <option value="mfa_method ASC">COM_LOGINGUARD_HEADING_MFA_METHOD_ASC</option><option value="mfa_method DESC">COM_LOGINGUARD_HEADING_MFA_METHOD_DESC</option>
-            <option value="country ASC">COM_LOGINGUARD_HEADING_COUNTRY_ASC</option><option value="country DESC">COM_LOGINGUARD_HEADING_COUNTRY_DESC</option>
             <option value="browser ASC">COM_LOGINGUARD_HEADING_BROWSER_ASC</option><option value="browser DESC">COM_LOGINGUARD_HEADING_BROWSER_DESC</option>
             <option value="operating_system ASC">COM_LOGINGUARD_HEADING_OS_ASC</option><option value="operating_system DESC">COM_LOGINGUARD_HEADING_OS_DESC</option>
             <option value="user_agent ASC">COM_LOGINGUARD_HEADING_USER_AGENT_ASC</option><option value="user_agent DESC">COM_LOGINGUARD_HEADING_USER_AGENT_DESC</option>

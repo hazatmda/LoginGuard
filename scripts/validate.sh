@@ -34,7 +34,24 @@ foreach ($cases as $name => [$server, $expected]) {
     }
 }
 
-echo "IpResolver REMOTE_ADDR validation completed successfully\n";
+$proxyCases = [
+    'spoofed_cloudflare_header' => [['REMOTE_ADDR' => '198.51.100.9', 'HTTP_CF_CONNECTING_IP' => '203.0.113.7'], '192.0.2.0/24', 'cf-connecting-ip', '198.51.100.9'],
+    'trusted_cloudflare_proxy' => [['REMOTE_ADDR' => '172.71.210.74', 'HTTP_CF_CONNECTING_IP' => '203.0.113.7'], '172.64.0.0/13', 'cf-connecting-ip', '203.0.113.7'],
+    'trusted_ipv6_proxy' => [['REMOTE_ADDR' => '2001:db8:1::4', 'HTTP_CF_CONNECTING_IP' => '2001:db8:2::8'], '2001:db8:1::/48', 'cf-connecting-ip', '2001:db8:2::8'],
+    'defensive_xff_chain' => [['REMOTE_ADDR' => '10.0.0.2', 'HTTP_X_FORWARDED_FOR' => '203.0.113.8, 10.0.0.1'], '10.0.0.0/8', 'x-forwarded-for', '203.0.113.8'],
+    'invalid_forwarded_fallback' => [['REMOTE_ADDR' => '10.0.0.2', 'HTTP_CF_CONNECTING_IP' => 'invalid'], '10.0.0.0/8', 'cf-connecting-ip', '10.0.0.2'],
+];
+foreach ($proxyCases as $name => [$server, $trusted, $header, $expected]) {
+    $actual = IpResolver::resolve($server, $trusted, $header);
+    if ($actual !== $expected) { fwrite(STDERR, "$name expected $expected got $actual\n"); exit(1); }
+}
+foreach (['192.0.2.7', '2001:db8::7', '192.0.2.0/24', '2001:db8::/32'] as $rule) {
+    $ip = str_contains($rule, ':') ? '2001:db8::7' : '192.0.2.7';
+    if (!IpResolver::matchesRule($ip, $rule)) { fwrite(STDERR, "Whitelist rule failed: $rule\n"); exit(1); }
+}
+if (IpResolver::matchesRule('192.0.2.7', 'invalid/24')) { fwrite(STDERR, "Invalid whitelist matched\n"); exit(1); }
+
+echo "IpResolver trusted proxy and whitelist validation completed successfully\n";
 PHP
 
 python3 - <<'PY'
@@ -42,8 +59,8 @@ from pathlib import Path
 import xml.etree.ElementTree as ET
 
 VERSION = Path('VERSION').read_text(encoding='utf-8').strip()
-if VERSION != '0.2.22':
-    raise SystemExit(f'Expected VERSION 0.2.22, got {VERSION}')
+if VERSION != '0.2.23':
+    raise SystemExit(f'Expected VERSION 0.2.23, got {VERSION}')
 if '-' in VERSION:
     raise SystemExit('Canonical release version must be stable semantic version')
 
@@ -124,16 +141,16 @@ for forbidden in ['ALTER TABLE', 'CREATE TABLE IF NOT EXISTS', 'ensureSchema(']:
 ip_resolver_text = Path('plugins/user/loginguard/src/Service/IpResolver.php').read_text(encoding='utf-8')
 if 'REMOTE_ADDR' not in ip_resolver_text or 'FILTER_VALIDATE_IP' not in ip_resolver_text:
     raise SystemExit('IpResolver must validate REMOTE_ADDR')
-for forbidden in ['HTTP_CF_CONNECTING_IP', 'HTTP_X_FORWARDED_FOR', 'HTTP_X_REAL_IP']:
-    if forbidden in ip_resolver_text:
-        raise SystemExit(f'IpResolver must not trust {forbidden}')
+for token in ['matchesAnyRule', 'cf-connecting-ip', 'x-forwarded-for']:
+    if token not in ip_resolver_text:
+        raise SystemExit(f'IpResolver trusted proxy support missing {token}')
 
 login_guard = Path('plugins/user/loginguard/src/Extension/LoginGuard.php').read_text(encoding='utf-8')
 for forbidden in ['ensureSchema(', 'ALTER TABLE', 'CREATE TABLE IF NOT EXISTS']:
     if forbidden in login_guard:
         raise SystemExit(f'Authentication runtime contains schema DDL/reconciliation token: {forbidden}')
 for token in [
-    'IpResolver::resolve()',
+    'IpResolver::resolve(',
     'INSERT IGNORE INTO',
     'active_key',
     "'source'",
@@ -174,7 +191,7 @@ for token in [
     'MFA_SUCCESS',
     'MFA_TRY_LIMIT',
     "#__user_mfa",
-    'REMOTE_ADDR',
+    'IpResolver::resolve(',
     'mfa_automatic_blocking_enabled',
     'mfa_failed_attempt_threshold',
     "get('mfa_auditing_enabled', 1)",
@@ -232,6 +249,60 @@ for forbidden in ["gmdate('Y-m-d H:i:s', time() - 600)", "order($db->quoteName('
     if forbidden in pending_code:
         raise SystemExit(f'Captive flow must not infer a primary attempt: {forbidden}')
 
+# GeoIP enrichment is deliberately deferred in 0.2.23. Runtime code, alert
+# templates, and component configuration must not contain a lookup path or
+# expose derived location/network-provider fields. Legacy schema is retained
+# because portable, drift-safe conditional column drops are unavailable.
+audit_service_geoip = Path('administrator/components/com_loginguard/src/Service/AuditAlertService.php').read_text(encoding='utf-8')
+config_xml_geoip = Path('administrator/components/com_loginguard/config.xml').read_text(encoding='utf-8')
+runtime_geoip_tokens = [
+    'detectGeoIp', 'detectPhpGeoIp', 'detectMaxMindGeoIp',
+    'detectConfiguredGeoIpMap', 'GeoIp2\\Database\\Reader',
+    'geoip_country_name_by_name', 'geoip_country_map',
+]
+for token in runtime_geoip_tokens:
+    if token in login_guard or token in mfa_plugin or token in audit_service_geoip or token in config_xml_geoip:
+        raise SystemExit(f'Runtime GeoIP lookup/config remains: {token}')
+geoip_fields = ['country', 'country_code', 'region', 'city', 'isp', 'asn']
+for field in geoip_fields:
+    variable = '{' + field + '}'
+    if variable in login_guard or variable in mfa_plugin or variable in audit_service_geoip or variable in config_xml_geoip:
+        raise SystemExit(f'GeoIP alert variable remains: {variable}')
+install_sql = Path('plugins/user/loginguard/sql/install.mysql.utf8.sql').read_text(encoding='utf-8')
+migration_sql = Path('plugins/user/loginguard/sql/updates/mysql/0.2.23.sql').read_text(encoding='utf-8')
+for field in geoip_fields:
+    if f'`{field}`' not in install_sql:
+        raise SystemExit(f'Drift-safe legacy GeoIP schema strategy changed unexpectedly: {field}')
+executable_migration_sql = '\n'.join(
+    line for line in migration_sql.splitlines() if not line.lstrip().startswith('--')
+).strip()
+if executable_migration_sql:
+    raise SystemExit('v0.2.23 must not use a non-portable destructive GeoIP migration')
+
+# Previously saved params can contain the old rows even though the current XML
+# defaults do not. Model the narrow render-time cleanup and ensure it removes
+# all six tokens/rows without resetting unrelated administrator text.
+import re
+legacy_names = '|'.join(geoip_fields)
+saved_template = (
+    'Custom administrator introduction.\n\n'
+    + '\n'.join(f'{name.replace("_", " ").title()}: {{{name}}}' for name in geoip_fields)
+    + '\nTicket: SEC-42\nIP Address: {ip}\nCustom footer.'
+)
+normalised = re.sub(
+    rf'^[ \t]*[^{{}}\r\n:]{{1,80}}:[ \t]*\{{(?:{legacy_names})\}}[ \t]*(?:\r?\n|$)',
+    '', saved_template, flags=re.I | re.M,
+)
+normalised = re.sub(rf'\{{(?:{legacy_names})\}}', '', normalised, flags=re.I)
+if any('{' + field + '}' in normalised for field in geoip_fields):
+    raise SystemExit('Saved alert template normalization left a legacy GeoIP placeholder')
+for custom_text in ['Custom administrator introduction.', 'Ticket: SEC-42', 'IP Address: {ip}', 'Custom footer.']:
+    if custom_text not in normalised:
+        raise SystemExit(f'Saved alert template normalization removed customization: {custom_text}')
+for source in [login_guard, audit_service_geoip]:
+    if 'normaliseLegacyGeoIpTemplate($bodyTemplate)' not in source:
+        raise SystemExit('An alert renderer does not normalize saved legacy GeoIP templates')
+
 # Regression model: concurrent sessions retain independent attempt ownership;
 # refreshes are idempotent and abandoning one flow cannot affect the other.
 attempts = {101: 'SUCCESS_LOGIN', 102: 'SUCCESS_LOGIN'}
@@ -275,37 +346,39 @@ if attempts != {301: 'SUCCESS_LOGIN', 302: 'MFA_PENDING'} or 'disabled_mid_flow'
     raise SystemExit('Disabled mid-flow MFA completion did not finalise only its owned row')
 
 test_controller = Path('administrator/components/com_loginguard/src/Controller/TestemailController.php').read_text(encoding='utf-8')
-test_service = Path('administrator/components/com_loginguard/src/Service/TestEmailService.php').read_text(encoding='utf-8')
 test_field = Path('administrator/components/com_loginguard/src/Field/TestemailField.php').read_text(encoding='utf-8')
-for token in ["checkToken('post')", "authorise('core.admin', 'com_loginguard')", "get('audit_alert_recipients'", "recordHealth($db, 'mail', 'degraded'"]:
+for token in ["checkToken('post')", "authorise('core.admin', 'com_loginguard')", "sendTestMail()", 'MailerFactoryInterface::class', "recordHealth($db, 'mail', 'degraded'"]:
     if token not in test_controller:
         raise SystemExit(f'Test-email controller security/health contract missing: {token}')
-for token in ['[LOGIN GUARD] TEST EMAIL', 'No real security event occurred.', '203.0.113.10', 'example.invalid', 'Factory::getMailer()', 'FILTER_VALIDATE_EMAIL']:
-    if token not in test_service:
-        raise SystemExit(f'Test-email fixed notification contract missing: {token}')
+if Path('administrator/components/com_loginguard/src/Service/TestEmailService.php').exists():
+    raise SystemExit('Parallel LoginGuard test email service must be removed')
 if 'formmethod="post"' not in test_field or 'testemail.send' not in test_field:
     raise SystemExit('Test-email configuration control must submit the protected POST action')
 
 workflow = Path('.github/workflows/build.yml').read_text(encoding='utf-8')
-for token in ['contents: read', 'contents: write', 'github.event.release.tag_name', '"v${VERSION}"', 'test -f "packages/pkg_loginguard_v${VERSION}.zip"', 'packages/pkg_loginguard_v${{ env.VERSION }}.zip']:
+for token in ['contents: read', 'contents: write', "github.ref == 'refs/heads/main'", 'TAG="v${VERSION}"', 'test -f "packages/pkg_loginguard_v${VERSION}.zip"', 'packages/pkg_loginguard_v${{ env.VERSION }}.zip']:
     if token not in workflow:
         raise SystemExit(f'Release workflow contract missing: {token}')
 if 'files: packages/*.zip' in workflow:
     raise SystemExit('Release workflow must never publish a wildcard package')
 
-for token in ['hasCaptiveMfa(', "#__user_mfa", "status === 'SUCCESS_LOGIN'", 'The MFA system plugin sends the single final success alert']:
+for token in ['hasCaptiveMfa(', "#__user_mfa", "(string) ($record['status'] ?? '') === 'SUCCESS_LOGIN'", 'shared pipeline sends this outcome only after MFA completes']:
     if token not in login_guard:
         raise SystemExit(f'Primary success-alert deferral missing: {token}')
-defer_start = login_guard.index("if ($params->get('mfa_auditing_enabled', 1)")
-has_mfa_check = login_guard.index('$this->hasCaptiveMfa(', defer_start)
-audit_success_check = login_guard.index("if ($status === 'SUCCESS_LOGIN' && !$params->get('audit_alert_success'", defer_start)
-if has_mfa_check > audit_success_check:
-    raise SystemExit('Captive MFA success alert must be suppressed before primary success mail handling')
+audit_service = Path('administrator/components/com_loginguard/src/Service/AuditAlertService.php').read_text(encoding='utf-8')
+mfa_plugin = Path('plugins/system/loginguardmfa/src/Extension/LoginGuardMfa.php').read_text(encoding='utf-8')
+for token in ['AuditAlertService', 'buildAlertHtmlBody', 'formatConfiguredDateTime', 'mfa_method', 'mfa_status', 'mfa_reason']:
+    if token not in audit_service:
+        raise SystemExit(f'Shared audit alert pipeline missing: {token}')
+if '(new AuditAlertService())->send' not in login_guard or '(new AuditAlertService())->send' not in mfa_plugin:
+    raise SystemExit('Password and MFA outcomes must call the same audit alert service')
+if 'sendConfiguredAuditAlert' in mfa_plugin or 'sendTemplatedAlert' in mfa_plugin:
+    raise SystemExit('Parallel MFA audit-alert rendering pipeline must not exist')
 
 config_text = Path('administrator/components/com_loginguard/config.xml').read_text(encoding='utf-8')
 for token in [
     'mfa_automatic_blocking_enabled', 'mfa_failed_attempt_threshold', 'mfa_threshold_window_minutes',
-    'mfa_cooldown_duration_minutes', 'mfa_alert_failed', 'mfa_alert_threshold',
+    'mfa_cooldown_duration_minutes', 'mfa_alert_threshold',
 ]:
     if token not in config_text:
         raise SystemExit(f'MFA configuration missing {token}')
@@ -315,7 +388,7 @@ master_field = config_text[config_text.index('name="mfa_auditing_enabled"'):conf
 if 'default="1"' not in master_field:
     raise SystemExit('MFA auditing must default to enabled for upgrades')
 for field in ['mfa_policy_note', 'mfa_automatic_blocking_enabled', 'mfa_failed_attempt_threshold',
-              'mfa_threshold_window_minutes', 'mfa_cooldown_duration_minutes', 'mfa_alert_failed', 'mfa_alert_threshold']:
+              'mfa_threshold_window_minutes', 'mfa_cooldown_duration_minutes', 'mfa_alert_threshold']:
     field_text = config_text[config_text.index(f'name="{field}"'):config_text.index('/>', config_text.index(f'name="{field}"')) + 2]
     if 'mfa_auditing_enabled:1' not in field_text:
         raise SystemExit(f'MFA-specific setting is not gated by master switch: {field}')
@@ -409,7 +482,7 @@ for token in ['Joomla 5.2+', 'PHP 8.1+', f'pkg_loginguard_v{VERSION}.zip', 'REMO
         raise SystemExit(f'README missing {token}')
 
 about = Path('administrator/components/com_loginguard/tmpl/about/default.php').read_text(encoding='utf-8')
-for token in ["'0.2.22'", "'Joomla 5.2+'", "'PHP 8.1+'"]:
+for token in ["'0.2.23'", "'Joomla 5.2+'", "'PHP 8.1+'"]:
     if token not in about:
         raise SystemExit(f'About metadata missing {token}')
 
@@ -420,5 +493,5 @@ for token in ["'8.1'", "'8.2'", "'8.3'", "'8.4'", 'contents: read', 'contents: w
 if workflow.count('contents: write') != 1:
     raise SystemExit('CI write permission must be limited to the release publishing job')
 
-print('LoginGuard v0.2.22 validation completed successfully')
+print('LoginGuard v0.2.23 validation completed successfully')
 PY

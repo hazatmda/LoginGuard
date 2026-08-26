@@ -22,7 +22,6 @@ final class HtmlView extends BaseHtmlView
     protected $blockedIpTelemetry = [];
     protected $recentBlockedIps = [];
     protected $cleanupMetrics = [];
-    protected $topCountries = [];
     protected $attackOriginSummary = [];
     protected $operationalStatus = [];
     protected $healthStatus = [];
@@ -52,7 +51,6 @@ final class HtmlView extends BaseHtmlView
         $this->blockedIpTelemetry = (array) $this->get('BlockedIpTelemetry');
         $this->recentBlockedIps = (array) $this->get('RecentBlockedIps');
         $this->cleanupMetrics = (array) $this->get('CleanupMetrics');
-        $this->topCountries = (array) $this->get('TopCountries');
         $this->attackOriginSummary = (array) $this->get('AttackOriginSummary');
         $this->operationalStatus = (array) $this->get('OperationalStatus');
         $this->healthStatus = $this->loadHealthStatus();

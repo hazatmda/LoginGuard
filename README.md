@@ -4,7 +4,7 @@ Joomla 5 package for login attempt detection, MFA-aware auditing, IP enforcement
 
 ## Status
 
-Current development version: `0.2.22`.
+Current development version: `0.2.23`.
 
 ## Core capabilities
 
@@ -22,16 +22,16 @@ Current development version: `0.2.22`.
 - Run scheduled bounded retention cleanup
 - Export complete audit data with spreadsheet-formula protection applied only at export time
 - Record administrator block-management and audit-export actions
-- Surface runtime health/degraded states for database, enforcement, MFA, mail, GeoIP, and cleanup operations
+- Surface runtime health/degraded states for database, enforcement, MFA, mail and cleanup operations
 - Publish Joomla update-server metadata from the component lifecycle
 - Integrate Joomla-native ACL permissions
 - Generate an installable package ZIP from GitHub Actions
 
 ## Client IP policy
 
-LoginGuard trusts only the client address already established by the web server / PHP in `REMOTE_ADDR`. It does **not** trust request-supplied `CF-Connecting-IP`, `X-Forwarded-For`, or `X-Real-IP` headers.
+LoginGuard uses validated `REMOTE_ADDR` by default. When Joomla is behind Cloudflare or another reverse proxy, administrators may configure exact IPv4/IPv6 addresses or CIDRs for the immediate trusted proxy and select `CF-Connecting-IP` or defensively parsed `X-Forwarded-For`. Forwarded headers from any untrusted peer are ignored, malformed values fall back safely, and X-Forwarded-For is walked from the immediate peer toward the client while discarding only configured proxies.
 
-If Joomla is behind Cloudflare, a reverse proxy, or a load balancer, configure that trusted proxy at the web-server layer so `REMOTE_ADDR` is rewritten to the verified public client IP before Joomla runs.
+The existing `whitelisted_ips` list accepts exact IPv4/IPv6 and CIDR rules. Matching resolved client addresses are still recorded in the audit log but never receive or enforce LoginGuard password/MFA automatic blocks. Invalid rules never match.
 
 ## MFA auditing
 
@@ -49,9 +49,11 @@ SUCCESS primary authentication
 
 Users without a captive MFA requirement continue to be recorded as `SUCCESS_LOGIN` normally.
 
-## GeoIP enrichment
+## Network-origin telemetry in 0.2.23
 
-LoginGuard automatically enriches login telemetry when a local GeoIP capability is available. No remote lookup is required during authentication. The plugin detects PHP GeoIP functions, common local MaxMind database locations, and legacy offline maps from upgraded installations. If no local provider is available, LoginGuard stores empty location fields while preserving the audit flow.
+GeoIP enrichment is deferred and is not included in 0.2.23. LoginGuard records only the trusted-proxy-aware public client IP for network origin; it performs no PHP GeoIP, MaxMind/MMDB, or configured-map lookup and does not derive country, region, city, ISP, or ASN data. Previously saved alert templates are normalized narrowly at render time to remove retired GeoIP rows and placeholders without resetting other custom text.
+
+Existing GeoIP database columns and historical values are retained. Joomla's MySQL update files are declarative SQL, and the MySQL/MariaDB versions supported by Joomla do not share a portable conditional `DROP COLUMN` form. An unconditional drop could fail an upgrade on a drifted schema, so v0.2.23 deliberately avoids that destructive migration.
 
 ## Requirements
 
@@ -86,7 +88,7 @@ bash scripts/build.sh
 Generated package:
 
 ```text
-packages/pkg_loginguard_v0.2.22.zip
+packages/pkg_loginguard_v0.2.23.zip
 ```
 
 ## Versioning policy
@@ -103,18 +105,18 @@ Before release, these must match:
 - release notes
 
 ```text
-version: 0.2.22
-tag: v0.2.22
-package: pkg_loginguard_v0.2.22.zip
+version: 0.2.23
+tag: v0.2.23
+package: pkg_loginguard_v0.2.23.zip
 ```
 
 ### Stable release sequence
 
 1. Obtain a clean PR review and green GitHub CI validation on PHP 8.1, 8.2, 8.3, and 8.4.
-2. Merge v0.2.22 to `main`.
-3. Create and publish a GitHub Release with the exact tag `v0.2.22`, targeting the merged `main` commit.
-4. The release workflow verifies that the tag is exactly `v${VERSION}`, rebuilds, checks, and attaches only `pkg_loginguard_v0.2.22.zip`.
-5. Verify that the release asset URL in `updates/loginguard.xml` is available for Joomla downloads.
+2. Merge the validated v0.2.23 version to `main`.
+3. GitHub Actions validates and builds the merged commit, then automatically creates the exact `v${VERSION}` release if it does not already exist.
+4. The workflow attaches the exact `pkg_loginguard_v${VERSION}.zip` package to that release.
+5. The workflow verifies that the Joomla updater can retrieve the exact release asset referenced by `updates/loginguard.xml`.
 
 The release job intentionally fails before upload if the release tag, canonical
 version, update-stream URLs, or exact package asset do not agree. Only that job
