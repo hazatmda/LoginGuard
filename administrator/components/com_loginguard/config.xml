@@ -14,6 +14,13 @@
 
         <field name="geoip_enabled" type="hidden" default="1" filter="integer" />
         <field name="geoip_country_map" type="hidden" filter="string" />
+        <field name="trusted_proxy_note" type="note" label="COM_LOGINGUARD_CONFIG_TRUSTED_PROXY_NOTE_LABEL" description="COM_LOGINGUARD_CONFIG_TRUSTED_PROXY_NOTE_DESC" class="alert alert-warning" />
+        <field name="trusted_proxy_ips" type="textarea" label="COM_LOGINGUARD_CONFIG_TRUSTED_PROXY_IPS_LABEL" description="COM_LOGINGUARD_CONFIG_TRUSTED_PROXY_IPS_DESC" rows="4" filter="string" />
+        <field name="forwarded_ip_header" type="list" label="COM_LOGINGUARD_CONFIG_FORWARDED_IP_HEADER_LABEL" description="COM_LOGINGUARD_CONFIG_FORWARDED_IP_HEADER_DESC" default="none" validate="options">
+            <option value="none">COM_LOGINGUARD_CONFIG_FORWARDED_IP_HEADER_NONE</option>
+            <option value="cf-connecting-ip">CF-Connecting-IP</option>
+            <option value="x-forwarded-for">X-Forwarded-For</option>
+        </field>
 
         <field name="automatic_policy_note" type="note" label="COM_LOGINGUARD_CONFIG_AUTOMATIC_POLICY_NOTE_LABEL" description="COM_LOGINGUARD_CONFIG_AUTOMATIC_POLICY_NOTE_DESC" class="alert alert-info" />
         <field name="enforcement_enabled" type="radio" layout="joomla.form.field.radio.switcher" label="COM_LOGINGUARD_CONFIG_ENFORCEMENT_ENABLED_LABEL" description="COM_LOGINGUARD_CONFIG_ENFORCEMENT_ENABLED_DESC" default="0" filter="integer">
@@ -66,9 +73,6 @@
         <field name="failed_alert_threshold" type="number" label="COM_LOGINGUARD_CONFIG_FAILED_ALERT_THRESHOLD_LABEL" description="COM_LOGINGUARD_CONFIG_FAILED_ALERT_THRESHOLD_DESC" default="10" min="1" step="1" showon="audit_alerts_enabled:1[AND]audit_alert_failed:1[AND]failed_alert_throttling_enabled:1" filter="integer" />
         <field name="failed_alert_throttle_window_minutes" type="number" label="COM_LOGINGUARD_CONFIG_FAILED_ALERT_THROTTLE_WINDOW_LABEL" description="COM_LOGINGUARD_CONFIG_FAILED_ALERT_THROTTLE_WINDOW_DESC" default="15" min="1" step="1" showon="audit_alerts_enabled:1[AND]audit_alert_failed:1[AND]failed_alert_throttling_enabled:1" filter="integer" />
         <field name="blocked_ip_alerts_enabled" type="radio" layout="joomla.form.field.radio.switcher" label="COM_LOGINGUARD_CONFIG_BLOCKED_IP_ALERTS_ENABLED_LABEL" description="COM_LOGINGUARD_CONFIG_BLOCKED_IP_ALERTS_ENABLED_DESC" default="1" showon="audit_alerts_enabled:1" filter="integer">
-            <option value="0">JNO</option><option value="1">JYES</option>
-        </field>
-        <field name="mfa_alert_failed" type="radio" layout="joomla.form.field.radio.switcher" label="COM_LOGINGUARD_CONFIG_MFA_ALERT_FAILED_LABEL" description="COM_LOGINGUARD_CONFIG_MFA_ALERT_FAILED_DESC" default="0" showon="mfa_auditing_enabled:1[AND]audit_alerts_enabled:1" filter="integer">
             <option value="0">JNO</option><option value="1">JYES</option>
         </field>
         <field name="mfa_alert_threshold" type="radio" layout="joomla.form.field.radio.switcher" label="COM_LOGINGUARD_CONFIG_MFA_ALERT_THRESHOLD_LABEL" description="COM_LOGINGUARD_CONFIG_MFA_ALERT_THRESHOLD_DESC" default="1" showon="mfa_auditing_enabled:1[AND]audit_alerts_enabled:1" filter="integer">

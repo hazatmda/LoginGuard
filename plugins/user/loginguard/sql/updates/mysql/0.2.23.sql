@@ -1,0 +1,1 @@
+-- LoginGuard 0.2.23 changes application settings only; no schema changes are required.

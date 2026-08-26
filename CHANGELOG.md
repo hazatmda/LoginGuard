@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.2.23
+
+- Unified final Joomla MFA success and failure mail with the configured general audit alert templates, toggles, recipients, and failure throttling; MFA context is available through `{mfa_method}`, `{mfa_status}`, and `{mfa_reason}`.
+- Replaced LoginGuard's dummy diagnostic message with Joomla native test-mail behavior and a Joomla 5.2 MailerFactory compatibility fallback.
+- Added a centralized trusted-proxy-aware client IP resolver supporting Cloudflare and defensively parsed X-Forwarded-For, exact IPv4/IPv6 proxy rules, and CIDR rules.
+- Hardened the existing IP whitelist so resolved exact IPv4/IPv6 and CIDR matches remain audited while bypassing active enforcement and password/MFA automatic blocks.
+
 ## 0.2.22
 
 - Added the default-on **Enable MFA Auditing** master switch for LoginGuard MFA lifecycle auditing, MFA-specific automatic blocking, and MFA alerts without changing Joomla MFA itself.
@@ -8,7 +15,7 @@
 - Finalized session-owned MFA attempts already in flight when auditing is switched off, without creating new MFA audit, blocking, or MFA-alert side effects.
 - Added a protected administrator Send Test Email action using saved normalized recipients, fixed diagnostic data, the LoginGuard notification layout, and mail-health reporting.
 - Hardened release publishing around canonical `VERSION`, the exact matching tag, updater URLs, and versioned package asset.
-- Synchronized release metadata and package naming for `pkg_loginguard_v0.2.22.zip`.
+- Synchronized release metadata and package naming for `pkg_loginguard_v0.2.23.zip`.
 
 ## 0.2.21
 

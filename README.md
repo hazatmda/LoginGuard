@@ -4,7 +4,7 @@ Joomla 5 package for login attempt detection, MFA-aware auditing, IP enforcement
 
 ## Status
 
-Current development version: `0.2.22`.
+Current development version: `0.2.23`.
 
 ## Core capabilities
 
@@ -29,9 +29,9 @@ Current development version: `0.2.22`.
 
 ## Client IP policy
 
-LoginGuard trusts only the client address already established by the web server / PHP in `REMOTE_ADDR`. It does **not** trust request-supplied `CF-Connecting-IP`, `X-Forwarded-For`, or `X-Real-IP` headers.
+LoginGuard uses validated `REMOTE_ADDR` by default. When Joomla is behind Cloudflare or another reverse proxy, administrators may configure exact IPv4/IPv6 addresses or CIDRs for the immediate trusted proxy and select `CF-Connecting-IP` or defensively parsed `X-Forwarded-For`. Forwarded headers from any untrusted peer are ignored, malformed values fall back safely, and X-Forwarded-For is walked from the immediate peer toward the client while discarding only configured proxies.
 
-If Joomla is behind Cloudflare, a reverse proxy, or a load balancer, configure that trusted proxy at the web-server layer so `REMOTE_ADDR` is rewritten to the verified public client IP before Joomla runs.
+The existing `whitelisted_ips` list accepts exact IPv4/IPv6 and CIDR rules. Matching resolved client addresses are still recorded in the audit log but never receive or enforce LoginGuard password/MFA automatic blocks. Invalid rules never match.
 
 ## MFA auditing
 
@@ -86,7 +86,7 @@ bash scripts/build.sh
 Generated package:
 
 ```text
-packages/pkg_loginguard_v0.2.22.zip
+packages/pkg_loginguard_v0.2.23.zip
 ```
 
 ## Versioning policy
@@ -103,17 +103,17 @@ Before release, these must match:
 - release notes
 
 ```text
-version: 0.2.22
-tag: v0.2.22
-package: pkg_loginguard_v0.2.22.zip
+version: 0.2.23
+tag: v0.2.23
+package: pkg_loginguard_v0.2.23.zip
 ```
 
 ### Stable release sequence
 
 1. Obtain a clean PR review and green GitHub CI validation on PHP 8.1, 8.2, 8.3, and 8.4.
-2. Merge v0.2.22 to `main`.
-3. Create and publish a GitHub Release with the exact tag `v0.2.22`, targeting the merged `main` commit.
-4. The release workflow verifies that the tag is exactly `v${VERSION}`, rebuilds, checks, and attaches only `pkg_loginguard_v0.2.22.zip`.
+2. Merge v0.2.23 to `main`.
+3. Create and publish a GitHub Release with the exact tag `v0.2.23`, targeting the merged `main` commit.
+4. The release workflow verifies that the tag is exactly `v${VERSION}`, rebuilds, checks, and attaches only `pkg_loginguard_v0.2.23.zip`.
 5. Verify that the release asset URL in `updates/loginguard.xml` is available for Joomla downloads.
 
 The release job intentionally fails before upload if the release tag, canonical

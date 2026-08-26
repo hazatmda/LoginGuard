@@ -80,7 +80,12 @@ final class LoginGuard extends CMSPlugin
         try {
             $db = $this->getDatabase();
             $client = $this->detectWhere();
-            $ipAddress = $this->cleanString(IpResolver::resolve(), 'unknown', self::MAX_IP);
+            $params = ComponentHelper::getParams('com_loginguard');
+            $ipAddress = $this->cleanString(IpResolver::resolve(
+                null,
+                (string) $params->get('trusted_proxy_ips', ''),
+                (string) $params->get('forwarded_ip_header', 'none')
+            ), 'unknown', self::MAX_IP);
             $params = ComponentHelper::getParams('com_loginguard');
 
             if (!$this->isEnforcementEnabled($client, $params) || $this->isWhitelistedIp($ipAddress, $params)) {
@@ -198,7 +203,12 @@ final class LoginGuard extends CMSPlugin
     {
         try {
             $db = $this->getDatabase();
-            $ipAddress = $this->cleanString(IpResolver::resolve(), 'unknown', self::MAX_IP);
+            $params = ComponentHelper::getParams('com_loginguard');
+            $ipAddress = $this->cleanString(IpResolver::resolve(
+                null,
+                (string) $params->get('trusted_proxy_ips', ''),
+                (string) $params->get('forwarded_ip_header', 'none')
+            ), 'unknown', self::MAX_IP);
             $client = $this->detectWhere();
             $record = $this->buildAttemptRecord($attempt, $ipAddress, $client);
 
@@ -311,59 +321,12 @@ final class LoginGuard extends CMSPlugin
         }
 
         $configured = (string) $params->get('whitelisted_ips', '');
-        $entries = preg_split('/[\r\n,;\s]+/', $configured, -1, PREG_SPLIT_NO_EMPTY) ?: [];
-
-        foreach ($entries as $entry) {
-            if ($this->ipMatchesRule($ipAddress, trim($entry))) {
-                return true;
-            }
-        }
-
-        return false;
+        return IpResolver::matchesAnyRule($ipAddress, $configured);
     }
 
     private function ipMatchesRule(string $ipAddress, string $rule): bool
     {
-        if ($rule === '') {
-            return false;
-        }
-
-        if ($ipAddress === $rule) {
-            return true;
-        }
-
-        if (!str_contains($rule, '/')) {
-            return false;
-        }
-
-        [$network, $bitsRaw] = array_pad(explode('/', $rule, 2), 2, '');
-        $ipBinary = @inet_pton($ipAddress);
-        $networkBinary = @inet_pton($network);
-
-        if ($ipBinary === false || $networkBinary === false || strlen($ipBinary) !== strlen($networkBinary) || $bitsRaw === '' || !ctype_digit($bitsRaw)) {
-            return false;
-        }
-
-        $bits = (int) $bitsRaw;
-        $maxBits = strlen($ipBinary) * 8;
-
-        if ($bits < 0 || $bits > $maxBits) {
-            return false;
-        }
-
-        $bytes = intdiv($bits, 8);
-        $remainder = $bits % 8;
-
-        if ($bytes > 0 && substr($ipBinary, 0, $bytes) !== substr($networkBinary, 0, $bytes)) {
-            return false;
-        }
-
-        if ($remainder === 0) {
-            return true;
-        }
-
-        $mask = chr((0xff << (8 - $remainder)) & 0xff);
-        return ($ipBinary[$bytes] & $mask) === ($networkBinary[$bytes] & $mask);
+        return IpResolver::matchesRule($ipAddress, $rule);
     }
 
     private function getActiveBlockForIp(string $ipAddress, string $client, DatabaseDriver $db): ?object
