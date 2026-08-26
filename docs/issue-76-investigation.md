@@ -14,6 +14,23 @@ regression check. It models Joomla's strict-false gate and verifies both the
 listener-absent and explicit-true cases, rather than invoking a plugin method and
 assuming that its return value changes the captive redirect boundary.
 
+## Isolation Candidate A: system MFA subscribers no-op
+
+This diagnostic build keeps the v0.2.24 production baseline and leaves the
+System - LoginGuard MFA plugin installed and enabled, but
+`LoginGuardMfa::getSubscribedEvents()` returns an empty array. Its captive MFA
+handlers therefore do not register or run, and MFA telemetry and alerts from
+this system observer are intentionally absent. The handler implementations are
+retained unchanged so this candidate isolates only event subscription.
+
+This candidate adds no redirect, does not access Joomla-owned MFA/session keys,
+does not restore pending-attempt correlation, and does not change the User -
+LoginGuard `onUserAfterLogin()` path. Its sole runtime question is whether a
+mandatory administrator MFA login reaches Joomla's core
+`index.php?option=com_users&view=captive` page rather than the reported 404.
+This is not a claimed fix and must not be merged or released before the site
+owner reports the Joomla 5.4.6 runtime result.
+
 ## v0.2.20 to v0.2.24 differential
 
 ### User authorisation listener

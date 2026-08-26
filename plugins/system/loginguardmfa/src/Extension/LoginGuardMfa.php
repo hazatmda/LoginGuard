@@ -24,13 +24,11 @@ final class LoginGuardMfa extends CMSPlugin implements SubscriberInterface
 
     public static function getSubscribedEvents(): array
     {
-        return [
-            'onComUsersCaptiveShowCaptive' => 'onCaptiveShown',
-            'onComUsersCaptiveValidateFailed' => 'onMfaFailed',
-            'onComUsersCaptiveValidateTryLimitReached' => 'onMfaTryLimitReached',
-            'onComUsersCaptiveValidateInvalidMethod' => 'onMfaInvalidMethod',
-            'onComUsersCaptiveValidateSuccess' => 'onMfaSuccess',
-        ];
+        // Issue #76, Isolation Candidate A: keep the extension enabled while
+        // preventing its observer handlers from entering Joomla's captive MFA
+        // event path. This diagnostic candidate intentionally emits no MFA
+        // telemetry or alerts; it does not alter Joomla state or redirect flow.
+        return [];
     }
 
     public function onCaptiveShown(Event $event): void

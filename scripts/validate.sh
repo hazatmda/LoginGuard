@@ -181,11 +181,6 @@ if "'source'" in expiry_query:
 
 mfa_plugin = Path('plugins/system/loginguardmfa/src/Extension/LoginGuardMfa.php').read_text(encoding='utf-8')
 for token in [
-    'onComUsersCaptiveShowCaptive',
-    'onComUsersCaptiveValidateFailed',
-    'onComUsersCaptiveValidateTryLimitReached',
-    'onComUsersCaptiveValidateInvalidMethod',
-    'onComUsersCaptiveValidateSuccess',
     'MFA_FAILED',
     'MFA_SUCCESS',
     'MFA_TRY_LIMIT',
@@ -230,8 +225,20 @@ for forbidden in ['ATTEMPT_SESSION_KEY', 'pending_attempt.', 'markPrimarySuccess
         raise SystemExit(f'MFA observer retains login-session correlation: {forbidden}')
 if '$this->insertAttemptRecord($record, $db);' not in login_guard:
     raise SystemExit('Normal successful/failed primary audit storage is missing')
-if "'onComUsersCaptiveValidateSuccess' => 'onMfaSuccess'" not in mfa_plugin or 'insertAttempt(' not in mfa_plugin:
-    raise SystemExit('MFA success/failure event auditing is missing')
+subscription_method = mfa_plugin[mfa_plugin.index('public static function getSubscribedEvents'):mfa_plugin.index('public function onCaptiveShown')]
+if 'return [];' not in subscription_method:
+    raise SystemExit('Isolation Candidate A must subscribe to zero captive MFA events')
+for captive_event in [
+    'onComUsersCaptiveShowCaptive',
+    'onComUsersCaptiveValidateFailed',
+    'onComUsersCaptiveValidateTryLimitReached',
+    'onComUsersCaptiveValidateInvalidMethod',
+    'onComUsersCaptiveValidateSuccess',
+]:
+    if captive_event in subscription_method:
+        raise SystemExit(f'Isolation Candidate A still registers captive event: {captive_event}')
+if 'insertAttempt(' not in mfa_plugin:
+    raise SystemExit('Preserved MFA observer implementation is missing')
 
 # LoginGuard test mail is intentionally absent; Joomla Global Configuration is
 # the sole test-mail interface.

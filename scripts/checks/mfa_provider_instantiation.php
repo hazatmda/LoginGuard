@@ -90,5 +90,9 @@ namespace {
         throw new \RuntimeException('MFA system plugin provider did not instantiate LoginGuardMfa');
     }
 
-    echo "MFA system plugin provider instantiation validation completed successfully\n";
+    if ($plugin::getSubscribedEvents() !== []) {
+        throw new \RuntimeException('Isolation Candidate A must subscribe to zero captive MFA events');
+    }
+
+    echo "MFA system plugin provider instantiated with zero captive event subscriptions (Isolation Candidate A)\n";
 }
