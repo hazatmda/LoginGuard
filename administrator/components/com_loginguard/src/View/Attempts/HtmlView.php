@@ -63,7 +63,6 @@ final class HtmlView extends BaseHtmlView
             'reason' => 'COM_LOGINGUARD_HEADING_FAILURE_REASON',
             'where_at' => 'COM_LOGINGUARD_HEADING_WHERE',
             'attempt_type' => 'COM_LOGINGUARD_HEADING_ATTEMPT_TYPE',
-            'mfa_method' => 'COM_LOGINGUARD_HEADING_MFA_METHOD',
             'browser' => 'COM_LOGINGUARD_HEADING_BROWSER',
             'operating_system' => 'COM_LOGINGUARD_HEADING_OS',
             'user_agent' => 'COM_LOGINGUARD_HEADING_USER_AGENT',

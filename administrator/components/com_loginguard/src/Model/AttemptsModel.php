@@ -14,7 +14,7 @@ final class AttemptsModel extends ListModel
         if (empty($config['filter_fields'])) {
             $config['filter_fields'] = [
                 'id', 'ip_address', 'name', 'username', 'status', 'created', 'reason', 'browser', 'operating_system', 'where_at', 'client', 'user_agent',
-                'attempt_type', 'mfa_method',
+                'attempt_type',
             ];
         }
 
@@ -73,7 +73,7 @@ final class AttemptsModel extends ListModel
             ->select([
                 $db->quoteName('id'), $db->quoteName('ip_address'), $db->quoteName('name'), $db->quoteName('username'),
                 $db->quoteName('status'), $db->quoteName('created'), $db->quoteName('reason'), $db->quoteName('browser'), $db->quoteName('operating_system'), $db->quoteName('where_at'),
-                $db->quoteName('client'), $db->quoteName('user_agent'), $db->quoteName('attempt_type'), $db->quoteName('mfa_method'),
+                $db->quoteName('client'), $db->quoteName('user_agent'), $db->quoteName('attempt_type'),
             ])
             ->from($db->quoteName('#__loginguard_attempts'));
 
@@ -82,7 +82,7 @@ final class AttemptsModel extends ListModel
             $pattern = '%' . str_replace(' ', '%', $search) . '%';
             $fields = [
                 'ip_address', 'name', 'username', 'browser',
-                'operating_system', 'reason', 'user_agent', 'where_at', 'client', 'attempt_type', 'mfa_method',
+                'operating_system', 'reason', 'user_agent', 'where_at', 'client', 'attempt_type',
             ];
             $conditions = array_map(static fn ($field) => $db->quoteName($field) . ' LIKE ' . $db->quote($pattern), $fields);
             $query->where('(' . implode(' OR ', $conditions) . ')');

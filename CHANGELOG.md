@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.2.25
+
+- Removed all LoginGuard MFA integration so Joomla core exclusively owns MFA lifecycle, routing, and state.
+- Added fail-safe package upgrade cleanup which disables and then attempts to uninstall the legacy System - LoginGuard MFA plugin.
+- Restored immediate ordinary `SUCCESS_LOGIN` auditing after successful primary authentication while preserving trusted-proxy telemetry, enforcement, alerts, health reporting, and fail-open behavior.
+- Removed MFA-only runtime, configuration, dashboard, filter, export, language, alert-template, package, and fresh-install schema surfaces; legacy upgrade columns may remain inert for compatibility.
+- Preserved the non-MFA security and operational hardening delivered through v0.2.24.
+
 ## 0.2.24
 
 - Removed LoginGuard's redundant Test Email control; use Joomla Global Configuration for mail testing.

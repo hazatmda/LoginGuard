@@ -146,11 +146,20 @@ final class LoginGuard extends CMSPlugin
         }
     }
 
-    /** Issue #76 Isolation Candidate B: leave Joomla's post-login state untouched. */
+    /** Record a successful primary Joomla login immediately. */
     public function onUserAfterLogin($options = []): void
     {
-        // Diagnostic no-op. Do not inspect the application, identity, request,
-        // session, component configuration, database, resolver, or mail path.
+        $payload = $this->normaliseEventPayload($options);
+        $user = $payload['user'] ?? $payload;
+
+        $this->storeAttempt([
+            'name' => $this->readPayloadValue($user, 'name', ''),
+            'username' => $this->readPayloadValue($user, 'username', $this->readPayloadValue($payload, 'username', null)),
+            'email' => $this->readPayloadValue($user, 'email', $this->readPayloadValue($payload, 'email', '')),
+            'user_id' => (int) $this->readPayloadValue($user, 'id', 0),
+            'status' => 'SUCCESS_LOGIN',
+            'reason' => '',
+        ]);
     }
 
     /** Log a failed Joomla username/password login without storing plaintext passwords. */
@@ -190,12 +199,6 @@ final class LoginGuard extends CMSPlugin
             $this->insertAttemptRecord($record, $db);
             $this->recordHealth($db, 'database', 'healthy', 'Login audit write completed.');
 
-            // Captive MFA has not reached an authentication outcome yet. Keep
-            // this telemetry out of both alert pipelines and failure blocking.
-            if (($record['status'] ?? '') === 'MFA_PENDING') {
-                return;
-            }
-
             $this->maybeAutoBlockIp($record, $db);
             $this->sendAuditAlert($record, $db);
         } catch (Throwable $exception) {
@@ -234,7 +237,6 @@ final class LoginGuard extends CMSPlugin
             'where_at' => $client,
             'client' => $client,
             'attempt_type' => $this->truncate((string) ($attempt['attempt_type'] ?? 'login'), 50),
-            'mfa_method' => $this->truncate((string) ($attempt['mfa_method'] ?? ''), 100),
             'reason' => $this->normaliseFailureReason((string) ($attempt['reason'] ?? '')),
             'created' => gmdate('Y-m-d H:i:s'),
         ];
@@ -403,7 +405,6 @@ final class LoginGuard extends CMSPlugin
     /** @param array<string, mixed> $record */
     private function sendAuditAlert(array $record, DatabaseDriver $db): void
     {
-        // Keep post-login auditing independent of Joomla's session and captive MFA state.
         $this->getApplication()->bootComponent('com_loginguard');
         (new AuditAlertService())->send($record, $db);
     }
@@ -512,7 +513,7 @@ final class LoginGuard extends CMSPlugin
     {
         $config = Factory::getConfig();
         $status = (string) ($record['status'] ?? '');
-        $failureReason = in_array($status, ['FAILED_LOGIN', 'BLOCKED_LOGIN', 'MFA_FAILED', 'MFA_TRY_LIMIT'], true)
+        $failureReason = in_array($status, ['FAILED_LOGIN', 'BLOCKED_LOGIN'], true)
             ? (string) ($record['reason'] ?? '') : '';
 
         return [
@@ -604,18 +605,18 @@ final class LoginGuard extends CMSPlugin
     private function buildAlertHtmlBody(string $subject, string $bodyTemplate, array $variables, string $status): string
     {
         $accentColor = match ($status) {
-            'SUCCESS_LOGIN', 'MFA_SUCCESS' => '#1f8f45',
-            'BLOCKED_LOGIN', 'MFA_TRY_LIMIT' => '#b45309',
+            'SUCCESS_LOGIN' => '#1f8f45',
+            'BLOCKED_LOGIN' => '#b45309',
             default => '#c62828',
         };
         $severityBackground = match ($status) {
-            'SUCCESS_LOGIN', 'MFA_SUCCESS' => '#ecfdf3',
-            'BLOCKED_LOGIN', 'MFA_TRY_LIMIT' => '#fffbeb',
+            'SUCCESS_LOGIN' => '#ecfdf3',
+            'BLOCKED_LOGIN' => '#fffbeb',
             default => '#fef2f2',
         };
         $severityText = match ($status) {
-            'SUCCESS_LOGIN', 'MFA_SUCCESS' => '#166534',
-            'BLOCKED_LOGIN', 'MFA_TRY_LIMIT' => '#92400e',
+            'SUCCESS_LOGIN' => '#166534',
+            'BLOCKED_LOGIN' => '#92400e',
             default => '#991b1b',
         };
         $htmlRows = '';
@@ -657,7 +658,7 @@ final class LoginGuard extends CMSPlugin
         if ($variableNames === []) {
             $variableNames = ['full_name', 'username', 'email', 'ip', 'status', 'failure_reason', 'where', 'browser', 'os', 'user_agent', 'datetime'];
         }
-        if (in_array($status, ['SUCCESS_LOGIN', 'MFA_SUCCESS'], true)) {
+        if (in_array($status, ['SUCCESS_LOGIN'], true)) {
             $variableNames = array_values(array_filter($variableNames, static fn ($name) => $name !== 'failure_reason'));
         }
 
@@ -752,10 +753,6 @@ final class LoginGuard extends CMSPlugin
             'SUCCESS_LOGIN' => 'SUCCESS LOGIN',
             'FAILED_LOGIN' => 'FAILED LOGIN',
             'BLOCKED_LOGIN' => 'BLOCKED LOGIN',
-            'MFA_PENDING' => 'MFA PENDING',
-            'MFA_FAILED' => 'MFA FAILED',
-            'MFA_SUCCESS' => 'MFA SUCCESS',
-            'MFA_TRY_LIMIT' => 'MFA TRY LIMIT',
             default => str_replace('_', ' ', strtoupper($status)),
         };
     }
@@ -769,12 +766,6 @@ final class LoginGuard extends CMSPlugin
             'ACCOUNT_BLOCKED' => 'Account Blocked',
             'IP_BLOCKED' => 'IP Address Blocked',
             'INVALID_CREDENTIALS' => 'Invalid Credentials',
-            'MFA_REQUIRED' => 'MFA Required',
-            'MFA_INVALID_CODE' => 'Invalid MFA Code',
-            'MFA_INVALID_METHOD' => 'Invalid MFA Method',
-            'MFA_TRY_LIMIT_REACHED' => 'MFA Try Limit Reached',
-            'MFA_COMPLETED' => 'MFA Completed',
-            'MFA_THRESHOLD_EXCEEDED' => 'MFA Failure Threshold Exceeded',
             '' => '',
             default => ucwords(strtolower(str_replace('_', ' ', $reason))),
         };
@@ -894,7 +885,7 @@ final class LoginGuard extends CMSPlugin
     private function normaliseStatus(string $status): string
     {
         $status = strtoupper(trim($status));
-        $allowed = ['SUCCESS_LOGIN', 'FAILED_LOGIN', 'BLOCKED_LOGIN', 'MFA_PENDING', 'MFA_FAILED', 'MFA_SUCCESS', 'MFA_TRY_LIMIT'];
+        $allowed = ['SUCCESS_LOGIN', 'FAILED_LOGIN', 'BLOCKED_LOGIN'];
         return in_array($status, $allowed, true) ? $status : 'FAILED_LOGIN';
     }
 
@@ -906,8 +897,6 @@ final class LoginGuard extends CMSPlugin
         }
         $allowed = [
             'USERNAME_NOT_FOUND', 'PASSWORD_INCORRECT', 'INVALID_CREDENTIALS', 'ACCOUNT_BLOCKED', 'ACCOUNT_DISABLED',
-            'IP_BLOCKED', 'MFA_REQUIRED', 'MFA_INVALID_CODE', 'MFA_INVALID_METHOD', 'MFA_TRY_LIMIT_REACHED',
-            'MFA_COMPLETED', 'MFA_THRESHOLD_EXCEEDED',
         ];
         return in_array($reason, $allowed, true) ? $reason : 'INVALID_CREDENTIALS';
     }

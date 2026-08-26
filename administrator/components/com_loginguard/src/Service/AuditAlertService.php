@@ -10,7 +10,7 @@ use Joomla\CMS\Language\Text;
 use Joomla\Database\DatabaseInterface;
 use Throwable;
 
-/** Shared configured Success/Failed Alert pipeline for password and MFA outcomes. */
+/** Shared configured Success/Failed Alert pipeline for login outcomes. */
 final class AuditAlertService
 {
     /** @param array<string, mixed> $record */
@@ -26,12 +26,6 @@ final class AuditAlertService
         }
 
         $status = (string) ($record['status'] ?? '');
-        // Pending captive MFA is observational telemetry, never an outcome.
-        // Keep it out of both configured alert paths and failed throttling even
-        // if a caller accidentally forwards it to this shared service.
-        if ($status === 'MFA_PENDING') {
-            return;
-        }
         $isSuccess = $status === 'SUCCESS_LOGIN';
         if ($isSuccess && !(int) $params->get('audit_alert_success', 0)) {
             return;
@@ -58,7 +52,6 @@ final class AuditAlertService
     {
         $subjectTemplate = $this->normaliseLegacyGeoIpTemplate($subjectTemplate);
         $bodyTemplate = $this->normaliseLegacyGeoIpTemplate($bodyTemplate);
-        $bodyTemplate = $this->includeMissingMfaTemplateRows($bodyTemplate, $variables);
         $subject = strtoupper($this->replaceAlertTemplateVariables($subjectTemplate, $variables));
         $plainBody = $this->withAlertFooter($this->replaceAlertTemplateVariables($bodyTemplate, $variables));
         $htmlBody = $this->buildAlertHtmlBody($subject, $bodyTemplate, $variables, $status);
@@ -98,7 +91,7 @@ final class AuditAlertService
             $query = $db->getQuery(true)
                 ->select('COUNT(*)')
                 ->from($db->quoteName('#__loginguard_attempts'))
-                ->where($db->quoteName('status') . ' IN (' . implode(',', [$db->quote('FAILED_LOGIN'), $db->quote('MFA_FAILED'), $db->quote('MFA_TRY_LIMIT')]) . ')')
+                ->where($db->quoteName('status') . ' = ' . $db->quote('FAILED_LOGIN'))
                 ->where($db->quoteName('ip_address') . ' = ' . $db->quote($ipAddress))
                 ->where($db->quoteName('created') . ' >= ' . $db->quote($since));
             $db->setQuery($query);
@@ -130,7 +123,7 @@ final class AuditAlertService
     {
         $config = Factory::getConfig();
         $status = (string) ($record['status'] ?? '');
-        $failureReason = in_array($status, ['FAILED_LOGIN', 'BLOCKED_LOGIN', 'MFA_FAILED', 'MFA_TRY_LIMIT'], true)
+        $failureReason = in_array($status, ['FAILED_LOGIN', 'BLOCKED_LOGIN'], true)
             ? (string) ($record['reason'] ?? '') : '';
 
         return [
@@ -147,9 +140,6 @@ final class AuditAlertService
             'full_name' => (string) ($record['name'] ?? ''),
             'email' => (string) ($record['email'] ?? ''),
             'user_agent' => (string) ($record['user_agent'] ?? ''),
-            'mfa_method' => $this->formatMfaMethod((string) ($record['mfa_method'] ?? '')),
-            'mfa_status' => $this->formatAlertStatus((string) ($record['mfa_status'] ?? '')),
-            'mfa_reason' => $this->formatAlertFailureReason((string) ($record['mfa_reason'] ?? '')),
         ];
     }
 
@@ -209,46 +199,10 @@ final class AuditAlertService
         return preg_replace('/\{(?:' . $legacyNames . ')\}/i', '', $template) ?? $template;
     }
 
-    /**
-     * Add populated MFA details which an older administrator-saved template
-     * cannot know about. This only changes the in-memory rendering template;
-     * Joomla's saved component parameters remain untouched.
-     *
-     * @param array<string, string> $variables
-     */
-    private function includeMissingMfaTemplateRows(string $template, array $variables): string
-    {
-        $labels = [
-            'mfa_method' => 'MFA Method',
-            'mfa_status' => 'MFA Status',
-            'mfa_reason' => 'MFA Result',
-        ];
-        $present = array_fill_keys($this->extractAlertTemplateVariableNames($template), true);
-        $rows = [];
-
-        foreach ($labels as $name => $label) {
-            if (!isset($present[$name]) && trim((string) ($variables[$name] ?? '')) !== '') {
-                $rows[] = $label . ': {' . $name . '}';
-            }
-        }
-
-        if ($rows === []) {
-            return $template;
-        }
-
-        $injection = implode("\n", $rows);
-        // Keep a final custom footer in its original position when one exists.
-        if (preg_match('/\R{2,}([^{}]*)$/s', $template, $match, PREG_OFFSET_CAPTURE)) {
-            $offset = $match[0][1];
-            return substr($template, 0, $offset) . "\n\n" . $injection . substr($template, $offset);
-        }
-
-        return rtrim($template) . "\n" . $injection;
-    }
 
     private function getDefaultAlertBodyTemplate(): string
     {
-        return "LoginGuard recorded a {status} event on {site_name}.\n\nFull Name: {full_name}\nUsername: {username}\nEmail: {email}\nIP Address: {ip}\nWhere: {where}\nBrowser: {browser}\nOperating System: {os}\nFailure Reason: {failure_reason}\nMFA Method: {mfa_method}\nMFA Status: {mfa_status}\nMFA Result: {mfa_reason}\nUser Agent: {user_agent}\nDate/Time: {datetime}\n\nGenerated automatically by Login Guard MDA.";
+        return "LoginGuard recorded a {status} event on {site_name}.\n\nFull Name: {full_name}\nUsername: {username}\nEmail: {email}\nIP Address: {ip}\nWhere: {where}\nBrowser: {browser}\nOperating System: {os}\nFailure Reason: {failure_reason}\nUser Agent: {user_agent}\nDate/Time: {datetime}\n\nGenerated automatically by Login Guard MDA.";
     }
 
     private function getDefaultBlockedIpAlertBodyTemplate(): string
@@ -269,18 +223,18 @@ final class AuditAlertService
     private function buildAlertHtmlBody(string $subject, string $bodyTemplate, array $variables, string $status): string
     {
         $accentColor = match ($status) {
-            'SUCCESS_LOGIN', 'MFA_SUCCESS' => '#1f8f45',
-            'BLOCKED_LOGIN', 'MFA_TRY_LIMIT' => '#b45309',
+            'SUCCESS_LOGIN' => '#1f8f45',
+            'BLOCKED_LOGIN' => '#b45309',
             default => '#c62828',
         };
         $severityBackground = match ($status) {
-            'SUCCESS_LOGIN', 'MFA_SUCCESS' => '#ecfdf3',
-            'BLOCKED_LOGIN', 'MFA_TRY_LIMIT' => '#fffbeb',
+            'SUCCESS_LOGIN' => '#ecfdf3',
+            'BLOCKED_LOGIN' => '#fffbeb',
             default => '#fef2f2',
         };
         $severityText = match ($status) {
-            'SUCCESS_LOGIN', 'MFA_SUCCESS' => '#166534',
-            'BLOCKED_LOGIN', 'MFA_TRY_LIMIT' => '#92400e',
+            'SUCCESS_LOGIN' => '#166534',
+            'BLOCKED_LOGIN' => '#92400e',
             default => '#991b1b',
         };
         $htmlRows = '';
@@ -322,7 +276,7 @@ final class AuditAlertService
         if ($variableNames === []) {
             $variableNames = ['full_name', 'username', 'email', 'ip', 'status', 'failure_reason', 'where', 'browser', 'os', 'user_agent', 'datetime'];
         }
-        if (in_array($status, ['SUCCESS_LOGIN', 'MFA_SUCCESS'], true)) {
+        if (in_array($status, ['SUCCESS_LOGIN'], true)) {
             $variableNames = array_values(array_filter($variableNames, static fn ($name) => $name !== 'failure_reason'));
         }
 
@@ -350,8 +304,7 @@ final class AuditAlertService
             'ip' => 'IP Address', 'status' => 'Status', 'failure_reason' => 'Failure Reason', 'where' => 'Where',
             'browser' => 'Browser', 'os' => 'Operating System', 'user_agent' => 'User Agent',
             'datetime' => 'Date/Time', 'block_type' => 'Block Type', 'block_reason' => 'Block Reason',
-            'block_until' => 'Blocked Until', 'failure_count' => 'Failure Count', 'mfa_method' => 'MFA Method',
-            'mfa_status' => 'MFA Status', 'mfa_reason' => 'MFA Reason',
+            'block_until' => 'Blocked Until', 'failure_count' => 'Failure Count',
         ];
     }
 
@@ -418,19 +371,10 @@ final class AuditAlertService
             'SUCCESS_LOGIN' => 'SUCCESS LOGIN',
             'FAILED_LOGIN' => 'FAILED LOGIN',
             'BLOCKED_LOGIN' => 'BLOCKED LOGIN',
-            'MFA_PENDING' => 'MFA PENDING',
-            'MFA_FAILED' => 'MFA FAILED',
-            'MFA_SUCCESS' => 'MFA SUCCESS',
-            'MFA_TRY_LIMIT' => 'MFA TRY LIMIT',
             default => str_replace('_', ' ', strtoupper($status)),
         };
     }
 
-    private function formatMfaMethod(string $method): string
-    {
-        $method = trim($method);
-        return $method === '' ? '' : ucwords(strtolower(str_replace(['_', '-'], ' ', $method)));
-    }
 
     private function formatAlertFailureReason(string $reason): string
     {
@@ -441,12 +385,6 @@ final class AuditAlertService
             'ACCOUNT_BLOCKED' => 'Account Blocked',
             'IP_BLOCKED' => 'IP Address Blocked',
             'INVALID_CREDENTIALS' => 'Invalid Credentials',
-            'MFA_REQUIRED' => 'MFA Required',
-            'MFA_INVALID_CODE' => 'Invalid MFA Code',
-            'MFA_INVALID_METHOD' => 'Invalid MFA Method',
-            'MFA_TRY_LIMIT_REACHED' => 'MFA Try Limit Reached',
-            'MFA_COMPLETED' => 'MFA Completed',
-            'MFA_THRESHOLD_EXCEEDED' => 'MFA Failure Threshold Exceeded',
             '' => '',
             default => ucwords(strtolower(str_replace('_', ' ', $reason))),
         };

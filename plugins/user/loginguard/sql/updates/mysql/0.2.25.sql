@@ -1,0 +1,1 @@
+-- LoginGuard 0.2.25 removes active MFA integration. Legacy columns remain inert for upgrade safety.

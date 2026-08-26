@@ -13,6 +13,7 @@
 defined('_JEXEC') or die;
 
 use Joomla\CMS\Factory;
+use Joomla\CMS\Installer\Installer;
 use Joomla\Database\DatabaseDriver;
 
 class Pkg_LoginguardInstallerScript
@@ -21,6 +22,10 @@ class Pkg_LoginguardInstallerScript
     {
         if (!in_array($type, ['install', 'update', 'discover_install', 'uninstall'], true)) {
             return true;
+        }
+
+        if ($type === 'update') {
+            $this->removeLegacyMfaPlugin();
         }
 
         return $this->synchroniseChildExtensions($type === 'uninstall');
@@ -33,8 +38,8 @@ class Pkg_LoginguardInstallerScript
         }
 
         $this->synchroniseChildExtensions(false);
+        $this->removeLegacyMfaPlugin();
         $this->repairUpdateSiteRegistration();
-        $this->enableChildExtension('plugin', 'loginguardmfa', 'system');
         $this->enableChildExtension('plugin', 'loginguardcleanup', 'task');
 
         return true;
@@ -84,10 +89,36 @@ class Pkg_LoginguardInstallerScript
     {
         return [
             ['type' => 'plugin', 'element' => 'loginguard', 'folder' => 'user'],
-            ['type' => 'plugin', 'element' => 'loginguardmfa', 'folder' => 'system'],
             ['type' => 'plugin', 'element' => 'loginguardcleanup', 'folder' => 'task'],
             ['type' => 'component', 'element' => 'com_loginguard', 'folder' => ''],
         ];
+    }
+
+    /** Disable first, then best-effort uninstall the retired v0.2.21-v0.2.24 observer. */
+    private function removeLegacyMfaPlugin(): void
+    {
+        try {
+            $db = $this->getDatabase();
+            $extensionId = $this->getExtensionId($db, 'plugin', 'loginguardmfa', 'system');
+
+            if ($extensionId === 0) {
+                return;
+            }
+
+            $query = $db->getQuery(true)
+                ->update($db->quoteName('#__extensions'))
+                ->set($db->quoteName('enabled') . ' = 0')
+                ->where($db->quoteName('extension_id') . ' = ' . $extensionId);
+            $db->setQuery($query)->execute();
+
+            try {
+                Installer::getInstance()->uninstall('plugin', $extensionId);
+            } catch (\Throwable $exception) {
+                // A disabled legacy row is safe if Joomla cannot remove drifted files/metadata.
+            }
+        } catch (\Throwable $exception) {
+            // Legacy cleanup is fail-safe and must never abort the package update.
+        }
     }
 
     private function enableChildExtension(string $type, string $element, string $folder): void
