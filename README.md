@@ -82,3 +82,5 @@ package: pkg_loginguard_v0.2.28.zip
 ## License
 
 GNU General Public License v3.0.
+
+<!-- CI-only release trigger; do not merge. -->
