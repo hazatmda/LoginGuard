@@ -17,6 +17,12 @@ Current development version: `0.2.25`.
 
 LoginGuard does not integrate with Joomla Multi-factor Authentication. Joomla core exclusively owns its setup, routing, validation, and session state. LoginGuard records an ordinary `SUCCESS_LOGIN` as soon as Joomla accepts the primary credentials.
 
+## Client IP policy
+
+LoginGuard uses validated `REMOTE_ADDR` by default. Behind Cloudflare or another reverse proxy, administrators can trust exact IPv4/IPv6 addresses or CIDRs for the immediate proxy and select `CF-Connecting-IP` or defensively parsed `X-Forwarded-For`. Forwarded headers from untrusted peers are ignored, malformed values fall back safely, and X-Forwarded-For is walked from the immediate peer toward the client while discarding only configured proxies.
+
+Whitelist entries accept exact IPv4/IPv6 addresses and CIDRs. Matching resolved client addresses remain audited but bypass active enforcement and automatic primary-login blocks; invalid rules never match.
+
 ## Build and validation
 
 Requirements: Joomla 5.2+ and PHP 8.1+.

@@ -897,6 +897,7 @@ final class LoginGuard extends CMSPlugin
         }
         $allowed = [
             'USERNAME_NOT_FOUND', 'PASSWORD_INCORRECT', 'INVALID_CREDENTIALS', 'ACCOUNT_BLOCKED', 'ACCOUNT_DISABLED',
+            'IP_BLOCKED',
         ];
         return in_array($reason, $allowed, true) ? $reason : 'INVALID_CREDENTIALS';
     }
