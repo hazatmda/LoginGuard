@@ -1,4 +1,4 @@
-name: Publish LoginGuard Releases Once
+name: Publish LoginGuard v0.2.27 Once
 
 on:
   push:
@@ -62,46 +62,3 @@ jobs:
             --target b909a1a4d2b5d04b4a1d4ec1bf21c3882aade832 \
             --title "LoginGuard v0.2.27" \
             --notes "Adds CSV formula-injection neutralization for login telemetry exports, append-only administrator audit logging for sensitive administrator actions, audit cleanup coverage, UTF-8-safe audit handling, lossless bulk-target recording, and component-owned schema migration/legacy audit-table repair for Joomla upgrades."
-
-  release-v028:
-    if: >-
-      (github.event_name == 'issue_comment' &&
-       github.event.issue.number == 82 &&
-       github.event.comment.body == '/release-v0.2.28') ||
-      (github.event_name == 'workflow_run' &&
-       github.event.workflow_run.head_branch == 'ci/release-v0.2.28-trigger' &&
-       github.event.workflow_run.conclusion == 'success')
-    runs-on: ubuntu-latest
-
-    steps:
-      - name: Checkout exact release target
-        uses: actions/checkout@v4
-        with:
-          ref: 356a015dfb676540a586537af01f563e2805b5c2
-
-      - name: Setup PHP
-        uses: shivammathur/setup-php@v2
-        with:
-          php-version: '8.2'
-
-      - name: Validate
-        run: bash scripts/validate.sh
-
-      - name: Build Joomla package
-        run: bash scripts/build.sh
-
-      - name: Create v0.2.28 release
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: |
-          set -eu
-          if gh release view v0.2.28 --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
-            echo "Release v0.2.28 already exists; leaving it unchanged."
-            exit 0
-          fi
-          gh release create v0.2.28 \
-            packages/pkg_loginguard_v0.2.28.zip \
-            --repo "$GITHUB_REPOSITORY" \
-            --target 356a015dfb676540a586537af01f563e2805b5c2 \
-            --title "LoginGuard v0.2.28" \
-            --notes "Installer hotfix for Joomla upgrades: removes unsupported PREPARE/EXECUTE SQL migration constructs, reconciles legacy administrator-audit schema safely in package preflight, preserves existing audit rows and target_ip evidence, and keeps the known-good login/MFA runtime unchanged."
