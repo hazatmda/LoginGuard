@@ -31,6 +31,12 @@ foreach ([
     "if (!isset(\$columns['actor_username']))",
     "ADD COLUMN ' . \$db->quoteName('actor_username')",
     "LEFT JOIN ' . \$db->quoteName('#__users', 'users')",
+    "columnMatches(\$columns['id'] ?? null, 'bigint unsigned', false)",
+    "columnExtraMatches(\$columns['id'] ?? null, 'auto_increment')",
+    "MODIFY ' . \$db->quoteName('id') . ' bigint unsigned NOT NULL AUTO_INCREMENT'",
+    "columnMatches(\$columns['actor_user_id'] ?? null, 'int unsigned', false)",
+    "columnDefaultMatches(\$columns['actor_user_id'] ?? null, '0')",
+    "MODIFY ' . \$db->quoteName('actor_user_id') . ' int unsigned NOT NULL DEFAULT 0'",
     "columnMatches(\$columns['target_id'] ?? null, 'text', true)",
     "columnMatches(\$columns['action'] ?? null, 'varchar(64)', false)",
     "columnMatches(\$columns['target_type'] ?? null, 'varchar(64)', false)",
@@ -49,8 +55,20 @@ if (str_contains($installer, 'DROP TABLE') || str_contains($installer, 'DROP COL
     || !str_contains($repairMarker, 'no executable migration statement')) {
     throw new RuntimeException('Repair must retain the legacy row and target_ip forensic column');
 }
-if (!str_contains($install, '`actor_username` varchar(255)') || !str_contains($install, '`target_id` text NULL DEFAULT NULL')) {
-    throw new RuntimeException('Fresh-install schema is not canonical');
+foreach ([
+    '`id` bigint unsigned NOT NULL AUTO_INCREMENT',
+    '`actor_user_id` int unsigned NOT NULL DEFAULT 0',
+    '`actor_username` varchar(255)',
+    '`action` varchar(64) NOT NULL',
+    '`target_type` varchar(64) NOT NULL',
+    '`target_id` text NULL DEFAULT NULL',
+] as $canonicalDefinition) {
+    if (!str_contains($install, $canonicalDefinition)) {
+        throw new RuntimeException("Fresh-install schema is missing canonical definition: $canonicalDefinition");
+    }
+}
+if (!str_contains($installer, "if (\$modifications !== [])")) {
+    throw new RuntimeException('Canonical schemas must not queue an ALTER TABLE statement');
 }
 
 echo "Legacy, canonical, and fresh-install audit reconciliation paths verified\n";

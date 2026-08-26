@@ -75,6 +75,14 @@ class Pkg_LoginguardInstallerScript
             . ' WHERE ' . $db->quoteName('audit.actor_username') . " = ''");
 
         $modifications = [];
+        if (!$this->columnMatches($columns['id'] ?? null, 'bigint unsigned', false)
+            || !$this->columnExtraMatches($columns['id'] ?? null, 'auto_increment')) {
+            $modifications[] = 'MODIFY ' . $db->quoteName('id') . ' bigint unsigned NOT NULL AUTO_INCREMENT';
+        }
+        if (!$this->columnMatches($columns['actor_user_id'] ?? null, 'int unsigned', false)
+            || !$this->columnDefaultMatches($columns['actor_user_id'] ?? null, '0')) {
+            $modifications[] = 'MODIFY ' . $db->quoteName('actor_user_id') . ' int unsigned NOT NULL DEFAULT 0';
+        }
         if (!$this->columnMatches($columns['target_id'] ?? null, 'text', true)) {
             $modifications[] = 'MODIFY ' . $db->quoteName('target_id') . ' text NULL DEFAULT NULL';
         }
@@ -120,6 +128,24 @@ class Pkg_LoginguardInstallerScript
         $actualNullable = strtoupper((string) ($column->Null ?? $column->null ?? 'NO')) === 'YES';
 
         return $actualType === $type && $actualNullable === $nullable;
+    }
+
+    private function columnDefaultMatches(?object $column, string $default): bool
+    {
+        if ($column === null) {
+            return false;
+        }
+
+        return (string) ($column->Default ?? $column->default ?? '') === $default;
+    }
+
+    private function columnExtraMatches(?object $column, string $extra): bool
+    {
+        if ($column === null) {
+            return false;
+        }
+
+        return strtolower((string) ($column->Extra ?? $column->extra ?? '')) === strtolower($extra);
     }
 
     private function runSchemaStatement(DatabaseDriver $db, string $sql): void
