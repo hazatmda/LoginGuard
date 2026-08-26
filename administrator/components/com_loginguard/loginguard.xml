@@ -3,7 +3,7 @@
     <name>com_loginguard</name>
     <author>Hazim</author>
     <creationDate>2026-05-15</creationDate>
-    <version>0.2.26</version>
+    <version>0.2.27</version>
     <element>com_loginguard</element>
     <description>COM_LOGINGUARD_XML_DESCRIPTION</description>
 
@@ -19,6 +19,7 @@
             <menu view="dashboard">COM_LOGINGUARD_SUBMENU_DASHBOARD</menu>
             <menu view="attempts">COM_LOGINGUARD_SUBMENU_LOGIN_INFORMATION</menu>
             <menu view="blockedips">COM_LOGINGUARD_SUBMENU_BLOCKED_IPS</menu>
+            <menu view="adminaudit">COM_LOGINGUARD_SUBMENU_ADMIN_AUDIT</menu>
             <menu link="option=com_config&amp;view=component&amp;component=com_loginguard">COM_LOGINGUARD_SUBMENU_CONFIGURATION</menu>
             <menu view="about">COM_LOGINGUARD_SUBMENU_ABOUT</menu>
         </submenu>

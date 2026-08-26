@@ -9,6 +9,8 @@ use Joomla\CMS\Filter\OutputFilter;
 use Joomla\CMS\Language\Text;
 use Joomla\CMS\MVC\Controller\AdminController;
 use LoginGuard\Component\LoginGuard\Administrator\Helper\LoginGuardHelper;
+use LoginGuard\Component\LoginGuard\Administrator\Service\AdminAuditService;
+use LoginGuard\Component\LoginGuard\Administrator\Service\CsvCellNeutralizer;
 
 final class AttemptsController extends AdminController
 {
@@ -25,12 +27,22 @@ final class AttemptsController extends AdminController
         $ids = array_map('intval', (array) $this->input->get('cid', [], 'array'));
         $ids = array_values(array_filter($ids));
 
-        if ($ids !== []) {
-            $db = Factory::getContainer()->get(\Joomla\Database\DatabaseDriver::class);
-            $query = $db->getQuery(true)
-                ->delete($db->quoteName('#__loginguard_attempts'))
+        $db = Factory::getContainer()->get(\Joomla\Database\DatabaseDriver::class);
+        $db->transactionStart();
+
+        try {
+            if ($ids !== []) {
+                $query = $db->getQuery(true)
+                    ->delete($db->quoteName('#__loginguard_attempts'))
                 ->whereIn($db->quoteName('id'), $ids);
-            $db->setQuery($query)->execute();
+                $db->setQuery($query)->execute();
+            }
+
+            (new AdminAuditService($db))->append(Factory::getApplication()->getIdentity(), 'login_attempt.delete', 'login_attempt', implode(',', $ids), ['record_count' => count($ids)]);
+            $db->transactionCommit();
+        } catch (\Throwable $exception) {
+            $db->transactionRollback();
+            throw $exception;
         }
 
         $this->setMessage(Text::plural('COM_LOGINGUARD_N_ITEMS_DELETED', count($ids)));
@@ -46,6 +58,14 @@ final class AttemptsController extends AdminController
         $model = $this->getModel('Attempts', 'Administrator', ['ignore_request' => false]);
         $ids = $this->input->get('cid', [], 'array');
         $rows = $model->getExportRows(is_array($ids) ? $ids : []);
+        $db = Factory::getContainer()->get(\Joomla\Database\DatabaseDriver::class);
+        (new AdminAuditService($db))->append(
+            $app->getIdentity(),
+            'login_attempt.export',
+            'login_attempt',
+            null,
+            ['scope' => is_array($ids) && $ids !== [] ? 'selected' : 'all', 'record_count' => count($rows)]
+        );
         $filename = 'loginguard-login-information-' . gmdate('Ymd-His') . '.csv';
         $safeFilename = OutputFilter::stringUrlSafe(pathinfo($filename, PATHINFO_FILENAME)) . '.csv';
 
@@ -67,22 +87,22 @@ final class AttemptsController extends AdminController
 
             fputcsv($output, [
                 $row['id'],
-                $row['ip_address'],
-                $row['name'],
-                $row['username'],
-                $row['status'],
-                $row['reason'],
-                $whereAt,
-                $row['country'],
-                $row['country_code'],
-                $row['region'],
-                $row['city'],
-                $row['isp'],
-                $row['asn'],
-                $row['browser'],
-                $row['operating_system'],
-                $row['user_agent'],
-                LoginGuardHelper::formatConfiguredDateTime((string) $row['created']),
+                CsvCellNeutralizer::neutralize((string) $row['ip_address']),
+                CsvCellNeutralizer::neutralize((string) $row['name']),
+                CsvCellNeutralizer::neutralize((string) $row['username']),
+                CsvCellNeutralizer::neutralize((string) $row['status']),
+                CsvCellNeutralizer::neutralize((string) $row['reason']),
+                CsvCellNeutralizer::neutralize($whereAt),
+                CsvCellNeutralizer::neutralize((string) $row['country']),
+                CsvCellNeutralizer::neutralize((string) $row['country_code']),
+                CsvCellNeutralizer::neutralize((string) $row['region']),
+                CsvCellNeutralizer::neutralize((string) $row['city']),
+                CsvCellNeutralizer::neutralize((string) $row['isp']),
+                CsvCellNeutralizer::neutralize((string) $row['asn']),
+                CsvCellNeutralizer::neutralize((string) $row['browser']),
+                CsvCellNeutralizer::neutralize((string) $row['operating_system']),
+                CsvCellNeutralizer::neutralize((string) $row['user_agent']),
+                CsvCellNeutralizer::neutralize(LoginGuardHelper::formatConfiguredDateTime((string) $row['created'])),
             ]);
         }
 

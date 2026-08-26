@@ -3,6 +3,7 @@ set -euo pipefail
 
 find plugins administrator -name "*.php" -exec php -l {} \;
 php tests/v020_runtime_baseline.php
+php tests/security_regressions.php
 
 
 php <<'PHP'

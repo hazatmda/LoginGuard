@@ -9,6 +9,7 @@ use Joomla\CMS\Factory;
 use Joomla\CMS\Language\Text;
 use Joomla\CMS\MVC\Controller\AdminController;
 use LoginGuard\Component\LoginGuard\Administrator\Helper\LoginGuardHelper;
+use LoginGuard\Component\LoginGuard\Administrator\Service\AdminAuditService;
 
 final class BlockedipsController extends AdminController
 {
@@ -98,7 +99,21 @@ final class BlockedipsController extends AdminController
             $message = Text::_('COM_LOGINGUARD_BLOCKEDIPS_ITEM_CREATED');
         }
 
-        $db->setQuery($query)->execute();
+        $db->transactionStart();
+        try {
+            $db->setQuery($query)->execute();
+            $targetId = $id > 0 ? $id : (int) $db->insertid();
+            (new AdminAuditService($db))->append($app->getIdentity(), $id > 0 ? 'blocked_ip.update' : 'blocked_ip.create', 'blocked_ip', (string) $targetId, [
+                'ip_address' => $ipAddress,
+                'scope' => $scope,
+                'block_type' => $blockType,
+                'enabled' => $enabled,
+            ]);
+            $db->transactionCommit();
+        } catch (\Throwable $exception) {
+            $db->transactionRollback();
+            throw $exception;
+        }
         $this->setMessage($message);
         $this->setRedirect('index.php?option=com_loginguard&view=blockedips');
     }
@@ -109,12 +124,20 @@ final class BlockedipsController extends AdminController
         $this->checkToken();
         $ids = $this->getSelectedIds();
 
-        if ($ids !== []) {
-            $db = Factory::getContainer()->get(\Joomla\Database\DatabaseDriver::class);
-            $query = $db->getQuery(true)
-                ->delete($db->quoteName('#__loginguard_blocked_ips'))
+        $db = Factory::getContainer()->get(\Joomla\Database\DatabaseDriver::class);
+        $db->transactionStart();
+        try {
+            if ($ids !== []) {
+                $query = $db->getQuery(true)
+                    ->delete($db->quoteName('#__loginguard_blocked_ips'))
                 ->whereIn($db->quoteName('id'), $ids);
-            $db->setQuery($query)->execute();
+                $db->setQuery($query)->execute();
+            }
+            (new AdminAuditService($db))->append(Factory::getApplication()->getIdentity(), 'blocked_ip.delete', 'blocked_ip', implode(',', $ids), ['record_count' => count($ids)]);
+            $db->transactionCommit();
+        } catch (\Throwable $exception) {
+            $db->transactionRollback();
+            throw $exception;
         }
 
         $this->setMessage(Text::plural('COM_LOGINGUARD_BLOCKEDIPS_N_ITEMS_DELETED', count($ids)));
@@ -150,13 +173,26 @@ final class BlockedipsController extends AdminController
         $this->checkToken();
         $ids = $this->getSelectedIds();
 
-        if ($ids !== []) {
-            $db = Factory::getContainer()->get(\Joomla\Database\DatabaseDriver::class);
-            $query = $db->getQuery(true)
-                ->update($db->quoteName('#__loginguard_blocked_ips'))
+        $db = Factory::getContainer()->get(\Joomla\Database\DatabaseDriver::class);
+        $db->transactionStart();
+        try {
+            if ($ids !== []) {
+                $query = $db->getQuery(true)
+                    ->update($db->quoteName('#__loginguard_blocked_ips'))
                 ->set($db->quoteName('enabled') . ' = ' . (string) $enabled)
                 ->whereIn($db->quoteName('id'), $ids);
-            $db->setQuery($query)->execute();
+                $db->setQuery($query)->execute();
+            }
+            $action = match ($messageKey) {
+                'COM_LOGINGUARD_BLOCKEDIPS_N_ITEMS_ENABLED' => 'blocked_ip.enable',
+                'COM_LOGINGUARD_BLOCKEDIPS_N_ITEMS_UNBLOCKED' => 'blocked_ip.unblock',
+                default => 'blocked_ip.disable',
+            };
+            (new AdminAuditService($db))->append(Factory::getApplication()->getIdentity(), $action, 'blocked_ip', implode(',', $ids), ['record_count' => count($ids), 'enabled' => $enabled]);
+            $db->transactionCommit();
+        } catch (\Throwable $exception) {
+            $db->transactionRollback();
+            throw $exception;
         }
 
         $this->setMessage(Text::plural($messageKey, count($ids)));
