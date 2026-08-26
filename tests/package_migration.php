@@ -26,6 +26,7 @@ $required = [
     'loginguard.xml',
     'administrator/components/com_loginguard/sql/install.mysql.utf8.sql',
     'administrator/components/com_loginguard/sql/updates/mysql/0.2.27.sql',
+    'administrator/components/com_loginguard/sql/updates/mysql/0.2.27.1.sql',
     'administrator/components/com_loginguard/src/Model/AdminauditModel.php',
     'administrator/components/com_loginguard/src/View/Adminaudit/HtmlView.php',
     'administrator/components/com_loginguard/tmpl/adminaudit/default.php',
@@ -38,6 +39,7 @@ foreach ($required as $entry) {
 
 $manifest = simplexml_load_string((string) $component->getFromName('loginguard.xml'));
 $migration = (string) $component->getFromName('administrator/components/com_loginguard/sql/updates/mysql/0.2.27.sql');
+$repairMigration = (string) $component->getFromName('administrator/components/com_loginguard/sql/updates/mysql/0.2.27.1.sql');
 $install = (string) $component->getFromName('administrator/components/com_loginguard/sql/install.mysql.utf8.sql');
 $component->close();
 unlink($temporary);
@@ -50,6 +52,9 @@ foreach ([$migration, $install] as $sql) {
     if (!str_contains($sql, '#__loginguard_admin_audit') || !str_contains($sql, '`target_id` text')) {
         throw new RuntimeException('Component artifact schema does not create the lossless admin audit table');
     }
+}
+if (!str_contains($repairMigration, 'actor_username') || !str_contains($repairMigration, 'MODIFY `target_id` text NULL DEFAULT NULL')) {
+    throw new RuntimeException('Component artifact does not contain the post-0.2.27 legacy repair migration');
 }
 
 echo "Built package migration wiring verified successfully\n";

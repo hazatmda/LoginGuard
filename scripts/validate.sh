@@ -5,6 +5,7 @@ find plugins administrator -name "*.php" -exec php -l {} \;
 php tests/v020_runtime_baseline.php
 php tests/security_regressions.php
 php tests/admin_audit_service.php
+php tests/admin_audit_migration.php
 
 
 php <<'PHP'

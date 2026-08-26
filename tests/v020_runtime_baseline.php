@@ -9,6 +9,7 @@ $allowed = [
     'administrator/components/com_loginguard/sql/install.mysql.utf8.sql',
     'administrator/components/com_loginguard/sql/uninstall.mysql.utf8.sql',
     'administrator/components/com_loginguard/sql/updates/mysql/0.2.27.sql',
+    'administrator/components/com_loginguard/sql/updates/mysql/0.2.27.1.sql',
     'administrator/components/com_loginguard/language/en-GB/en-GB.com_loginguard.ini',
     'administrator/components/com_loginguard/language/en-GB/en-GB.com_loginguard.sys.ini',
     'administrator/components/com_loginguard/src/Controller/AttemptsController.php',
@@ -28,7 +29,8 @@ $allowed = [
     'plugins/user/loginguard/sql/uninstall.mysql.utf8.sql',
     'plugins/user/loginguard/sql/updates/mysql/0.2.26.sql',
     'plugins/user/loginguard/sql/updates/mysql/0.2.27.sql',
-    'scripts/validate.sh', 'tests/admin_audit_service.php', 'tests/package_migration.php',
+    'scripts/validate.sh', 'tests/admin_audit_service.php', 'tests/admin_audit_migration.php',
+    'tests/fixtures/admin_audit_legacy.sql', 'tests/package_migration.php',
     'tests/security_regressions.php', 'tests/v020_runtime_baseline.php',
     'updates/loginguard.xml',
 ];
