@@ -5,10 +5,10 @@
         <description>LoginGuard security, reliability, MFA auditing, cleanup, and administrator monitoring package.</description>
         <element>com_loginguard</element>
         <type>component</type>
-        <version>0.2.24</version>
-        <infourl title="LoginGuard">https://github.com/hazatmda/LoginGuard/releases/tag/v0.2.24</infourl>
+        <version>0.2.25</version>
+        <infourl title="LoginGuard">https://github.com/hazatmda/LoginGuard/releases/tag/v0.2.25</infourl>
         <downloads>
-            <downloadurl type="full" format="zip">https://github.com/hazatmda/LoginGuard/releases/download/v0.2.24/pkg_loginguard_v0.2.24.zip</downloadurl>
+            <downloadurl type="full" format="zip">https://github.com/hazatmda/LoginGuard/releases/download/v0.2.25/pkg_loginguard_v0.2.25.zip</downloadurl>
         </downloads>
         <maintainer>Hazim</maintainer>
         <maintainerurl>https://github.com/hazatmda/LoginGuard</maintainerurl>

@@ -4,7 +4,7 @@ Joomla 5 package for login attempt detection, MFA-aware auditing, IP enforcement
 
 ## Status
 
-Current development version: `0.2.24`.
+Current development version: `0.2.25`.
 
 ## Core capabilities
 
@@ -89,7 +89,7 @@ bash scripts/build.sh
 Generated package:
 
 ```text
-packages/pkg_loginguard_v0.2.24.zip
+packages/pkg_loginguard_v0.2.25.zip
 ```
 
 ## Versioning policy
@@ -106,15 +106,15 @@ Before release, these must match:
 - release notes
 
 ```text
-version: 0.2.24
-tag: v0.2.24
-package: pkg_loginguard_v0.2.24.zip
+version: 0.2.25
+tag: v0.2.25
+package: pkg_loginguard_v0.2.25.zip
 ```
 
 ### Stable release sequence
 
 1. Obtain a clean PR review and green GitHub CI validation on PHP 8.1, 8.2, 8.3, and 8.4.
-2. Merge the validated v0.2.24 version to `main`.
+2. Merge the validated v0.2.25 version to `main`.
 3. GitHub Actions validates and builds the merged commit, then automatically creates the exact `v${VERSION}` release if it does not already exist.
 4. The workflow attaches the exact `pkg_loginguard_v${VERSION}.zip` package to that release.
 5. The workflow verifies that the Joomla updater can retrieve the exact release asset referenced by `updates/loginguard.xml`.

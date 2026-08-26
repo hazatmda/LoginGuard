@@ -1,0 +1,1 @@
+-- LoginGuard 0.2.25 requires no schema changes.

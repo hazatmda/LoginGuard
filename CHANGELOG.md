@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.2.25
+
+- Restored LoginGuard's neutral `onUserLogin` result contribution from the known-good v0.2.20 lifecycle boundary so Joomla retains sole ownership of successful primary-login aggregation and captive MFA routing.
+- Added executable regression coverage for the callback result and input passivity.
+
 ## 0.2.24
 
 - Removed LoginGuard's redundant Test Email control; use Joomla Global Configuration for mail testing.
