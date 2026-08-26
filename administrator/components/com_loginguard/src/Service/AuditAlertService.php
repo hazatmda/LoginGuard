@@ -26,6 +26,12 @@ final class AuditAlertService
         }
 
         $status = (string) ($record['status'] ?? '');
+        // Pending captive MFA is observational telemetry, never an outcome.
+        // Keep it out of both configured alert paths and failed throttling even
+        // if a caller accidentally forwards it to this shared service.
+        if ($status === 'MFA_PENDING') {
+            return;
+        }
         $isSuccess = $status === 'SUCCESS_LOGIN';
         if ($isSuccess && !(int) $params->get('audit_alert_success', 0)) {
             return;
@@ -140,7 +146,7 @@ final class AuditAlertService
             'full_name' => (string) ($record['name'] ?? ''),
             'email' => (string) ($record['email'] ?? ''),
             'user_agent' => (string) ($record['user_agent'] ?? ''),
-            'mfa_method' => (string) ($record['mfa_method'] ?? ''),
+            'mfa_method' => $this->formatMfaMethod((string) ($record['mfa_method'] ?? '')),
             'mfa_status' => $this->formatAlertStatus((string) ($record['mfa_status'] ?? '')),
             'mfa_reason' => $this->formatAlertFailureReason((string) ($record['mfa_reason'] ?? '')),
         ];
@@ -204,7 +210,7 @@ final class AuditAlertService
 
     private function getDefaultAlertBodyTemplate(): string
     {
-        return "LoginGuard recorded a {status} event on {site_name}.\n\nFull Name: {full_name}\nUsername: {username}\nEmail: {email}\nIP Address: {ip}\nWhere: {where}\nBrowser: {browser}\nOperating System: {os}\nFailure Reason: {failure_reason}\nUser Agent: {user_agent}\nDate/Time: {datetime}\n\nGenerated automatically by Login Guard MDA.";
+        return "LoginGuard recorded a {status} event on {site_name}.\n\nFull Name: {full_name}\nUsername: {username}\nEmail: {email}\nIP Address: {ip}\nWhere: {where}\nBrowser: {browser}\nOperating System: {os}\nFailure Reason: {failure_reason}\nMFA Method: {mfa_method}\nMFA Status: {mfa_status}\nMFA Result: {mfa_reason}\nUser Agent: {user_agent}\nDate/Time: {datetime}\n\nGenerated automatically by Login Guard MDA.";
     }
 
     private function getDefaultBlockedIpAlertBodyTemplate(): string
@@ -380,6 +386,12 @@ final class AuditAlertService
             'MFA_TRY_LIMIT' => 'MFA TRY LIMIT',
             default => str_replace('_', ' ', strtoupper($status)),
         };
+    }
+
+    private function formatMfaMethod(string $method): string
+    {
+        $method = trim($method);
+        return $method === '' ? '' : ucwords(strtolower(str_replace(['_', '-'], ' ', $method)));
     }
 
     private function formatAlertFailureReason(string $reason): string

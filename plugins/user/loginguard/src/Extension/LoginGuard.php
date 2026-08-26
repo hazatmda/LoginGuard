@@ -153,41 +153,24 @@ final class LoginGuard extends CMSPlugin
         $user = $payload['user'] ?? $payload;
 
         $userId = (int) $this->readPayloadValue($user, 'id', 0);
-        $requiresMfa = $this->hasActiveMfaMethod($userId);
+        $client = $this->detectWhere();
+        // This deployment requires every interactive web login to complete
+        // Joomla captive MFA. Joomla does not expose a lifecycle signal here
+        // which also covers mandatory first-time setup, so do not infer final
+        // authentication from the presence of an active-method row. API and CLI
+        // authentication cannot enter the web captive flow and remain final.
+        $requiresMfa = in_array($client, ['frontend', 'backend'], true);
 
         $this->storeAttempt([
             'name' => $this->readPayloadValue($user, 'name', ''),
             'username' => $this->readPayloadValue($user, 'username', $this->readPayloadValue($payload, 'username', null)),
             'email' => $this->readPayloadValue($user, 'email', $this->readPayloadValue($payload, 'email', '')),
             'user_id' => $userId,
-            // Joomla routes users with an active MFA record through its captive
-            // controller. This read-only classification neither reads nor
-            // changes Joomla's routing/session state.
+            // Joomla alone owns captive routing; LoginGuard only classifies the
+            // primary interactive event as neutral, incomplete telemetry.
             'status' => $requiresMfa ? 'MFA_PENDING' : 'SUCCESS_LOGIN',
             'reason' => $requiresMfa ? 'MFA_REQUIRED' : '',
         ]);
-    }
-
-    private function hasActiveMfaMethod(int $userId): bool
-    {
-        if ($userId <= 0) {
-            return false;
-        }
-
-        try {
-            $db = $this->getDatabase();
-            $query = $db->getQuery(true)
-                ->select('COUNT(*)')
-                ->from($db->quoteName('#__user_mfa'))
-                ->where($db->quoteName('user_id') . ' = ' . (string) $userId);
-            $db->setQuery($query);
-
-            return (int) $db->loadResult() > 0;
-        } catch (Throwable $exception) {
-            // Fail closed for notification accuracy without affecting Joomla's login.
-            $this->recordFailure('mfa', $exception);
-            return true;
-        }
     }
 
     /** Log a failed Joomla username/password login without storing plaintext passwords. */

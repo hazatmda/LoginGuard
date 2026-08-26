@@ -12,13 +12,12 @@ Current development version: `0.2.24`.
 - Record failed username/password login attempts
 - Record blocked login attempts
 - Audit Joomla captive Multi-factor Authentication outcomes without storing MFA codes
-- Reclassify primary-auth success as `MFA_PENDING` when captive MFA is required and finalize `SUCCESS_LOGIN` only after MFA succeeds
+- Treat frontend/backend primary authentication as `MFA_PENDING` under this site's mandatory-MFA policy and finalize `SUCCESS_LOGIN` only after Joomla emits captive success
 - Capture server-established `REMOTE_ADDR`, name, username, status, failure reason, location metadata, browser, operating system, user agent, and UTC datetime without storing plaintext passwords
 - Provide Dashboard telemetry, Login Information, Configuration, Blocked IPs, and About views
 - Apply manual and threshold-based IP enforcement with whitelist support
 - Use separate configurable MFA-failure blocking thresholds
 - Send optional Joomla mail alerts for login, block, and MFA security events
-- Send an administrator-triggered, fixed diagnostic email to saved alert recipients without creating security telemetry
 - Run scheduled bounded retention cleanup
 - Export complete audit data with spreadsheet-formula protection applied only at export time
 - Record administrator block-management and audit-export actions
@@ -47,7 +46,9 @@ SUCCESS primary authentication
         -> SUCCESS_LOGIN finalized
 ```
 
-Users without a captive MFA requirement continue to be recorded as `SUCCESS_LOGIN` normally.
+For this mandatory-MFA deployment, every frontend/backend primary-authentication event remains pending, including first-time MFA setup where no active method row exists. LoginGuard does not inspect or mutate Joomla MFA session/routing state and does not redirect. API and CLI authentication cannot enter Joomla's interactive captive flow, so those clients continue to record `SUCCESS_LOGIN` immediately.
+
+`MFA_PENDING` is neutral telemetry only: it is excluded from success and failed alerts, throttling, automatic blocking, and threshold notifications. Captive success records optional `MFA_SUCCESS` telemetry plus exactly one final `SUCCESS_LOGIN`, and uses the shared Success Alert with MFA metadata. Captive failures use the shared Failed Alert with the same MFA variables.
 
 ## Network-origin telemetry in 0.2.24
 

@@ -80,7 +80,15 @@ final class LoginGuardMfa extends CMSPlugin implements SubscriberInterface
                 $this->insertAttempt($user, $context, 'MFA_SUCCESS', 'MFA_COMPLETED', $method);
             }
             $this->insertAttempt($user, $context, 'SUCCESS_LOGIN', '', $method, 'login');
-            $this->sendSharedAuditAlert($user, $context, 'SUCCESS_LOGIN', '', $method);
+            $this->sendSharedAuditAlert(
+                $user,
+                $context,
+                'SUCCESS_LOGIN',
+                '',
+                $method,
+                'MFA_SUCCESS',
+                'MFA_COMPLETED'
+            );
             $this->recordHealth('mfa', 'healthy', 'Last MFA validation completed successfully.');
         } catch (Throwable $exception) {
             $this->recordFailure('mfa', $exception);
@@ -288,7 +296,15 @@ final class LoginGuardMfa extends CMSPlugin implements SubscriberInterface
         ], (string) $params->get('audit_alert_recipients', ''));
     }
 
-    private function sendSharedAuditAlert($user, array $context, string $status, string $reason, string $method): void
+    private function sendSharedAuditAlert(
+        $user,
+        array $context,
+        string $status,
+        string $reason,
+        string $method,
+        ?string $mfaStatus = null,
+        ?string $mfaReason = null
+    ): void
     {
         $record = [
             'user_id' => (int) ($user->id ?? 0),
@@ -303,8 +319,8 @@ final class LoginGuardMfa extends CMSPlugin implements SubscriberInterface
             'status' => $status,
             'reason' => $reason,
             'mfa_method' => $method !== '' ? $method : 'Unknown',
-            'mfa_status' => $status,
-            'mfa_reason' => $reason,
+            'mfa_status' => $mfaStatus ?? $status,
+            'mfa_reason' => $mfaReason ?? $reason,
             'created' => gmdate('Y-m-d H:i:s'),
         ];
 

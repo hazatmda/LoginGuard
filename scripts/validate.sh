@@ -259,11 +259,11 @@ for token in ['AuditAlertService', 'buildAlertHtmlBody', 'formatConfiguredDateTi
         raise SystemExit(f'Shared audit alert pipeline missing: {token}')
 if '(new AuditAlertService())->send' not in login_guard or '(new AuditAlertService())->send' not in mfa_plugin:
     raise SystemExit('Password and MFA outcomes must call the same audit alert service')
-for token in ['hasActiveMfaMethod(', "'status' => $requiresMfa ? 'MFA_PENDING' : 'SUCCESS_LOGIN'"]:
+for token in ["in_array($client, ['frontend', 'backend'], true)", "'status' => $requiresMfa ? 'MFA_PENDING' : 'SUCCESS_LOGIN'"]:
     if token not in login_guard:
-        raise SystemExit(f'Primary success must defer captive MFA via read-only classification: {token}')
+        raise SystemExit(f'Interactive primary success must remain pending under mandatory MFA policy: {token}')
 after_login = login_guard[login_guard.index('public function onUserAfterLogin'):login_guard.index('public function onUserLoginFailure')]
-if "getSession()" in after_login or 'sendAuditAlert(' in after_login:
+if "getSession()" in after_login or 'sendAuditAlert(' in after_login or '#__user_mfa' in after_login:
     raise SystemExit('Primary MFA classification must not couple to Joomla session state or directly alert')
 store_attempt = login_guard[login_guard.index('private function storeAttempt'):login_guard.index('private function getDatabase')]
 pending_guard = "if (($record['status'] ?? '') === 'MFA_PENDING')"
@@ -279,6 +279,17 @@ mfa_success = mfa_plugin[mfa_plugin.index('public function onMfaSuccess'):mfa_pl
 for token in ["'MFA_SUCCESS'", "'SUCCESS_LOGIN'", 'sendSharedAuditAlert(']:
     if token not in mfa_success:
         raise SystemExit(f'MFA completion must deliver one normal success outcome: {token}')
+for token in ["'MFA_SUCCESS',", "'MFA_COMPLETED'"]:
+    if token not in mfa_success:
+        raise SystemExit(f'Final Success Alert must retain captive MFA metadata: {token}')
+if "if ($status === 'MFA_PENDING')" not in audit_service:
+    raise SystemExit('Shared alert service must reject neutral MFA_PENDING telemetry defensively')
+for token in ['MFA Method: {mfa_method}', 'MFA Status: {mfa_status}', 'MFA Result: {mfa_reason}']:
+    if token not in audit_service or token.replace('\n', '&#10;') not in config_text:
+        raise SystemExit(f'Default Success/Failed templates must expose MFA metadata: {token}')
+for update in Path('plugins/user/loginguard/sql/updates/mysql').glob('*.sql'):
+    if 'audit_alert_success_body' in update.read_text(encoding='utf-8') or 'audit_alert_failed_body' in update.read_text(encoding='utf-8'):
+        raise SystemExit('Upgrades must preserve administrator-saved alert templates')
 
 for obsolete in ['name="trusted_proxies"', 'name="logging_level"', 'name="export_requires_permission"']:
     if obsolete in config_text:

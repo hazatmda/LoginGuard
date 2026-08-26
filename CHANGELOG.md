@@ -4,7 +4,8 @@
 
 - Removed LoginGuard's redundant Test Email control; use Joomla Global Configuration for mail testing.
 - Restored a passive post-login boundary by removing session correlation and pre-captive MFA database checks from the User plugin.
-- Deferred the normal success audit and alert for users with an active Joomla MFA method until the captive success event, using only a read-only MFA-record check and no Joomla session or routing state.
+- Deferred every interactive frontend/backend primary success until Joomla's captive-success event, conservatively covering mandatory first-time setup without querying MFA records or touching Joomla session/routing state; API and CLI outcomes remain immediate.
+- Kept `MFA_PENDING` as neutral telemetry outside alerts, throttling, blocking, and thresholds, and added accurate method/status/result metadata to the shared Success/Failed Alert defaults without replacing saved templates.
 - Kept MFA event auditing observational and independent of Joomla captive routing state.
 - Simplified dashboard hierarchy, time-range controls, and runtime-health presentation.
 
