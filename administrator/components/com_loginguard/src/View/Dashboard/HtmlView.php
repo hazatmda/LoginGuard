@@ -25,7 +25,6 @@ final class HtmlView extends BaseHtmlView
     protected $attackOriginSummary = [];
     protected $operationalStatus = [];
     protected $healthStatus = [];
-    protected $mfaTelemetry = [];
     protected $dashboardTimeframe = 'today';
 
     public function display($tpl = null): void
@@ -54,7 +53,6 @@ final class HtmlView extends BaseHtmlView
         $this->attackOriginSummary = (array) $this->get('AttackOriginSummary');
         $this->operationalStatus = (array) $this->get('OperationalStatus');
         $this->healthStatus = $this->loadHealthStatus();
-        $this->mfaTelemetry = $this->loadMfaTelemetry();
         $this->actions = LoginGuardHelper::getActions();
 
         if (count($errors = $this->get('Errors'))) {
@@ -96,37 +94,6 @@ final class HtmlView extends BaseHtmlView
         }
 
         return $health;
-    }
-
-    /** @return array<string, int> */
-    private function loadMfaTelemetry(): array
-    {
-        $counts = ['pending' => 0, 'failed' => 0, 'success' => 0, 'try_limit' => 0];
-        try {
-            $db = Factory::getContainer()->get(DatabaseDriver::class);
-            $query = $db->getQuery(true)
-                ->select([$db->quoteName('status'), 'COUNT(*) AS ' . $db->quoteName('total')])
-                ->from($db->quoteName('#__loginguard_attempts'))
-                ->where($db->quoteName('status') . ' IN (' . implode(',', array_map([$db, 'quote'], ['MFA_PENDING', 'MFA_FAILED', 'MFA_SUCCESS', 'MFA_TRY_LIMIT'])) . ')');
-
-            $start = $this->getTimeframeStart();
-            if ($start !== '') {
-                $query->where($db->quoteName('created') . ' >= ' . $db->quote($start));
-            }
-            $query->group($db->quoteName('status'));
-            $db->setQuery($query);
-
-            $mapping = ['MFA_PENDING' => 'pending', 'MFA_FAILED' => 'failed', 'MFA_SUCCESS' => 'success', 'MFA_TRY_LIMIT' => 'try_limit'];
-            foreach ($db->loadObjectList() ?: [] as $row) {
-                if (isset($mapping[(string) $row->status])) {
-                    $counts[$mapping[(string) $row->status]] = (int) $row->total;
-                }
-            }
-        } catch (Throwable) {
-            // Dashboard remains available even if pre-migration data is incomplete.
-        }
-
-        return $counts;
     }
 
     private function getTimeframeStart(): string

@@ -12,7 +12,6 @@ HTMLHelper::_('behavior.core');
 $operationalStatus = $this->operationalStatus ?? [];
 $cleanupMetrics = $this->cleanupMetrics ?? [];
 $healthStatus = $this->healthStatus ?? [];
-$mfaTelemetry = $this->mfaTelemetry ?? [];
 $timeframe = (string) ($this->dashboardTimeframe ?? 'today');
 $tableClass = 'table table-sm table-striped table-hover align-middle mb-0';
 
@@ -36,18 +35,11 @@ $breakdownCards = [
     ['backend_failed', 'COM_LOGINGUARD_DASHBOARD_BACKEND_FAILED', 'danger'],
 ];
 
-$mfaCards = [
-    ['pending', 'COM_LOGINGUARD_DASHBOARD_MFA_PENDING', 'info'],
-    ['failed', 'COM_LOGINGUARD_DASHBOARD_MFA_FAILED', 'danger'],
-    ['success', 'COM_LOGINGUARD_DASHBOARD_MFA_SUCCESS', 'success'],
-    ['try_limit', 'COM_LOGINGUARD_DASHBOARD_MFA_TRY_LIMIT', 'warning'],
-];
 
 $healthLabels = [
     'database' => 'COM_LOGINGUARD_HEALTH_DATABASE',
     'enforcement' => 'COM_LOGINGUARD_HEALTH_ENFORCEMENT',
     'automatic_block' => 'COM_LOGINGUARD_HEALTH_AUTOMATIC_BLOCK',
-    'mfa' => 'COM_LOGINGUARD_HEALTH_MFA',
     'mail' => 'COM_LOGINGUARD_HEALTH_MAIL',
     'cleanup' => 'COM_LOGINGUARD_HEALTH_CLEANUP',
 ];
@@ -105,23 +97,7 @@ $failureReasonLabels = [
     </div>
 
     <div class="row g-3 mb-3">
-        <div class="col-xl-6">
-            <div class="card h-100"><div class="card-body">
-                <div class="d-flex justify-content-between align-items-center mb-2">
-                    <h2 class="h5 mb-0"><?php echo Text::_('COM_LOGINGUARD_DASHBOARD_MFA_TELEMETRY'); ?></h2>
-                    <span class="badge bg-secondary"><?php echo Text::_('COM_LOGINGUARD_DASHBOARD_MFA_NO_CODE_STORAGE'); ?></span>
-                </div>
-                <div class="lg-grid">
-                    <?php foreach ($mfaCards as $card) : ?>
-                        <div class="border rounded p-3 text-center">
-                            <div class="text-muted small text-uppercase mb-1"><?php echo Text::_($card[1]); ?></div>
-                            <div class="h3 mb-0 text-<?php echo $this->escape($card[2]); ?>"><?php echo (int) ($mfaTelemetry[$card[0]] ?? 0); ?></div>
-                        </div>
-                    <?php endforeach; ?>
-                </div>
-            </div></div>
-        </div>
-        <div class="col-xl-6">
+        <div class="col-12">
             <div class="card h-100"><div class="card-body">
                 <h2 class="h5"><?php echo Text::_('COM_LOGINGUARD_DASHBOARD_SYSTEM_HEALTH'); ?></h2>
                 <div class="table-responsive"><table class="table table-sm align-middle mb-0">
@@ -164,7 +140,6 @@ $failureReasonLabels = [
             <h2 class="h5"><?php echo Text::_('COM_LOGINGUARD_DASHBOARD_QUICK_ACTIONS'); ?></h2>
             <div class="d-grid gap-2">
                 <a class="btn btn-sm btn-primary" href="<?php echo Route::_('index.php?option=com_loginguard&view=attempts&filter[status]=FAILED_LOGIN'); ?>"><?php echo Text::_('COM_LOGINGUARD_QUICK_VIEW_FAILED_LOGINS'); ?></a>
-                <a class="btn btn-sm btn-outline-primary" href="<?php echo Route::_('index.php?option=com_loginguard&view=attempts&filter[status]=MFA_FAILED'); ?>"><?php echo Text::_('COM_LOGINGUARD_QUICK_VIEW_MFA_FAILURES'); ?></a>
                 <a class="btn btn-sm btn-outline-primary" href="<?php echo Route::_('index.php?option=com_loginguard&view=blockedips'); ?>"><?php echo Text::_('COM_LOGINGUARD_QUICK_VIEW_BLOCKED_IPS'); ?></a>
                 <?php if ($this->actions->get('core.admin')) : ?><button type="submit" class="btn btn-sm btn-warning" name="task" value="dashboard.cleanup"><?php echo Text::_('COM_LOGINGUARD_QUICK_RUN_CLEANUP'); ?></button><?php endif; ?>
                 <a class="btn btn-sm btn-secondary" href="<?php echo Route::_('index.php?option=com_config&view=component&component=com_loginguard'); ?>"><?php echo Text::_('COM_LOGINGUARD_QUICK_OPEN_CONFIGURATION'); ?></a>

@@ -7,10 +7,6 @@
             <option value="SUCCESS_LOGIN">COM_LOGINGUARD_STATUS_SUCCESS_LOGIN</option>
             <option value="FAILED_LOGIN">COM_LOGINGUARD_STATUS_FAILED_LOGIN</option>
             <option value="BLOCKED_LOGIN">COM_LOGINGUARD_STATUS_BLOCKED_LOGIN</option>
-            <option value="MFA_PENDING">COM_LOGINGUARD_STATUS_MFA_PENDING</option>
-            <option value="MFA_FAILED">COM_LOGINGUARD_STATUS_MFA_FAILED</option>
-            <option value="MFA_SUCCESS">COM_LOGINGUARD_STATUS_MFA_SUCCESS</option>
-            <option value="MFA_TRY_LIMIT">COM_LOGINGUARD_STATUS_MFA_TRY_LIMIT</option>
         </field>
         <field name="where_at" type="list" label="COM_LOGINGUARD_FILTER_WHERE" onchange="this.form.submit();" default="" validate="options">
             <option value="">COM_LOGINGUARD_FILTER_WHERE</option>
@@ -30,7 +26,6 @@
             <option value="status ASC">COM_LOGINGUARD_HEADING_STATUS_ASC</option><option value="status DESC">COM_LOGINGUARD_HEADING_STATUS_DESC</option>
             <option value="reason ASC">COM_LOGINGUARD_HEADING_FAILURE_REASON_ASC</option><option value="reason DESC">COM_LOGINGUARD_HEADING_FAILURE_REASON_DESC</option>
             <option value="where_at ASC">COM_LOGINGUARD_HEADING_WHERE_ASC</option><option value="where_at DESC">COM_LOGINGUARD_HEADING_WHERE_DESC</option>
-            <option value="mfa_method ASC">COM_LOGINGUARD_HEADING_MFA_METHOD_ASC</option><option value="mfa_method DESC">COM_LOGINGUARD_HEADING_MFA_METHOD_DESC</option>
             <option value="browser ASC">COM_LOGINGUARD_HEADING_BROWSER_ASC</option><option value="browser DESC">COM_LOGINGUARD_HEADING_BROWSER_DESC</option>
             <option value="operating_system ASC">COM_LOGINGUARD_HEADING_OS_ASC</option><option value="operating_system DESC">COM_LOGINGUARD_HEADING_OS_DESC</option>
             <option value="user_agent ASC">COM_LOGINGUARD_HEADING_USER_AGENT_ASC</option><option value="user_agent DESC">COM_LOGINGUARD_HEADING_USER_AGENT_DESC</option>

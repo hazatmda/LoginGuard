@@ -73,7 +73,7 @@ final class AttemptsController extends AdminController
         $output = fopen('php://output', 'wb');
         fwrite($output, "\xEF\xBB\xBF");
         fputcsv($output, [
-            'ID', 'IP Address', 'Name', 'Username', 'Status', 'Failure Reason', 'Where', 'Attempt Type', 'MFA Method',
+            'ID', 'IP Address', 'Name', 'Username', 'Status', 'Failure Reason', 'Where', 'Attempt Type',
             'Browser', 'Operating System', 'User Agent', 'Datetime',
         ]);
 
@@ -81,7 +81,7 @@ final class AttemptsController extends AdminController
             $whereAt = (string) ($row['where_at'] ?: $row['client']);
             $cells = [
                 $row['id'], $row['ip_address'], $row['name'], $row['username'], $row['status'], $row['reason'], $whereAt,
-                $row['attempt_type'] ?? '', $row['mfa_method'] ?? '', $row['browser'], $row['operating_system'], $row['user_agent'],
+                $row['attempt_type'] ?? '', $row['browser'], $row['operating_system'], $row['user_agent'],
                 LoginGuardHelper::formatConfiguredDateTime((string) $row['created']),
             ];
 

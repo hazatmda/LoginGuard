@@ -17,7 +17,6 @@ CREATE TABLE IF NOT EXISTS `#__loginguard_attempts` (
   `where_at` varchar(50) NOT NULL DEFAULT 'frontend',
   `user_agent` text NOT NULL,
   `attempt_type` varchar(50) NOT NULL DEFAULT 'login',
-  `mfa_method` varchar(100) NOT NULL DEFAULT '',
   `client` varchar(50) NOT NULL DEFAULT 'frontend',
   `reason` text NOT NULL,
   `created` datetime NOT NULL,

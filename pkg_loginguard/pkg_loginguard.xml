@@ -4,14 +4,13 @@
     <packagename>loginguard</packagename>
     <author>Hazim</author>
     <creationDate>2026-05-15</creationDate>
-    <version>0.2.24</version>
-    <description>LoginGuard package with login auditing, MFA captive auditing, scheduled cleanup, IP enforcement, and administrator monitoring.</description>
+    <version>0.2.25</version>
+    <description>LoginGuard package with login auditing, scheduled cleanup, IP enforcement, and administrator monitoring.</description>
     <scriptfile>script.php</scriptfile>
     <blockChildUninstall>true</blockChildUninstall>
 
     <files>
         <file type="plugin" id="loginguard" group="user">plg_user_loginguard.zip</file>
-        <file type="plugin" id="loginguardmfa" group="system">plg_system_loginguardmfa.zip</file>
         <file type="plugin" id="loginguardcleanup" group="task">plg_task_loginguardcleanup.zip</file>
         <file type="component" id="com_loginguard">com_loginguard.zip</file>
     </files>
