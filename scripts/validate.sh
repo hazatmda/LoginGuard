@@ -251,7 +251,8 @@ for forbidden in ["gmdate('Y-m-d H:i:s', time() - 600)", "order($db->quoteName('
 
 # GeoIP enrichment is deliberately deferred in 0.2.23. Runtime code, alert
 # templates, and component configuration must not contain a lookup path or
-# expose derived location/network-provider fields. Legacy schema is retained.
+# expose derived location/network-provider fields. Legacy schema is retained
+# because portable, drift-safe conditional column drops are unavailable.
 audit_service_geoip = Path('administrator/components/com_loginguard/src/Service/AuditAlertService.php').read_text(encoding='utf-8')
 config_xml_geoip = Path('administrator/components/com_loginguard/config.xml').read_text(encoding='utf-8')
 runtime_geoip_tokens = [
@@ -268,9 +269,39 @@ for field in geoip_fields:
     if variable in login_guard or variable in mfa_plugin or variable in audit_service_geoip or variable in config_xml_geoip:
         raise SystemExit(f'GeoIP alert variable remains: {variable}')
 install_sql = Path('plugins/user/loginguard/sql/install.mysql.utf8.sql').read_text(encoding='utf-8')
+migration_sql = Path('plugins/user/loginguard/sql/updates/mysql/0.2.23.sql').read_text(encoding='utf-8')
 for field in geoip_fields:
     if f'`{field}`' not in install_sql:
-        raise SystemExit(f'Legacy GeoIP schema column was destructively removed: {field}')
+        raise SystemExit(f'Drift-safe legacy GeoIP schema strategy changed unexpectedly: {field}')
+executable_migration_sql = '\n'.join(
+    line for line in migration_sql.splitlines() if not line.lstrip().startswith('--')
+).strip()
+if executable_migration_sql:
+    raise SystemExit('v0.2.23 must not use a non-portable destructive GeoIP migration')
+
+# Previously saved params can contain the old rows even though the current XML
+# defaults do not. Model the narrow render-time cleanup and ensure it removes
+# all six tokens/rows without resetting unrelated administrator text.
+import re
+legacy_names = '|'.join(geoip_fields)
+saved_template = (
+    'Custom administrator introduction.\n\n'
+    + '\n'.join(f'{name.replace("_", " ").title()}: {{{name}}}' for name in geoip_fields)
+    + '\nTicket: SEC-42\nIP Address: {ip}\nCustom footer.'
+)
+normalised = re.sub(
+    rf'^[ \t]*[^{{}}\r\n:]{{1,80}}:[ \t]*\{{(?:{legacy_names})\}}[ \t]*(?:\r?\n|$)',
+    '', saved_template, flags=re.I | re.M,
+)
+normalised = re.sub(rf'\{{(?:{legacy_names})\}}', '', normalised, flags=re.I)
+if any('{' + field + '}' in normalised for field in geoip_fields):
+    raise SystemExit('Saved alert template normalization left a legacy GeoIP placeholder')
+for custom_text in ['Custom administrator introduction.', 'Ticket: SEC-42', 'IP Address: {ip}', 'Custom footer.']:
+    if custom_text not in normalised:
+        raise SystemExit(f'Saved alert template normalization removed customization: {custom_text}')
+for source in [login_guard, audit_service_geoip]:
+    if 'normaliseLegacyGeoIpTemplate($bodyTemplate)' not in source:
+        raise SystemExit('An alert renderer does not normalize saved legacy GeoIP templates')
 
 # Regression model: concurrent sessions retain independent attempt ownership;
 # refreshes are idempotent and abandoning one flow cannot affect the other.

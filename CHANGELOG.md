@@ -6,7 +6,7 @@
 - Replaced LoginGuard's dummy diagnostic message with Joomla native test-mail behavior and a Joomla 5.2 MailerFactory compatibility fallback.
 - Added a centralized trusted-proxy-aware client IP resolver supporting Cloudflare and defensively parsed X-Forwarded-For, exact IPv4/IPv6 proxy rules, and CIDR rules.
 - Hardened the existing IP whitelist so resolved exact IPv4/IPv6 and CIDR matches remain audited while bypassing active enforcement and password/MFA automatic blocks.
-- Deferred GeoIP enrichment for this release: audit records retain the trusted-proxy-aware public client IP as their only network-origin telemetry, while legacy GeoIP database columns and history remain intact.
+- Deferred GeoIP enrichment for this release: audit records retain the trusted-proxy-aware public client IP as their only network-origin telemetry. Saved alert templates are normalized at render time so retired GeoIP rows do not leak literal placeholders; legacy database columns and history remain intact because the supported MySQL migration format cannot conditionally drop drifted columns safely.
 
 ## 0.2.22
 

@@ -50,6 +50,8 @@ final class AuditAlertService
     /** @param list<string> $recipients @param array<string, string> $variables */
     private function sendMail(array $recipients, string $subjectTemplate, string $bodyTemplate, array $variables, string $status, DatabaseInterface $db): void
     {
+        $subjectTemplate = $this->normaliseLegacyGeoIpTemplate($subjectTemplate);
+        $bodyTemplate = $this->normaliseLegacyGeoIpTemplate($bodyTemplate);
         $subject = strtoupper($this->replaceAlertTemplateVariables($subjectTemplate, $variables));
         $plainBody = $this->withAlertFooter($this->replaceAlertTemplateVariables($bodyTemplate, $variables));
         $htmlBody = $this->buildAlertHtmlBody($subject, $bodyTemplate, $variables, $status);
@@ -178,6 +180,26 @@ final class AuditAlertService
             $replacements['{' . $name . '}'] = $value;
         }
         return strtr($template, $replacements);
+    }
+
+    /**
+     * Remove retired GeoIP rows from templates saved before GeoIP was deferred.
+     *
+     * Joomla preserves component params during an upgrade, so changing the XML
+     * defaults alone does not update an administrator's existing templates.
+     * Keep every unrelated customization and only remove a row whose value is a
+     * retired placeholder, then remove any remaining standalone legacy tokens.
+     */
+    private function normaliseLegacyGeoIpTemplate(string $template): string
+    {
+        $legacyNames = 'country|country_code|region|city|isp|asn';
+        $template = preg_replace(
+            '/^[ \t]*[^{}\r\n:]{1,80}:[ \t]*\{(?:' . $legacyNames . ')\}[ \t]*(?:\R|$)/mi',
+            '',
+            $template
+        ) ?? $template;
+
+        return preg_replace('/\{(?:' . $legacyNames . ')\}/i', '', $template) ?? $template;
     }
 
     private function getDefaultAlertBodyTemplate(): string

@@ -484,6 +484,8 @@ final class LoginGuard extends CMSPlugin
     /** @param list<string> $recipients @param array<string, string> $variables */
     private function sendMail(array $recipients, string $subjectTemplate, string $bodyTemplate, array $variables, string $status, DatabaseDriver $db): void
     {
+        $subjectTemplate = $this->normaliseLegacyGeoIpTemplate($subjectTemplate);
+        $bodyTemplate = $this->normaliseLegacyGeoIpTemplate($bodyTemplate);
         $subject = strtoupper($this->replaceAlertTemplateVariables($subjectTemplate, $variables));
         $plainBody = $this->withAlertFooter($this->replaceAlertTemplateVariables($bodyTemplate, $variables));
         $htmlBody = $this->buildAlertHtmlBody($subject, $bodyTemplate, $variables, $status);
@@ -609,6 +611,19 @@ final class LoginGuard extends CMSPlugin
             $replacements['{' . $name . '}'] = $value;
         }
         return strtr($template, $replacements);
+    }
+
+    /** Remove retired GeoIP rows/tokens from alert templates saved by older releases. */
+    private function normaliseLegacyGeoIpTemplate(string $template): string
+    {
+        $legacyNames = 'country|country_code|region|city|isp|asn';
+        $template = preg_replace(
+            '/^[ \t]*[^{}\r\n:]{1,80}:[ \t]*\{(?:' . $legacyNames . ')\}[ \t]*(?:\R|$)/mi',
+            '',
+            $template
+        ) ?? $template;
+
+        return preg_replace('/\{(?:' . $legacyNames . ')\}/i', '', $template) ?? $template;
     }
 
     private function getDefaultAlertBodyTemplate(): string

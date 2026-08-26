@@ -51,7 +51,9 @@ Users without a captive MFA requirement continue to be recorded as `SUCCESS_LOGI
 
 ## Network-origin telemetry in 0.2.23
 
-GeoIP enrichment is deferred and is not included in 0.2.23. LoginGuard records only the trusted-proxy-aware public client IP for network origin; it performs no PHP GeoIP, MaxMind/MMDB, or configured-map lookup and does not derive country, region, city, ISP, or ASN data. Existing database columns and historical values are retained for upgrade compatibility.
+GeoIP enrichment is deferred and is not included in 0.2.23. LoginGuard records only the trusted-proxy-aware public client IP for network origin; it performs no PHP GeoIP, MaxMind/MMDB, or configured-map lookup and does not derive country, region, city, ISP, or ASN data. Previously saved alert templates are normalized narrowly at render time to remove retired GeoIP rows and placeholders without resetting other custom text.
+
+Existing GeoIP database columns and historical values are retained. Joomla's MySQL update files are declarative SQL, and the MySQL/MariaDB versions supported by Joomla do not share a portable conditional `DROP COLUMN` form. An unconditional drop could fail an upgrade on a drifted schema, so v0.2.23 deliberately avoids that destructive migration.
 
 ## Requirements
 
