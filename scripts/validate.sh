@@ -5,6 +5,7 @@ find plugins administrator pkg_loginguard -name "*.php" -exec php -l {} \;
 
 php tests/joomla_login_event_aggregation.php
 php tests/user_login_transparency.php
+php tests/user_login_failure_event.php
 php tests/no_mfa_integration.php
 php tests/legacy_mfa_cleanup.php
 php tests/ip_blocked_reason.php

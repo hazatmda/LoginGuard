@@ -29,10 +29,9 @@ final class LoginGuard extends CMSPlugin implements SubscriberInterface
     private const MAX_USER_AGENT = 2048;
 
     /**
-     * Use Joomla's typed event surface instead of CMSPlugin's legacy listener
-     * adapter.  In particular, a void onUserAfterLogin observer must not be
-     * aggregated into the login event's results after the core User - Joomla
-     * listener has forked the authenticated session for captive MFA.
+     * Register the user events explicitly through Joomla's native typed event
+     * surface. The observers remain routing-neutral and do not modify Joomla's
+     * MFA state or redirect decisions.
      *
      * @return array<string, string>
      */
@@ -120,14 +119,9 @@ final class LoginGuard extends CMSPlugin implements SubscriberInterface
         }
 
         $arguments = $event->getArguments();
+        $response = $arguments['subject'] ?? null;
 
-        foreach (['authenticationResponse', 'subject', 0] as $key) {
-            if (array_key_exists($key, $arguments) && $arguments[$key] instanceof AuthenticationResponse) {
-                return $arguments[$key];
-            }
-        }
-
-        return null;
+        return $response instanceof AuthenticationResponse ? $response : null;
     }
 
     private function markAuthenticationResponseDenied(AuthenticationResponse $response): AuthenticationResponse
@@ -169,7 +163,13 @@ final class LoginGuard extends CMSPlugin implements SubscriberInterface
     /** Log a failed Joomla username/password login without storing plaintext passwords. */
     public function onUserLoginFailure(Event $event): void
     {
-        $payload = $this->normaliseEventPayload($event);
+        // LoginFailureEvent keeps the AuthenticationResponse in subject;
+        // options contains separate login options and must never displace it.
+        $payload = $this->getAuthenticationResponseFromEvent($event);
+
+        if ($payload === null) {
+            return;
+        }
 
         $this->storeAttempt([
             'name' => $this->readPayloadValue($payload, 'name', ''),
@@ -865,8 +865,7 @@ final class LoginGuard extends CMSPlugin implements SubscriberInterface
         return $default;
     }
 
-    /** @param array<string, mixed> $payload */
-    private function detectFailureReason(array $payload): string
+    private function detectFailureReason($payload): string
     {
         $error = strtolower((string) $this->readPayloadValue($payload, 'error_message', ''));
         $type = strtoupper((string) $this->readPayloadValue($payload, 'type', ''));

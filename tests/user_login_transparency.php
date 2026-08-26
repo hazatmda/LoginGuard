@@ -40,34 +40,10 @@ if (str_contains($afterLogin, 'addResult(')) {
     throw new RuntimeException('Post-login auditing must not alter event results');
 }
 
-// Model the relevant Joomla handoff boundary. A typed void observer receives
-// the event without CMSPlugin's legacy result adapter, so the core session fork
-// survives onUserAfterLogin and the next request can select captive MFA.
-$state = ['session_forked' => false, 'mfa_checked' => null, 'results' => []];
-$onUserLogin = static function (array &$state): void {
-    $state['session_forked'] = true;
-    $state['mfa_checked'] = 0;
-};
-$onUserAfterLogin = static function (array &$state): void {
-    // LoginGuard's typed observer performs telemetry but contributes no result
-    // and does not touch the core handoff state.
-};
-$nextRequestMfaHandler = static function (array $state): string {
-    return $state['session_forked'] && $state['mfa_checked'] === 0
-        ? 'com_users&view=captive'
-        : 'administrator/index.php';
-};
-
-$onUserLogin($state);
-$onUserAfterLogin($state);
-if ($state['results'] !== [] || $nextRequestMfaHandler($state) !== 'com_users&view=captive') {
-    throw new RuntimeException('Typed audit observer disrupted Joomla automatic captive-MFA handoff');
-}
-
 foreach (['bootComponent(', 'redirect(', 'route(', 'com_users.mfa_checked'] as $forbidden) {
     if (str_contains($source, $forbidden)) {
         throw new RuntimeException("User login lifecycle contains routing/MFA side effect: {$forbidden}");
     }
 }
 
-echo "User LoginGuard preserves Joomla's automatic typed-event MFA handoff.\n";
+echo "User LoginGuard uses routing-neutral Joomla typed event observers.\n";
