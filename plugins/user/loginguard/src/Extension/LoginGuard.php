@@ -124,6 +124,23 @@ final class LoginGuard extends CMSPlugin implements SubscriberInterface
         return $response instanceof AuthenticationResponse ? $response : null;
     }
 
+    /** @return array<string, mixed>|null */
+    private function getLoginFailurePayload(Event $event): ?array
+    {
+        if (method_exists($event, 'getAuthenticationResponse')) {
+            $response = $event->getAuthenticationResponse();
+
+            if (is_array($response)) {
+                return $response;
+            }
+        }
+
+        $arguments = $event->getArguments();
+        $response = $arguments['subject'] ?? null;
+
+        return is_array($response) ? $response : null;
+    }
+
     private function markAuthenticationResponseDenied(AuthenticationResponse $response): AuthenticationResponse
     {
         $response->status = Authentication::STATUS_DENIED;
@@ -163,9 +180,9 @@ final class LoginGuard extends CMSPlugin implements SubscriberInterface
     /** Log a failed Joomla username/password login without storing plaintext passwords. */
     public function onUserLoginFailure(Event $event): void
     {
-        // LoginFailureEvent keeps the AuthenticationResponse in subject;
-        // options contains separate login options and must never displace it.
-        $payload = $this->getAuthenticationResponseFromEvent($event);
+        // Joomla exposes LoginFailureEvent's array-cast AuthenticationResponse
+        // through getAuthenticationResponse(); options are separate login data.
+        $payload = $this->getLoginFailurePayload($event);
 
         if ($payload === null) {
             return;

@@ -30,9 +30,6 @@ namespace Joomla\Event {
 namespace Joomla\CMS\Authentication {
     class AuthenticationResponse
     {
-        public string $username = '';
-        public string $error_message = '';
-        public string $type = '';
     }
 }
 
@@ -40,27 +37,26 @@ namespace {
     define('_JEXEC', 1);
     require dirname(__DIR__) . '/plugins/user/loginguard/src/Extension/LoginGuard.php';
 
-    use Joomla\CMS\Authentication\AuthenticationResponse;
     use Joomla\Event\Event;
     use Joomla\Plugin\User\LoginGuard\Extension\LoginGuard;
 
     final class LoginFailureEventFixture extends Event
     {
         public function __construct(
-            private AuthenticationResponse $response,
+            private array $response,
             array $options
         ) {
             parent::__construct(['subject' => $response, 'options' => $options]);
         }
 
-        public function getAuthenticationResponse(): AuthenticationResponse
+        public function getAuthenticationResponse(): array
         {
             return $this->response;
         }
     }
 
     $plugin = (new ReflectionClass(LoginGuard::class))->newInstanceWithoutConstructor();
-    $extract = new ReflectionMethod(LoginGuard::class, 'getAuthenticationResponseFromEvent');
+    $extract = new ReflectionMethod(LoginGuard::class, 'getLoginFailurePayload');
     $classify = new ReflectionMethod(LoginGuard::class, 'detectFailureReason');
 
     $cases = [
@@ -69,10 +65,11 @@ namespace {
     ];
 
     foreach ($cases as [$username, $message, $type]) {
-        $response = new AuthenticationResponse();
-        $response->username = $username;
-        $response->error_message = $message;
-        $response->type = $type;
+        $response = [
+            'username' => $username,
+            'error_message' => $message,
+            'type' => $type,
+        ];
         $options = [
             'username' => 'displaced-user',
             'error_message' => 'generic options error',
@@ -82,7 +79,7 @@ namespace {
         foreach ([new LoginFailureEventFixture($response, $options), new Event(['subject' => $response, 'options' => $options])] as $event) {
             $payload = $extract->invoke($plugin, $event);
 
-            if ($payload !== $response || $payload->username !== $username || $payload->error_message !== $message) {
+            if ($payload !== $response || $payload['username'] !== $username || $payload['error_message'] !== $message) {
                 throw new RuntimeException('Login options displaced the failed authentication response');
             }
             if ($classify->invoke($plugin, $payload) !== $type) {
@@ -95,9 +92,9 @@ namespace {
     $start = strpos($source, 'public function onUserLoginFailure');
     $end = strpos($source, 'public function onUserAfterLogout', $start);
     $handler = substr($source, $start, $end - $start);
-    if (!str_contains($handler, 'getAuthenticationResponseFromEvent($event)') || str_contains($handler, 'normaliseEventPayload')) {
-        throw new RuntimeException('Failure handler must read the typed authentication response directly');
+    if (!str_contains($handler, 'getLoginFailurePayload($event)') || str_contains($handler, 'normaliseEventPayload')) {
+        throw new RuntimeException('Failure handler must read Joomla\'s array response directly');
     }
 
-    echo "Typed failed-login responses retain identity, error, and classification.\n";
+    echo "Typed array failed-login responses retain identity, error, and classification.\n";
 }
