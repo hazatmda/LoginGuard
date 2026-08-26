@@ -65,9 +65,12 @@ jobs:
 
   release-v028:
     if: >-
-      github.event_name == 'issue_comment' &&
-      github.event.issue.number == 82 &&
-      github.event.comment.body == '/release-v0.2.28'
+      (github.event_name == 'issue_comment' &&
+       github.event.issue.number == 82 &&
+       github.event.comment.body == '/release-v0.2.28') ||
+      (github.event_name == 'workflow_run' &&
+       github.event.workflow_run.id == 32992122064 &&
+       github.event.workflow_run.run_attempt >= 2)
     runs-on: ubuntu-latest
 
     steps:
