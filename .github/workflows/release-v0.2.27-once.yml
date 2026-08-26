@@ -69,8 +69,8 @@ jobs:
        github.event.issue.number == 82 &&
        github.event.comment.body == '/release-v0.2.28') ||
       (github.event_name == 'workflow_run' &&
-       github.event.workflow_run.id == 32992122064 &&
-       github.event.workflow_run.run_attempt >= 2)
+       github.event.workflow_run.head_branch == 'ci/release-v0.2.28-trigger' &&
+       github.event.workflow_run.conclusion == 'success')
     runs-on: ubuntu-latest
 
     steps:
