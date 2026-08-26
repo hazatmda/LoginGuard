@@ -14,11 +14,10 @@ use Joomla\CMS\Plugin\CMSPlugin;
 use Joomla\CMS\User\UserHelper;
 use Joomla\Database\DatabaseDriver;
 use Joomla\Event\Event;
-use Joomla\Event\SubscriberInterface;
 use Joomla\Plugin\User\LoginGuard\Service\IpResolver;
 use Throwable;
 
-final class LoginGuard extends CMSPlugin implements SubscriberInterface
+final class LoginGuard extends CMSPlugin
 {
     protected $autoloadLanguage = true;
 
@@ -29,38 +28,40 @@ final class LoginGuard extends CMSPlugin implements SubscriberInterface
     private const MAX_USER_AGENT = 2048;
 
     /**
-     * Register the user events explicitly through Joomla's native typed event
-     * surface. The observers remain routing-neutral and do not modify Joomla's
-     * MFA state or redirect decisions.
-     *
-     * @return array<string, string>
-     */
-    public static function getSubscribedEvents(): array
-    {
-        return [
-            'onUserAuthorisation' => 'onUserAuthorisation',
-            'onUserAfterLogin' => 'onUserAfterLogin',
-            'onUserLoginFailure' => 'onUserLoginFailure',
-            'onUserAfterLogout' => 'onUserAfterLogout',
-        ];
-    }
-
-    /**
      * Enforce LoginGuard IP blocking before Joomla creates an authenticated session.
      *
      * @return AuthenticationResponse|null
      */
-    public function onUserAuthorisation(Event $event): void
+    public function onUserAuthorisation($response = null, $options = [])
     {
-        $authResponse = $this->getAuthenticationResponseFromEvent($event);
+        if ($response instanceof Event) {
+            $event = $response;
+            $authResponse = $this->getAuthenticationResponseFromEvent($event);
 
-        if ($authResponse === null || !$this->enforceBlockedIp($authResponse)) {
-            return;
+            if ($authResponse === null || !$this->enforceBlockedIp($authResponse)) {
+                return null;
+            }
+
+            $deniedResponse = $this->markAuthenticationResponseDenied($authResponse);
+            $event->addResult($deniedResponse);
+            $this->enqueueBlockedLoginMessage();
+
+            return null;
         }
 
-        $deniedResponse = $this->markAuthenticationResponseDenied($authResponse);
-        $event->addResult($deniedResponse);
+        if (!$response instanceof AuthenticationResponse || !$this->enforceBlockedIp($response)) {
+            return null;
+        }
+
+        $deniedResponse = $this->markAuthenticationResponseDenied($response);
         $this->enqueueBlockedLoginMessage();
+
+        return $deniedResponse;
+    }
+
+    public function onUserLogin($user = [], $options = []): bool
+    {
+        return true;
     }
 
     private function enforceBlockedIp($payload = []): bool
@@ -119,26 +120,34 @@ final class LoginGuard extends CMSPlugin implements SubscriberInterface
         }
 
         $arguments = $event->getArguments();
-        $response = $arguments['subject'] ?? null;
-
-        return $response instanceof AuthenticationResponse ? $response : null;
-    }
-
-    /** @return array<string, mixed>|null */
-    private function getLoginFailurePayload(Event $event): ?array
-    {
-        if (method_exists($event, 'getAuthenticationResponse')) {
-            $response = $event->getAuthenticationResponse();
-
-            if (is_array($response)) {
-                return $response;
+        foreach (['authenticationResponse', 'subject', 0] as $key) {
+            if (array_key_exists($key, $arguments) && $arguments[$key] instanceof AuthenticationResponse) {
+                return $arguments[$key];
             }
         }
 
-        $arguments = $event->getArguments();
-        $response = $arguments['subject'] ?? null;
+        return null;
+    }
 
-        return is_array($response) ? $response : null;
+    /** @return array<string, mixed> */
+    private function normaliseLoginFailurePayload($response): array
+    {
+        if ($response instanceof Event) {
+            if (method_exists($response, 'getAuthenticationResponse')) {
+                $payload = $response->getAuthenticationResponse();
+
+                if (is_array($payload)) {
+                    return $payload;
+                }
+            }
+
+            $arguments = $response->getArguments();
+            $payload = $arguments['subject'] ?? null;
+
+            return is_array($payload) ? $payload : [];
+        }
+
+        return $this->normaliseEventPayload($response);
     }
 
     private function markAuthenticationResponseDenied(AuthenticationResponse $response): AuthenticationResponse
@@ -162,9 +171,9 @@ final class LoginGuard extends CMSPlugin implements SubscriberInterface
     }
 
     /** Record a successful primary Joomla login immediately. */
-    public function onUserAfterLogin(Event $event): void
+    public function onUserAfterLogin($options = []): void
     {
-        $payload = $this->normaliseEventPayload($event);
+        $payload = $this->normaliseEventPayload($options);
         $user = $payload['user'] ?? $payload;
 
         $this->storeAttempt([
@@ -178,15 +187,9 @@ final class LoginGuard extends CMSPlugin implements SubscriberInterface
     }
 
     /** Log a failed Joomla username/password login without storing plaintext passwords. */
-    public function onUserLoginFailure(Event $event): void
+    public function onUserLoginFailure($response = []): void
     {
-        // Joomla exposes LoginFailureEvent's array-cast AuthenticationResponse
-        // through getAuthenticationResponse(); options are separate login data.
-        $payload = $this->getLoginFailurePayload($event);
-
-        if ($payload === null) {
-            return;
-        }
+        $payload = $this->normaliseLoginFailurePayload($response);
 
         $this->storeAttempt([
             'name' => $this->readPayloadValue($payload, 'name', ''),
@@ -198,7 +201,12 @@ final class LoginGuard extends CMSPlugin implements SubscriberInterface
         ]);
     }
 
-    public function onUserAfterLogout(Event $event): void
+    public function onUserLogout($user = [], $options = []): bool
+    {
+        return true;
+    }
+
+    public function onUserAfterLogout($options = []): void
     {
         // LoginGuard only audits login attempts; logout must never interrupt Joomla.
     }

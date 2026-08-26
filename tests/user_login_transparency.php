@@ -7,27 +7,31 @@ if ($source === false) {
     throw new RuntimeException('Unable to read User LoginGuard source');
 }
 
-if (!str_contains($source, 'implements SubscriberInterface')) {
-    throw new RuntimeException('User LoginGuard must use Joomla typed subscriber registration');
+if (!str_contains($source, 'final class LoginGuard extends CMSPlugin') || str_contains($source, 'SubscriberInterface')) {
+    throw new RuntimeException('User LoginGuard must retain the v0.2.20 legacy CMSPlugin event surface');
 }
 
-$expectedSubscriptions = [
-    'onUserAuthorisation',
-    'onUserAfterLogin',
-    'onUserLoginFailure',
-    'onUserAfterLogout',
+$signatures = [
+    'public function onUserAuthorisation($response = null, $options = [])',
+    'public function onUserLogin($user = [], $options = []): bool',
+    'public function onUserAfterLogin($options = []): void',
+    'public function onUserLoginFailure($response = []): void',
+    'public function onUserLogout($user = [], $options = []): bool',
+    'public function onUserAfterLogout($options = []): void',
 ];
-foreach ($expectedSubscriptions as $eventName) {
-    if (!preg_match("/'{$eventName}'\\s*=>\\s*'{$eventName}'/", $source)) {
-        throw new RuntimeException("Missing typed subscription for {$eventName}");
-    }
-    if (!preg_match('/public function ' . $eventName . '\\(Event \\$event\\): void/', $source)) {
-        throw new RuntimeException("{$eventName} must consume the typed event and return void");
+foreach ($signatures as $signature) {
+    if (!str_contains($source, $signature)) {
+        throw new RuntimeException("Missing known-good lifecycle signature: {$signature}");
     }
 }
 
-if (preg_match('/function\\s+onUserLogin\\s*\\(/', $source)) {
-    throw new RuntimeException('LoginGuard must not contribute a result to Joomla onUserLogin aggregation');
+foreach (['onUserLogin', 'onUserLogout'] as $method) {
+    $start = strpos($source, "public function {$method}");
+    $bodyStart = strpos($source, '{', $start);
+    $end = strpos($source, '}', $bodyStart);
+    if (trim(substr($source, $bodyStart + 1, $end - $bodyStart - 1)) !== 'return true;') {
+        throw new RuntimeException("{$method} must remain exactly neutral");
+    }
 }
 
 $afterStart = strpos($source, 'public function onUserAfterLogin');
@@ -36,8 +40,10 @@ $afterLogin = substr($source, $afterStart, $failureStart - $afterStart);
 if (substr_count($afterLogin, "'status' => 'SUCCESS_LOGIN'") !== 1 || substr_count($afterLogin, '$this->storeAttempt(') !== 1) {
     throw new RuntimeException('Accepted primary login must record SUCCESS_LOGIN exactly once');
 }
-if (str_contains($afterLogin, 'addResult(')) {
-    throw new RuntimeException('Post-login auditing must not alter event results');
+
+$authorisation = substr($source, strpos($source, 'public function onUserAuthorisation'), strpos($source, 'public function onUserLogin') - strpos($source, 'public function onUserAuthorisation'));
+if (!str_contains($authorisation, 'enforceBlockedIp') || !str_contains($authorisation, 'markAuthenticationResponseDenied')) {
+    throw new RuntimeException('Legacy authorisation listener must preserve intentional blocked-IP denial');
 }
 
 foreach (['bootComponent(', 'redirect(', 'route(', 'com_users.mfa_checked'] as $forbidden) {
@@ -46,4 +52,4 @@ foreach (['bootComponent(', 'redirect(', 'route(', 'com_users.mfa_checked'] as $
     }
 }
 
-echo "User LoginGuard uses routing-neutral Joomla typed event observers.\n";
+echo "User LoginGuard retains the routing-neutral v0.2.20 lifecycle surface.\n";
