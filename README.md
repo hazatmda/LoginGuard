@@ -4,7 +4,7 @@ Joomla 5 package for login attempt detection, MFA-aware auditing, IP enforcement
 
 ## Status
 
-Current development version: `0.2.23`.
+Current development version: `0.2.24`.
 
 ## Core capabilities
 
@@ -49,11 +49,11 @@ SUCCESS primary authentication
 
 Users without a captive MFA requirement continue to be recorded as `SUCCESS_LOGIN` normally.
 
-## Network-origin telemetry in 0.2.23
+## Network-origin telemetry in 0.2.24
 
-GeoIP enrichment is deferred and is not included in 0.2.23. LoginGuard records only the trusted-proxy-aware public client IP for network origin; it performs no PHP GeoIP, MaxMind/MMDB, or configured-map lookup and does not derive country, region, city, ISP, or ASN data. Previously saved alert templates are normalized narrowly at render time to remove retired GeoIP rows and placeholders without resetting other custom text.
+GeoIP enrichment is deferred and is not included in 0.2.24. LoginGuard records only the trusted-proxy-aware public client IP for network origin; it performs no PHP GeoIP, MaxMind/MMDB, or configured-map lookup and does not derive country, region, city, ISP, or ASN data. Previously saved alert templates are normalized narrowly at render time to remove retired GeoIP rows and placeholders without resetting other custom text.
 
-Existing GeoIP database columns and historical values are retained. Joomla's MySQL update files are declarative SQL, and the MySQL/MariaDB versions supported by Joomla do not share a portable conditional `DROP COLUMN` form. An unconditional drop could fail an upgrade on a drifted schema, so v0.2.23 deliberately avoids that destructive migration.
+Existing GeoIP database columns and historical values are retained. Joomla's MySQL update files are declarative SQL, and the MySQL/MariaDB versions supported by Joomla do not share a portable conditional `DROP COLUMN` form. An unconditional drop could fail an upgrade on a drifted schema, so v0.2.24 deliberately avoids that destructive migration.
 
 ## Requirements
 
@@ -88,7 +88,7 @@ bash scripts/build.sh
 Generated package:
 
 ```text
-packages/pkg_loginguard_v0.2.23.zip
+packages/pkg_loginguard_v0.2.24.zip
 ```
 
 ## Versioning policy
@@ -105,15 +105,15 @@ Before release, these must match:
 - release notes
 
 ```text
-version: 0.2.23
-tag: v0.2.23
-package: pkg_loginguard_v0.2.23.zip
+version: 0.2.24
+tag: v0.2.24
+package: pkg_loginguard_v0.2.24.zip
 ```
 
 ### Stable release sequence
 
 1. Obtain a clean PR review and green GitHub CI validation on PHP 8.1, 8.2, 8.3, and 8.4.
-2. Merge the validated v0.2.23 version to `main`.
+2. Merge the validated v0.2.24 version to `main`.
 3. GitHub Actions validates and builds the merged commit, then automatically creates the exact `v${VERSION}` release if it does not already exist.
 4. The workflow attaches the exact `pkg_loginguard_v${VERSION}.zip` package to that release.
 5. The workflow verifies that the Joomla updater can retrieve the exact release asset referenced by `updates/loginguard.xml`.

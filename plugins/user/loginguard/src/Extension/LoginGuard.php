@@ -27,7 +27,6 @@ final class LoginGuard extends CMSPlugin
     private const MAX_EMAIL = 255;
     private const MAX_IP = 45;
     private const MAX_USER_AGENT = 2048;
-    private const MFA_ATTEMPT_SESSION_KEY = 'plg_system_loginguardmfa.pending_attempt.';
 
     /**
      * Enforce LoginGuard IP blocking before Joomla creates an authenticated session.
@@ -59,11 +58,6 @@ final class LoginGuard extends CMSPlugin
         $this->enqueueBlockedLoginMessage();
 
         return $deniedResponse;
-    }
-
-    public function onUserLogin($user = [], $options = []): bool
-    {
-        return true;
     }
 
     private function enforceBlockedIp($payload = []): bool
@@ -183,11 +177,6 @@ final class LoginGuard extends CMSPlugin
         ]);
     }
 
-    public function onUserLogout($user = [], $options = []): bool
-    {
-        return true;
-    }
-
     public function onUserAfterLogout($options = []): void
     {
         // LoginGuard only audits login attempts; logout must never interrupt Joomla.
@@ -207,16 +196,7 @@ final class LoginGuard extends CMSPlugin
             $client = $this->detectWhere();
             $record = $this->buildAttemptRecord($attempt, $ipAddress, $client);
 
-            $attemptId = $this->insertAttemptRecord($record, $db);
-            $mfaAuditingEnabled = (bool) ComponentHelper::getParams('com_loginguard')->get('mfa_auditing_enabled', 1);
-            if ($mfaAuditingEnabled && $record['status'] === 'SUCCESS_LOGIN' && $attemptId > 0 && (int) $record['user_id'] > 0) {
-                // Carry the exact primary attempt into this Joomla session so a
-                // concurrent captive flow can never claim another login row.
-                $this->getApplication()->getSession()->set(
-                    self::MFA_ATTEMPT_SESSION_KEY . (int) $record['user_id'],
-                    $attemptId
-                );
-            }
+            $this->insertAttemptRecord($record, $db);
             $this->recordHealth($db, 'database', 'healthy', 'Login audit write completed.');
             $this->maybeAutoBlockIp($record, $db);
             $this->sendAuditAlert($record, $db);
@@ -425,32 +405,9 @@ final class LoginGuard extends CMSPlugin
     /** @param array<string, mixed> $record */
     private function sendAuditAlert(array $record, DatabaseDriver $db): void
     {
-        $params = ComponentHelper::getParams('com_loginguard');
-        if ($params->get('mfa_auditing_enabled', 1)
-            && (string) ($record['status'] ?? '') === 'SUCCESS_LOGIN'
-            && $this->hasCaptiveMfa((int) ($record['user_id'] ?? 0), $db)
-        ) {
-            // The shared pipeline sends this outcome only after MFA completes.
-            return;
-        }
-
+        // Keep post-login auditing independent of Joomla's session and captive MFA state.
         $this->getApplication()->bootComponent('com_loginguard');
         (new AuditAlertService())->send($record, $db);
-    }
-
-    private function hasCaptiveMfa(int $userId, DatabaseDriver $db): bool
-    {
-        if ($userId <= 0) {
-            return false;
-        }
-
-        $query = $db->getQuery(true)
-            ->select('COUNT(*)')
-            ->from($db->quoteName('#__user_mfa'))
-            ->where($db->quoteName('user_id') . ' = ' . (string) $userId);
-        $db->setQuery($query);
-
-        return (int) $db->loadResult() > 0;
     }
 
     /** @param array<string, mixed> $record */
