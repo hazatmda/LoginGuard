@@ -14,22 +14,29 @@ regression check. It models Joomla's strict-false gate and verifies both the
 listener-absent and explicit-true cases, rather than invoking a plugin method and
 assuming that its return value changes the captive redirect boundary.
 
-## Isolation Candidate A: system MFA subscribers no-op
+## Isolation Candidate B: User post-login callback no-op
 
-This diagnostic build keeps the v0.2.24 production baseline and leaves the
-System - LoginGuard MFA plugin installed and enabled, but
-`LoginGuardMfa::getSubscribedEvents()` returns an empty array. Its captive MFA
-handlers therefore do not register or run, and MFA telemetry and alerts from
-this system observer are intentionally absent. The handler implementations are
-retained unchanged so this candidate isolates only event subscription.
+The site owner tested Isolation Candidate A from exact head
+`c1a9e57f3091de7c8214caa9fbaa127267ec7215` on Joomla 5.4.6. A valid
+administrator username and password still ended at `404 | NOT FOUND` rather
+than Joomla's captive MFA page. Candidate A is therefore a failed isolation:
+merely registering and executing the System - LoginGuard MFA captive subscribers
+is not sufficient to trigger the observed result.
+
+Candidate B completely reverts Candidate A. The installed and enabled System -
+LoginGuard MFA plugin again registers all five normal v0.2.24 captive event
+subscriptions and its handlers remain unchanged. The single diagnostic boundary
+is now User - LoginGuard `onUserAfterLogin()`, whose body is a no-op. It performs
+no payload inspection, database insert, audit or mail work, component access,
+resolver/enforcement work, application access, or session/request mutation.
+`onUserAuthorisation()` remains unchanged.
 
 This candidate adds no redirect, does not access Joomla-owned MFA/session keys,
-does not restore pending-attempt correlation, and does not change the User -
-LoginGuard `onUserAfterLogin()` path. Its sole runtime question is whether a
-mandatory administrator MFA login reaches Joomla's core
-`index.php?option=com_users&view=captive` page rather than the reported 404.
-This is not a claimed fix and must not be merged or released before the site
-owner reports the Joomla 5.4.6 runtime result.
+and does not restore pending-attempt correlation. Its sole runtime question is
+whether valid administrator primary credentials now reach Joomla's captive MFA
+page rather than the reported 404. This remains a v0.2.24 diagnostic build, not
+a fix or release candidate, and must not be merged or released based on static
+validation alone.
 
 ## v0.2.20 to v0.2.24 differential
 

@@ -5,6 +5,7 @@ find plugins administrator pkg_loginguard -name "*.php" -exec php -l {} \;
 
 php scripts/checks/mfa_provider_instantiation.php
 php tests/joomla_login_event_aggregation.php
+php tests/isolation_candidate_b.php
 
 php <<'PHP'
 <?php
@@ -224,21 +225,19 @@ for forbidden in ['ATTEMPT_SESSION_KEY', 'pending_attempt.', 'markPrimarySuccess
     if forbidden in mfa_plugin:
         raise SystemExit(f'MFA observer retains login-session correlation: {forbidden}')
 if '$this->insertAttemptRecord($record, $db);' not in login_guard:
-    raise SystemExit('Normal successful/failed primary audit storage is missing')
+    raise SystemExit('Normal failed-login audit storage is missing')
 subscription_method = mfa_plugin[mfa_plugin.index('public static function getSubscribedEvents'):mfa_plugin.index('public function onCaptiveShown')]
-if 'return [];' not in subscription_method:
-    raise SystemExit('Isolation Candidate A must subscribe to zero captive MFA events')
-for captive_event in [
-    'onComUsersCaptiveShowCaptive',
-    'onComUsersCaptiveValidateFailed',
-    'onComUsersCaptiveValidateTryLimitReached',
-    'onComUsersCaptiveValidateInvalidMethod',
-    'onComUsersCaptiveValidateSuccess',
-]:
-    if captive_event in subscription_method:
-        raise SystemExit(f'Isolation Candidate A still registers captive event: {captive_event}')
+for captive_event, handler in {
+    'onComUsersCaptiveShowCaptive': 'onCaptiveShown',
+    'onComUsersCaptiveValidateFailed': 'onMfaFailed',
+    'onComUsersCaptiveValidateTryLimitReached': 'onMfaTryLimitReached',
+    'onComUsersCaptiveValidateInvalidMethod': 'onMfaInvalidMethod',
+    'onComUsersCaptiveValidateSuccess': 'onMfaSuccess',
+}.items():
+    if f"'{captive_event}' => '{handler}'" not in subscription_method:
+        raise SystemExit(f'Isolation Candidate B did not restore captive event: {captive_event}')
 if 'insertAttempt(' not in mfa_plugin:
-    raise SystemExit('Preserved MFA observer implementation is missing')
+    raise SystemExit('MFA observer implementation is missing')
 
 # LoginGuard test mail is intentionally absent; Joomla Global Configuration is
 # the sole test-mail interface.
@@ -267,12 +266,11 @@ for token in ['AuditAlertService', 'buildAlertHtmlBody', 'formatConfiguredDateTi
         raise SystemExit(f'Shared audit alert pipeline missing: {token}')
 if '(new AuditAlertService())->send' not in login_guard or '(new AuditAlertService())->send' not in mfa_plugin:
     raise SystemExit('Password and MFA outcomes must call the same audit alert service')
-for token in ["in_array($client, ['frontend', 'backend'], true)", "'status' => $requiresMfa ? 'MFA_PENDING' : 'SUCCESS_LOGIN'"]:
-    if token not in login_guard:
-        raise SystemExit(f'Interactive primary success must remain pending under mandatory MFA policy: {token}')
 after_login = login_guard[login_guard.index('public function onUserAfterLogin'):login_guard.index('public function onUserLoginFailure')]
-if "getSession()" in after_login or 'sendAuditAlert(' in after_login or '#__user_mfa' in after_login:
-    raise SystemExit('Primary MFA classification must not couple to Joomla session state or directly alert')
+for forbidden in ['normaliseEventPayload(', 'detectWhere(', 'storeAttempt(', 'getSession()',
+                  'sendAuditAlert(', '#__user_mfa', 'ComponentHelper', 'IpResolver']:
+    if forbidden in after_login:
+        raise SystemExit(f'Isolation Candidate B post-login callback is not a no-op: {forbidden}')
 store_attempt = login_guard[login_guard.index('private function storeAttempt'):login_guard.index('private function getDatabase')]
 pending_guard = "if (($record['status'] ?? '') === 'MFA_PENDING')"
 if pending_guard not in store_attempt:

@@ -146,31 +146,11 @@ final class LoginGuard extends CMSPlugin
         }
     }
 
-    /** Log primary authentication without treating captive MFA as a completed login. */
+    /** Issue #76 Isolation Candidate B: leave Joomla's post-login state untouched. */
     public function onUserAfterLogin($options = []): void
     {
-        $payload = $this->normaliseEventPayload($options);
-        $user = $payload['user'] ?? $payload;
-
-        $userId = (int) $this->readPayloadValue($user, 'id', 0);
-        $client = $this->detectWhere();
-        // This deployment requires every interactive web login to complete
-        // Joomla captive MFA. Joomla does not expose a lifecycle signal here
-        // which also covers mandatory first-time setup, so do not infer final
-        // authentication from the presence of an active-method row. API and CLI
-        // authentication cannot enter the web captive flow and remain final.
-        $requiresMfa = in_array($client, ['frontend', 'backend'], true);
-
-        $this->storeAttempt([
-            'name' => $this->readPayloadValue($user, 'name', ''),
-            'username' => $this->readPayloadValue($user, 'username', $this->readPayloadValue($payload, 'username', null)),
-            'email' => $this->readPayloadValue($user, 'email', $this->readPayloadValue($payload, 'email', '')),
-            'user_id' => $userId,
-            // Joomla alone owns captive routing; LoginGuard only classifies the
-            // primary interactive event as neutral, incomplete telemetry.
-            'status' => $requiresMfa ? 'MFA_PENDING' : 'SUCCESS_LOGIN',
-            'reason' => $requiresMfa ? 'MFA_REQUIRED' : '',
-        ]);
+        // Diagnostic no-op. Do not inspect the application, identity, request,
+        // session, component configuration, database, resolver, or mail path.
     }
 
     /** Log a failed Joomla username/password login without storing plaintext passwords. */
