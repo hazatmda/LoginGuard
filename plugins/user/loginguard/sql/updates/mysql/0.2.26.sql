@@ -1,0 +1,1 @@
+-- LoginGuard 0.2.26 changes authentication event behavior only; no schema changes are required.

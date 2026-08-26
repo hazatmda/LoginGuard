@@ -15,7 +15,6 @@ use Joomla\CMS\User\UserHelper;
 use Joomla\Database\DatabaseDriver;
 use Joomla\Event\Event;
 use Joomla\Plugin\User\LoginGuard\Service\IpResolver;
-use LoginGuard\Component\LoginGuard\Administrator\Service\AuditAlertService;
 use Throwable;
 
 final class LoginGuard extends CMSPlugin
@@ -405,8 +404,41 @@ final class LoginGuard extends CMSPlugin
     /** @param array<string, mixed> $record */
     private function sendAuditAlert(array $record, DatabaseDriver $db): void
     {
-        $this->getApplication()->bootComponent('com_loginguard');
-        (new AuditAlertService())->send($record, $db);
+        if (PHP_SAPI === 'cli') {
+            return;
+        }
+
+        // Component booting mutates the active administrator application's
+        // component/router state.  onUserAfterLogin runs before Joomla selects
+        // the captive MFA route, so alerts must remain a plugin-local,
+        // non-routing side effect throughout this event.
+        $params = ComponentHelper::getParams('com_loginguard');
+        if (!$params->get('audit_alerts_enabled', 0)) {
+            return;
+        }
+
+        $status = (string) ($record['status'] ?? '');
+        $isSuccess = $status === 'SUCCESS_LOGIN';
+        if (($isSuccess && !$params->get('audit_alert_success', 0))
+            || (!$isSuccess && !$params->get('audit_alert_failed', 1))
+            || (!$isSuccess && $this->isFailedAlertThrottled($record, $db))) {
+            return;
+        }
+
+        $recipients = $this->normaliseAlertRecipients((string) $params->get('audit_alert_recipients', ''));
+        if ($recipients === []) {
+            return;
+        }
+
+        $subject = (string) $params->get(
+            $isSuccess ? 'audit_alert_success_subject' : 'audit_alert_failed_subject',
+            $isSuccess ? '[LOGIN GUARD] SUCCESSFUL BACKEND LOGIN' : '[LOGIN GUARD] FAILED LOGIN ATTEMPT'
+        );
+        $body = (string) $params->get(
+            $isSuccess ? 'audit_alert_success_body' : 'audit_alert_failed_body',
+            $this->getDefaultAlertBodyTemplate()
+        );
+        $this->sendMail($recipients, $subject, $body, $this->buildAlertTemplateVariables($record), $status, $db);
     }
 
     /** @param array<string, mixed> $record */

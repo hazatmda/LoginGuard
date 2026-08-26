@@ -2,7 +2,7 @@
 
 Joomla 5 package for login-attempt auditing, IP enforcement, monitoring, and security operations.
 
-Current development version: `0.2.25`.
+Current development version: `0.2.26`.
 
 ## Features
 
@@ -32,14 +32,14 @@ bash scripts/validate.sh
 bash scripts/build.sh
 ```
 
-The build produces `packages/pkg_loginguard_v0.2.25.zip`. Generated ZIP files are release-workflow artifacts and are intentionally not committed.
+The build produces `packages/pkg_loginguard_v0.2.26.zip`. Generated ZIP files are release-workflow artifacts and are intentionally not committed.
 
 ## Release metadata
 
 ```text
-version: 0.2.25
-tag: v0.2.25
-package: pkg_loginguard_v0.2.25.zip
+version: 0.2.26
+tag: v0.2.26
+package: pkg_loginguard_v0.2.26.zip
 ```
 
 ## Security invariants

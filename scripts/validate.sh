@@ -4,6 +4,7 @@ set -euo pipefail
 find plugins administrator pkg_loginguard -name "*.php" -exec php -l {} \;
 
 php tests/joomla_login_event_aggregation.php
+php tests/user_login_transparency.php
 php tests/no_mfa_integration.php
 php tests/legacy_mfa_cleanup.php
 php tests/ip_blocked_reason.php
@@ -62,8 +63,8 @@ from pathlib import Path
 import xml.etree.ElementTree as ET
 
 VERSION = Path('VERSION').read_text(encoding='utf-8').strip()
-if VERSION != '0.2.25':
-    raise SystemExit(f'Expected VERSION 0.2.25, got {VERSION}')
+if VERSION != '0.2.26':
+    raise SystemExit(f'Expected VERSION 0.2.26, got {VERSION}')
 if '-' in VERSION:
     raise SystemExit('Canonical release version must be stable semantic version')
 
@@ -206,8 +207,8 @@ audit_service = Path('administrator/components/com_loginguard/src/Service/AuditA
 for token in ['AuditAlertService', 'buildAlertHtmlBody', 'formatConfiguredDateTime']:
     if token not in audit_service:
         raise SystemExit(f'Shared audit alert pipeline missing: {token}')
-if '(new AuditAlertService())->send' not in login_guard:
-    raise SystemExit('Primary-login outcomes must call the shared audit alert service')
+if 'bootComponent(' in login_guard:
+    raise SystemExit('Authentication events must not boot a component or mutate routing state')
 for forbidden in ['mfa_method', 'mfa_status', 'mfa_reason', 'MFA_PENDING']:
     if forbidden in audit_service or forbidden in config_text:
         raise SystemExit(f'Retired MFA alert surface remains: {forbidden}')
@@ -286,7 +287,7 @@ for token in ['Joomla 5.2+', 'PHP 8.1+', f'pkg_loginguard_v{VERSION}.zip', 'REMO
         raise SystemExit(f'README missing {token}')
 
 about = Path('administrator/components/com_loginguard/tmpl/about/default.php').read_text(encoding='utf-8')
-for token in ["'0.2.25'", "'Joomla 5.2+'", "'PHP 8.1+'"]:
+for token in ["'0.2.26'", "'Joomla 5.2+'", "'PHP 8.1+'"]:
     if token not in about:
         raise SystemExit(f'About metadata missing {token}')
 
@@ -297,5 +298,5 @@ for token in ["'8.1'", "'8.2'", "'8.3'", "'8.4'", 'contents: read', 'contents: w
 if workflow.count('contents: write') != 1:
     raise SystemExit('CI write permission must be limited to the release publishing job')
 
-print('LoginGuard v0.2.25 validation completed successfully')
+print('LoginGuard v0.2.26 validation completed successfully')
 PY

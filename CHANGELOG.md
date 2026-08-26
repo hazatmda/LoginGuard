@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.2.26
+
+- Kept successful Joomla administrator login and captive MFA routing transparent by removing component bootstrapping from the User plugin's `onUserAfterLogin` audit-alert path; alert delivery remains plugin-local and fail-open.
+- Disabled and detached only the retired System - LoginGuard MFA extension from its legacy package association before asking Joomla Installer to uninstall it, with a safe disabled/detached fallback for historically drifted installations.
+- Added focused regressions for post-login routing neutrality, exactly-once success auditing, fail-open telemetry, and disable/detach/uninstall cleanup ordering.
+
 ## 0.2.25
 
 - Removed all LoginGuard MFA integration so Joomla core exclusively owns MFA lifecycle, routing, and state.

@@ -94,7 +94,7 @@ class Pkg_LoginguardInstallerScript
         ];
     }
 
-    /** Disable first, then best-effort uninstall the retired v0.2.21-v0.2.24 observer. */
+    /** Disable and detach first, then best-effort uninstall the retired v0.2.21-v0.2.24 observer. */
     private function removeLegacyMfaPlugin(): void
     {
         try {
@@ -111,10 +111,15 @@ class Pkg_LoginguardInstallerScript
                 ->where($db->quoteName('extension_id') . ' = ' . $extensionId);
             $db->setQuery($query)->execute();
 
+            // Old package metadata blocks Joomla's child uninstall. Detach only
+            // this exact, already-disabled extension before invoking Installer.
+            $this->setPackageId($db, $extensionId, 0);
+
             try {
                 Installer::getInstance()->uninstall('plugin', $extensionId);
             } catch (\Throwable $exception) {
-                // A disabled legacy row is safe if Joomla cannot remove drifted files/metadata.
+                // A disabled, detached legacy row is safe if Joomla cannot
+                // remove historically drifted files or metadata.
             }
         } catch (\Throwable $exception) {
             // Legacy cleanup is fail-safe and must never abort the package update.
