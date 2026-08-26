@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-$baseline = '9e94e92';
+$baseline = '9e94e922f5c66ea1b4b4feecafe340dad7f43b19';
 $allowed = [
     'CHANGELOG.md', 'README.md', 'VERSION',
     'administrator/components/com_loginguard/loginguard.xml',
@@ -18,7 +18,25 @@ $allowed = [
 
 exec('git cat-file -e ' . escapeshellarg($baseline . '^{commit}') . ' 2>&1', $unused, $status);
 if ($status !== 0) {
-    fwrite(STDERR, "Missing v0.2.20 baseline commit {$baseline}\n");
+    exec('git remote get-url origin 2>&1', $remoteOutput, $remoteStatus);
+    if ($remoteStatus !== 0) {
+        fwrite(STDERR, "Missing v0.2.20 baseline commit {$baseline} and origin is unavailable\n");
+        exit(1);
+    }
+
+    passthru(
+        'git fetch --no-tags --depth=1 origin ' . escapeshellarg($baseline) . ' 2>&1',
+        $fetchStatus
+    );
+    if ($fetchStatus !== 0) {
+        fwrite(STDERR, "Unable to fetch v0.2.20 baseline commit {$baseline}\n");
+        exit(1);
+    }
+}
+
+exec('git rev-parse ' . escapeshellarg($baseline . '^{commit}') . ' 2>&1', $resolved, $status);
+if ($status !== 0 || ($resolved[0] ?? '') !== $baseline) {
+    fwrite(STDERR, "Unable to verify exact v0.2.20 baseline commit {$baseline}\n");
     exit(1);
 }
 
