@@ -367,3 +367,5 @@ if workflow.count('contents: write') != 1:
 
 print('LoginGuard v0.2.24 validation completed successfully')
 PY
+
+php tests/mfa_template_compatibility.php

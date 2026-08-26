@@ -58,6 +58,7 @@ final class AuditAlertService
     {
         $subjectTemplate = $this->normaliseLegacyGeoIpTemplate($subjectTemplate);
         $bodyTemplate = $this->normaliseLegacyGeoIpTemplate($bodyTemplate);
+        $bodyTemplate = $this->includeMissingMfaTemplateRows($bodyTemplate, $variables);
         $subject = strtoupper($this->replaceAlertTemplateVariables($subjectTemplate, $variables));
         $plainBody = $this->withAlertFooter($this->replaceAlertTemplateVariables($bodyTemplate, $variables));
         $htmlBody = $this->buildAlertHtmlBody($subject, $bodyTemplate, $variables, $status);
@@ -206,6 +207,43 @@ final class AuditAlertService
         ) ?? $template;
 
         return preg_replace('/\{(?:' . $legacyNames . ')\}/i', '', $template) ?? $template;
+    }
+
+    /**
+     * Add populated MFA details which an older administrator-saved template
+     * cannot know about. This only changes the in-memory rendering template;
+     * Joomla's saved component parameters remain untouched.
+     *
+     * @param array<string, string> $variables
+     */
+    private function includeMissingMfaTemplateRows(string $template, array $variables): string
+    {
+        $labels = [
+            'mfa_method' => 'MFA Method',
+            'mfa_status' => 'MFA Status',
+            'mfa_reason' => 'MFA Result',
+        ];
+        $present = array_fill_keys($this->extractAlertTemplateVariableNames($template), true);
+        $rows = [];
+
+        foreach ($labels as $name => $label) {
+            if (!isset($present[$name]) && trim((string) ($variables[$name] ?? '')) !== '') {
+                $rows[] = $label . ': {' . $name . '}';
+            }
+        }
+
+        if ($rows === []) {
+            return $template;
+        }
+
+        $injection = implode("\n", $rows);
+        // Keep a final custom footer in its original position when one exists.
+        if (preg_match('/\R{2,}([^{}]*)$/s', $template, $match, PREG_OFFSET_CAPTURE)) {
+            $offset = $match[0][1];
+            return substr($template, 0, $offset) . "\n\n" . $injection . substr($template, $offset);
+        }
+
+        return rtrim($template) . "\n" . $injection;
     }
 
     private function getDefaultAlertBodyTemplate(): string
